@@ -52,4 +52,5 @@ HACKATHON.md states: "both forms close **Wed 7 Oct, 5:00pm**. Use the same team 
 - [Hacker Hub](https://groovy-prune-775.notion.site/Affinda-AI-Innovation-Challenge-Hacker-Hub-3f01e973de58814e8252e20bd9d81f5b)
 - [Devpost submissions and rules](https://affinda-challenge.devpost.com/)
 - [Discord announcements and questions](https://discord.gg/DZgMfVRfr)
-- Team repository / prototype / demo video: <TODO>.
+- Team repository: https://github.com/luhoulinpeter/affinda-hackathon-2026 (private; teammates need invitations).
+- Prototype / demo video: <TODO>.
