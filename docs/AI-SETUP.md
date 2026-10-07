@@ -1,14 +1,30 @@
 # Jev and OpenRouter setup
 
-Updated 7 October 2026. Jev handles classification and chat safety screening; OpenRouter replaces the former direct OpenAI/Luna connection for summaries and grounded Q&A. Basic live calls have been checked: three Jev requests and two OpenRouter requests; see [live check record](AI-LIVE-CHECKS.md). See the live-session status in PROJECT.md; flags and records are private. Both provider keys are present privately. The fictional guide is unapproved.
+Updated 8 October 2026. Jev handles classification and chat safety screening; OpenRouter replaces the former direct OpenAI/Luna connection for summaries and grounded Q&A. Basic live calls have been checked: three Jev requests and two OpenRouter requests; see [live check record](AI-LIVE-CHECKS.md). See the live-session status in PROJECT.md; flags and records are private. Both provider keys are present privately. The fictional guide is unapproved.
 
-## Latest live-use authorisation
+## Latest live-use authorisation — 8 October 2026
 
-On 7 October the user approved the two OpenRouter checks, permitted small Jev checks using existing credits, and asked to use the live local app. This supersedes the earlier ask-before-every-test rule. Small automatic checks are authorised (conservative default: at most five calls per provider per work session); use simulations for routine regression tests. Notify the user before larger/batch/load runs with provider, purpose, maximum calls and estimated cost if known. Ask before increasing an agreed allowance or incurring substantial/new costs. Do not silently renew allowances.
+The user explicitly requested **permanent approval** and reports setting limits at the APIs. The local app now uses ongoing approval, without an eight-hour expiry or local twenty-call ceiling, until revoked. Provider limits remain user-reported; no provider-enforced hard stop was independently verified by this change. Existing purchased Jev credits and free-only OpenRouter remain the approved services. Every attempted request still increments the original persisted ledger before transport, including failures; IDs and historical usage are not reset.
 
-The local interactive session has a persisted allowance of 20 calls per provider and expires after eight hours. Each report can use one Jev and one OpenRouter call; informational Q&A can also use both. The UI shows remaining calls. Exhaustion disables calls; restart/demo reset do not restore the allowance. This is a request allowance, not a dollar billing limit.
+Small automatic checks remain capped at five calls per provider per work session by default. The earlier morning window already spent four Jev and three OpenRouter automatic calls; do not reset that test ledger. No live calls were needed to implement ongoing approval. Notify before larger runs with provider, purpose, maximum calls and cost estimate when known; ask before substantial/new costs. Do not purchase credits, enable recharge, use paid OpenRouter models or deliberately drain balances. Routine checks use simulations.
 
-Never drain credits to check exhausted-balance or automatic-purchase behaviour. Verify settings/documentation read-only and simulate exhaustion. Do not purchase credits, enable automatic recharge or use paid OpenRouter models. The persistent instruction also lives in `AGENTS.md`, `CLAUDE.md` and `PROJECT.md`.
+The ignored `.riverside/ai-credit-verification.json` keeps each provider's original ID and adds:
+
+```json
+{
+  "approvalMode": "ongoing",
+  "approvedAt": "<actual timestamp of the explicit user approval>",
+  "providerLimitsReportedByUser": true,
+  "expiresAt": null,
+  "maxCalls": null
+}
+```
+
+Jev also requires `existingCreditUseApproved:true`. OpenRouter requires `freeOnlyConfirmed:true` and `liveTestApproved:true`; its model ID and zero-price routing remain enforced. Old verification evidence and previous bounds are retained as historical metadata. This is an operator's record of actual consent, not permission granted by the sample configuration.
+
+To revoke ongoing approval, set `revoked:true` on the relevant provider record, or disable its environment flag, then restart. Restart invalidates staff sessions and preserves reports and usage. Missing/invalid consent, disabled flags, absent keys and paid OpenRouter models still block calls. Status reports `remainingCalls:null` for ongoing approval: the app does not know the remaining provider balance.
+
+The bounded record examples below remain supported for other deployments or deliberately limited sessions; they are historical alternatives to the ongoing approval currently used here.
 
 ## Private configuration
 
