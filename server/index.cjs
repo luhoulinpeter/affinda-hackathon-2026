@@ -10,7 +10,7 @@ const createIncidents = require('../src/js/domain/incidents.js');
 const root = path.resolve(__dirname, '..');
 
 // A public origin enables HTTPS deployment and disables browser first-account setup.
-function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = null, secureCookies = false, aiProviders, guide, aiEnv = process.env, aiFetch } = {}) {
+function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = null, secureCookies = false, aiProviders, guide, aiEnv = process.env, aiFetch, now } = {}) {
   let deployed = null;
   if (publicOrigin !== null) {
     try { deployed = new URL(publicOrigin); } catch { throw new Error('PUBLIC_ORIGIN must be an HTTPS origin.'); }
@@ -36,7 +36,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
     save(); // Reserve before sending. Failures count; restart does not reset the allowance.
     return true;
   } });
-  const workflow = createIncidents(data, () => providers, db.workflow, state => { db.workflow = state; save(); });
+  const workflow = createIncidents(data, () => providers, db.workflow, state => { db.workflow = state; save(); }, { now });
   db.workflow = workflow.getState(); save();
   const qaActive = new Set();
   let resetVersion = 0;
@@ -145,7 +145,8 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       }
       const ctx = context(req, res);
       if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: ctx.user ? publicUser(ctx.user) : null, guest: ctx.guest, csrf: ctx.csrf, setupRequired: !deployed && db.users.length === 0, ai: providers.status(), guideApproved: (guide || require('../data/event-guide.json')).approved === true });
-      if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, stateFor(ctx.actor));
+      // Mo also receives derived zone counts, coverage, cluster alerts, roster status and eligible volunteers.
+      if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, ctx.actor.role === 'mo' ? { ...stateFor(ctx.actor), ...workflow.overview() } : stateFor(ctx.actor));
       if (req.method === 'GET' && url.pathname === '/api/events') {
         res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
         res.write('retry: 3000\n\n');
@@ -223,9 +224,12 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       if (match) {
         const visible = stateFor(ctx.actor).incidents.some(item => item.id === match[1]);
         if (!visible) return json(res, 404, { error: 'Incident not found.' });
-        try { workflow.act(match[1], body.action, ctx.actor); }
+        let updated;
+        try { updated = workflow.act(match[1], body.action, ctx.actor, { volunteerId: body.volunteerId }); }
         catch (error) { return json(res, 403, { error: error.message }); }
-        return json(res, 200, { ok: true });
+        const coverage = updated.history.at(-1).details?.coverage;
+        const zoneName = id => data.zones.find(zone => zone.id === id)?.name || id;
+        return json(res, 200, { ok: true, ...(coverage?.belowMinimum ? { warning: `${zoneName(coverage.zone)} drops to ${coverage.after} available (minimum ${coverage.minimum}).` } : {}) });
       }
       return json(res, 404, { error: 'Not found.' });
     } catch (error) {

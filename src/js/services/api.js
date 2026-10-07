@@ -30,7 +30,12 @@ window.RiversideAPI = (() => {
     connectEvents();
   }
   async function submitReport(input) { const result = await request("/api/reports", input); await refresh(); return result; }
-  async function act(id, action) { await request(`/api/incidents/${encodeURIComponent(id)}/action`, { action }); await refresh(); }
+  // params: { volunteerId } for Mo's offer/reassign. Resolves to { ok, warning? } (coverage below minimum).
+  async function act(id, action, params = {}) {
+    const result = await request(`/api/incidents/${encodeURIComponent(id)}/action`, { action, ...(params.volunteerId ? { volunteerId: params.volunteerId } : {}) });
+    await refresh();
+    return result;
+  }
   async function authenticate(username, password) {
     refreshVersion++;
     identityChanging = true; invalidateIdentity();

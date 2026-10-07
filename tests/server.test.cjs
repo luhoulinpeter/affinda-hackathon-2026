@@ -295,3 +295,49 @@ test('reset invalidates a pending Q&A response built from cleared incident sourc
   assert.equal(JSON.stringify(response.result).includes('Obsolete queue'), false);
   assert.equal((await guest.request('/api/state')).result.reports.length, 0);
 });
+
+test('offers work over HTTP: only Mo sees zone/roster overview; volunteers accept; overrides return a coverage warning', async t => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'riverside-offers-test-'));
+  const noon = new Date('2026-10-08T01:00:00Z'); // 12:00 in Melbourne
+  const server = createApp({ dataDir, aiEnv: {}, now: () => noon });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); fs.rmSync(dataDir, { recursive: true, force: true }); });
+  const guest = client(base), mo = client(base), alex = client(base);
+  const password = randomBytes(24).toString('hex');
+  await guest.request('/api/session');
+  const report = await guest.request('/api/reports', { zone: 'zone-b', category: 'hazard', text: 'Fictional spill' });
+  const guestState = (await guest.request('/api/state')).result;
+  assert.equal(guestState.zones, undefined); assert.equal(guestState.roster, undefined); assert.equal(guestState.eligible, undefined);
+
+  await mo.request('/api/session');
+  assert.equal((await mo.request('/api/setup', { username: 'test-mo', password })).status, 201);
+  await mo.request('/api/session');
+  assert.equal((await mo.request('/api/accounts', { username: 'test-alex', password, volunteerId: 'vol-alex' })).status, 201);
+  const moState = (await mo.request('/api/state')).result;
+  assert.equal(moState.incidents[0].assignee, 'vol-alex');
+  assert.equal(moState.zones.find(zone => zone.id === 'zone-b').open, 1);
+  assert.equal(moState.roster.length, 12);
+  assert.ok(Array.isArray(moState.eligible[report.result.id]));
+
+  await alex.request('/api/session');
+  assert.equal((await alex.request('/api/login', { username: 'test-alex', password })).status, 200);
+  await alex.request('/api/session');
+  const alexState = (await alex.request('/api/state')).result;
+  assert.equal(alexState.incidents[0].id, report.result.id, 'the offered volunteer can see the incident');
+  assert.equal(alexState.zones, undefined);
+  assert.equal((await alex.request(`/api/incidents/${report.result.id}/action`, { action: 'reassign', volunteerId: 'vol-kai' })).status, 403);
+  assert.equal((await alex.request(`/api/incidents/${report.result.id}/action`, { action: 'accept' })).status, 200);
+  assert.equal((await mo.request('/api/state')).result.incidents[0].assignment.state, 'accepted');
+
+  // Mo moves Zone C's volunteers out until the last one would leave it empty: the response warns.
+  for (const [zone, volunteerId] of [['zone-a', 'vol-lena'], ['zone-a', 'vol-omar']]) {
+    const created = await guest.request('/api/reports', { zone, category: 'hazard', text: `Fictional issue for ${volunteerId}` });
+    assert.equal((await mo.request(`/api/incidents/${created.result.id}/action`, { action: 'reassign', volunteerId })).result.warning, undefined);
+  }
+  const last = await guest.request('/api/reports', { zone: 'zone-a', category: 'hazard', text: 'Fictional issue for Sam' });
+  const override = await mo.request(`/api/incidents/${last.result.id}/action`, { action: 'reassign', volunteerId: 'vol-sam' });
+  assert.equal(override.status, 200);
+  assert.match(override.result.warning, /Zone C · Entry drops to 0 available \(minimum 1\)/);
+  await server.whenAIIdle();
+});

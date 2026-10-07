@@ -19,7 +19,8 @@ test('acknowledgement and escalation never resolve; explicit resolution records 
   const resolved = service.act(item.id, 'resolve', priya);
   assert.equal(resolved.status, 'resolved'); assert.equal(resolved.resolvedBy.id, priya.id);
   assert.ok(Number.isFinite(Date.parse(resolved.resolvedAt)));
-  assert.equal(resolved.history.length, 4);
+  // reported, offered (automatic routing), acknowledge, escalate, resolve
+  assert.deepEqual(resolved.history.map(item => item.action), ['reported', 'offered', 'acknowledge', 'escalate', 'resolve']);
   assert.throws(() => service.act(item.id, 'escalate', mo), /already confirmed resolved/);
   await service.whenIdle();
 });
@@ -69,9 +70,11 @@ test('invalid input never creates an incident', async () => {
 
 test('malformed provider output cannot resolve, re-route or add action fields', async () => {
   const { service } = setup({ classify: async () => ({ category: 'hazard', urgency: 'routine', status: 'resolved', zone: 'zone-c' }), summarise: async () => ({ summary: 'Report', status: 'resolved' }) });
-  await service.submitReport(report({ immediateConcern: true })); await service.whenIdle(); const item = service.getState().incidents[0];
+  const routed = await service.submitReport(report({ immediateConcern: true })); await service.whenIdle(); const item = service.getState().incidents[0];
   assert.equal(item.analysis.jev.state, 'failed'); assert.equal(item.analysis.luna.state, 'failed');
-  assert.equal(item.status, 'open'); assert.equal(item.zone, 'zone-b'); assert.equal(item.attention, 'urgent'); assert.equal(item.assignee, null);
+  // AI output cannot change who the deterministic rules offered the incident to.
+  assert.equal(item.status, 'open'); assert.equal(item.zone, 'zone-b'); assert.equal(item.attention, 'urgent'); assert.equal(item.assignee, routed.assignee);
+  assert.equal(item.history.filter(entry => entry.action === 'offered').length, 1);
 });
 
 test('reporter category stays original; validated AI can only promote attention', async () => {

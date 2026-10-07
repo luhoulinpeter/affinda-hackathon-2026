@@ -33,15 +33,47 @@ Report:
 
 Incident:
   id, reportIds[], zone, category, brief,
-  status: open | escalated | resolved, attention: review | urgent,
-  assignee: null (not yet implemented), acknowledgedBy,
+  status: open | escalated | resolved,
+  attention: routine | review | urgent   (routine = a volunteer is handling it; review/urgent = Mo should look),
+  assignee: null | volunteerId,
+  assignment: null | { volunteerId, state: offered | accepted | arrived | proposed,
+                       offeredBy, offeredAt, acceptedAt?, arrivedAt?, proposedAt? },
+  declinedBy: volunteerId[], acknowledgedBy,
   resolvedBy: null | { id, role }, resolvedAt,
   analysis: { jev: { state, suggestion? }, luna: { state, suggestion? } }, history[]
 ```
 
 Mo receives all records. Volunteers receive their own reports and assigned incidents. Event-goers receive only their own source reports and a reduced incident status record, without internal history or other reporters' sources. Guest history depends on the signed browser cookie, not a guessable report reference.
 
-Only Mo may acknowledge. Mo, the assigned volunteer or the original reporter may explicitly resolve. Public reporters cannot escalate or acknowledge. Volunteers may escalate their own/assigned incidents. Acknowledgement and escalation leave the incident open. There is no automatic closure or timeout.
+### Routing and offers (Person 2, implemented 7 October)
+
+Rules in `data/fixtures.js` (team decisions): any safety volunteer can take any issue type; each zone keeps at least 1 available volunteer; 2 open reports in one zone within 10 minutes is a cluster. The 12-person roster with shift times is a fictional proposal for the team to edit.
+
+- **On every new report**, before any AI call, the server offers the incident to the first eligible volunteer. **Eligible** means on shift, not already on an open incident, not someone who declined this incident, and moving them would not drop their home zone below its minimum. Volunteers already in the incident's zone come first. Nobody eligible means the incident stays open, gets `attention: urgent`, and history records `no_eligible_volunteer`.
+- **Starting attention:** `urgent` for an immediate-concern flag or crowd-pressure text; `review` for category `other`; otherwise `routine`. Attention only rises automatically: Jev `urgent` raises it to urgent, and Jev `unclear` or a Jev failure raises it to review. AI never changes the assignee.
+
+`POST /api/incidents/:id/action` body `{ action, volunteerId? }`:
+
+| Action | Who | Effect |
+|---|---|---|
+| `accept` | offered volunteer | `offered` → `accepted` |
+| `decline` | offered volunteer | records `declinedBy`, raises attention to `review`, offers the next eligible volunteer (or urgent if none) |
+| `arrived` | assigned volunteer | `accepted` → `arrived` |
+| `propose_resolution` | assigned volunteer | → `proposed`; raises attention to `review`; **incident stays open** |
+| `offer` | Mo | `{ volunteerId }`; only when nobody is assigned |
+| `reassign` | Mo | `{ volunteerId }`; replaces the current volunteer (history keeps `previous`, `override: true`) |
+| `acknowledge`, `escalate`, `resolve` | as below | unchanged |
+
+Mo's offer/reassign rejects off-shift, unknown or already-busy volunteers. Mo **may** override coverage: the response is `{ ok: true, warning: "Zone C · Entry drops to 0 available (minimum 1)." }`, and the history entry records `details.coverage` `{ zone, before, after, minimum, belowMinimum }`. An offered volunteer cannot resolve until they accept. Offers never time out. In the browser, `RiversideAPI.act(id, action, { volunteerId })` resolves to that response.
+
+**Mo's `/api/state` also includes** (derived on every request, never stored):
+- `zones[]`: `{ id, name, open, unacknowledged, urgent, resolved, coverage: { available, minimum }, cluster: { active, recentReports, threshold, minutes } }`
+- `roster[]`: `{ id, name, zone, onShift, assignedTo }`
+- `eligible`: `{ [openIncidentId]: volunteerId[] }`, in offer order
+
+Volunteers and event-goers do not receive these fields. Volunteers see incidents offered or assigned to them.
+
+Only Mo may acknowledge. Mo, the assigned volunteer (after accepting) or the original reporter may explicitly resolve. Public reporters cannot escalate or acknowledge. Volunteers may escalate their own/assigned incidents. Acknowledgement and escalation leave the incident open. There is no automatic closure or timeout.
 
 The original report and its reporter-selected category are saved before independent Jev/Luna calls. Each result is pending, complete or failed. Valid Jev suggestions update the incident category and can promote attention to urgent; Luna supplies a labelled summary. Neither can change location, assignment, human history or resolution. Provider failure retains the original report for Mo; each report remains a separate incident. Restart marks interrupted analysis failed without replaying requests. Older stub records remain readable and appear as unavailable analysis.
 
@@ -54,10 +86,8 @@ Approved public guide entries are shared; staff guidance is withheld from event-
 ## Remaining contracts from the original plan
 
 - Real Jev/Luna access, verified credit-only controls, team approval of the fictional guide and real-call evaluation. The code and Q&A API exist; live providers have not been verified.
-- Offer, accept/decline, arrival and proposed-resolution actions, distinct from final incident resolution.
-- Roster skills, availability, current assignments and minimum zone coverage; eligibility checked on the server before an offer.
-- Validated volunteer candidate selection once eligibility/coverage and offers exist; no assignment is performed by the current adapters.
-- Zone counts, cluster-alert rules and a map based on stored reports; the team defines thresholds and coverage rules.
+- **Person 1:** buttons for accept/decline/arrived/propose (volunteer), offer/reassign with coverage warning (Mo), and the zone map from `zones[]`. The server side is implemented.
+- Optional: Jev choosing among the already-eligible `eligible[id]` list (validated against it). Routing currently takes the first eligible volunteer.
 - Audio upload, transcription, editable transcript and original-audio retrieval; text stays usable if voice fails.
 - Hosting, HTTPS, administrator provisioning and persistent deployment storage.
 
