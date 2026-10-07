@@ -11,7 +11,7 @@ function browserFixture(options = {}) {
   let presence={id:'vol-priya',state:'paused',fresh:false}, watching;
   const coords=()=>({coords:{latitude:0,longitude:0,accuracy:options.accuracy ?? 5},timestamp:time});
   const geolocation={getCurrentPosition(ok,fail){if(options.error)fail({code:options.error});else if(delayed)pending=ok;else ok(coords())},watchPosition(ok){watching=ok;return 1},clearWatch(){watching=null}};
-  const api={getSession:()=>({user:{id:'vol-priya',role:'volunteer'},guest:{id:'guest-test'}}),getState:()=>({serverTime:time,presence:[presence],incidents:[],reports:[]}),getIdentityVersion:()=>identity,isIdentityChanging:()=>false,subscribe:cb=>subscribers.push(cb),onIdentityChange:cb=>identityListeners.push(cb),async setPresence(body){calls.push(body);if(options.refreshWhileStarting){subscribers.forEach(cb=>cb());await Promise.resolve()}presence=body.available?{id:'vol-priya',state:'available',fresh:true,position:body.position}:{id:'vol-priya',state:'paused',fresh:false};subscribers.forEach(cb=>cb())},async refresh(){subscribers.forEach(cb=>cb())}};
+  const api={getSession:()=>({user:{id:'vol-priya',role:'volunteer'},guest:{id:'guest-test'}}),getState:()=>({serverTime:options.cachedClock ? 1000000 : time,presence:[presence],incidents:[],reports:[]}),getIdentityVersion:()=>identity,isIdentityChanging:()=>false,subscribe:cb=>subscribers.push(cb),onIdentityChange:cb=>identityListeners.push(cb),async setPresence(body){calls.push(body);if(options.refreshWhileStarting){subscribers.forEach(cb=>cb());await Promise.resolve()}presence=body.available?{id:'vol-priya',state:'available',eligible:true,fresh:true,position:body.position,expiresAt:body.start?time+600000:presence.expiresAt}:{id:'vol-priya',state:'paused',fresh:false};subscribers.forEach(cb=>cb());return {serverTime:time,presence:[presence]}},async refresh(){subscribers.forEach(cb=>cb())}};
   class Clock extends Date {static now(){return time}}
   const window={RiversideAPI:api,RiversideData:require('../data/fixtures.js'),isSecureContext:true};
   const context={window,document,navigator:{geolocation},Date:Clock,setInterval:(cb,ms)=>{const id=timers.size+1;timers.set(id,{cb,ms});return id},clearInterval:id=>timers.delete(id)};
@@ -20,13 +20,14 @@ function browserFixture(options = {}) {
   return {calls,document,documentEvents,timers,get,advance:n=>{time+=n},watch:()=>watching?.(coords()),click:id=>get(id).listeners.get('click')(),setDelayed:()=>{delayed=true},resolveGps:()=>pending(coords()),changeIdentity:()=>{identity++;identityListeners.forEach(cb=>cb())}};
 }
 const flush=async()=>{for(let i=0;i<10;i++)await Promise.resolve()};
-test('GPS uploads are throttled, hidden pages pause, and returning does not silently opt in',async()=>{
+test('GPS uploads are throttled and tab switching preserves the sharing session',async()=>{
   const t=browserFixture();await t.click('#go-available');assert.equal(t.calls.filter(c=>c.available).length,1);
   t.watch();await flush();assert.equal(t.calls.filter(c=>c.available).length,1);
   t.advance(10000);t.watch();await flush();assert.equal(t.calls.filter(c=>c.available).length,2);
-  t.document.hidden=true;t.documentEvents.get('visibilitychange')();await flush();assert.equal(t.calls.at(-1).available,false);
+  t.document.hidden=true;t.documentEvents.get('visibilitychange')();await flush();assert.equal(t.calls.at(-1).available,true);
+  t.advance(10000);t.watch();await flush();assert.equal(t.calls.filter(c=>c.available).length,3);
   const count=t.calls.length;t.document.hidden=false;t.documentEvents.get('visibilitychange')();await flush();assert.equal(t.calls.length,count);
-  await t.click('#go-available');assert.equal(t.calls.at(-1).available,true);
+  await t.click('#pause-volunteer');assert.equal(t.calls.at(-1).available,false);
 });
 test('location arriving after an identity change cannot opt the previous volunteer in',async()=>{
   const t=browserFixture();t.setDelayed();const started=t.click('#go-available');t.changeIdentity();t.resolveGps();await started;
@@ -49,8 +50,14 @@ test('a paused refresh during the first presence request does not stop successfu
   assert.equal(t.get('#go-available').textContent,'Location sharing active');
   t.advance(10000);t.watch();await flush();assert.equal(t.calls.filter(c=>c.available).length,2);
 });
-test('hiding the page before location returns leaves an explicit retry message',async()=>{
+test('hiding the page before location returns still permits the requested sharing session',async()=>{
   const t=browserFixture();t.setDelayed();const started=t.click('#go-available');
   t.document.hidden=true;t.resolveGps();await started;
-  assert.equal(t.calls.length,0);assert.match(t.get('#presence-feedback').textContent,/page was hidden/);
+  assert.equal(t.calls.length,1);assert.match(t.get('#presence-feedback').textContent,/Available for offers/);
+});
+test('the ten-minute sharing session ends even if uploads were successful and the timer was delayed',async()=>{
+  const t=browserFixture({cachedClock:true});await t.click('#go-available');t.advance(590000);t.watch();await flush();
+  t.advance(10001);t.document.hidden=false;t.documentEvents.get('visibilitychange')();await flush();
+  assert.equal(t.get('#go-available').disabled,false);assert.match(t.get('#presence-feedback').textContent,/10-minute sharing session ended/);
+  const count=t.calls.length;t.watch();await flush();assert.equal(t.calls.length,count);
 });

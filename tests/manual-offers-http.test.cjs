@@ -1,0 +1,30 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {randomUUID,randomBytes}=require('node:crypto');
+const {createApp}=require('../server/index.cjs');
+function client(base){const jar=new Map(),tab=randomUUID();let csrf;return {async call(route,body){const res=await fetch(base+route,{headers:{Connection:'close','X-Riverside-Tab':tab,Cookie:[...jar].map(([k,v])=>`${k}=${v}`).join('; '),...(body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{})},...(body?{method:'POST',body:JSON.stringify(body)}:{})});for(const cookie of res.headers.getSetCookie()){const[k,v]=cookie.split(';')[0].split('=');if(v)jar.set(k,v);else jar.delete(k)}const data=await res.json();if(data.csrf)csrf=data.csrf;return {status:res.status,data}}}}
+test('Mo offers an ordinary report over HTTP without GPS; only the recipient sees it and accepts once',async t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'riverside-manual-offer-'));const server=createApp({dataDir:dir,aiEnv:{}});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const base=`http://127.0.0.1:${server.address().port}`;
+  t.after(async()=>{await server.whenAIIdle();await new Promise(resolve=>server.close(resolve));fs.rmSync(dir,{recursive:true,force:true})});
+  const mo=client(base),vol=client(base),guest=client(base),other=client(base);
+  for(const c of [mo,vol,guest,other])await c.call('/api/session');
+  await mo.call('/api/setup',{username:'m',password:randomBytes(12).toString('hex')});await mo.call('/api/session');
+  const password=randomBytes(12).toString('hex');await mo.call('/api/accounts',{username:'p',password,volunteerId:'vol-priya'});
+  await vol.call('/api/login',{username:'p',password});await vol.call('/api/session');
+  await vol.call('/api/presence',{available:true,start:true,position:{latitude:0,longitude:0,accuracy:5,capturedAt:Date.now()}});
+  const submitted=await guest.call('/api/reports',{zone:'zone-a',text:'Fictional ordinary report',immediateConcern:true});const id=submitted.data.id;
+  assert.equal((await vol.call('/api/state')).data.incidents.length,0);
+  assert.equal((await guest.call(`/api/incidents/${id}/assignment-offer`,{volunteerId:'vol-priya'})).status,403);
+  const results=await Promise.all([mo.call(`/api/incidents/${id}/assignment-offer`,{volunteerId:'vol-priya'}),mo.call(`/api/incidents/${id}/assignment-offer`,{volunteerId:'vol-priya'})]);
+  assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);
+  const incoming=(await vol.call('/api/state')).data.incidents[0];assert.equal(incoming.id,id);assert.equal(incoming.assignee,null);assert.equal(incoming.assistance.destination,undefined);assert.equal(incoming.attention,'urgent');
+  assert.equal((await other.call('/api/state')).data.incidents.length,0);assert.deepEqual((await guest.call('/api/state')).data.incidents[0].assistance.offers,[]);
+  const offer=incoming.assistance.offers[0];assert.equal((await vol.call(`/api/incidents/${id}/offers/${offer.id}`,{decision:'accept'})).status,200);
+  assert.equal((await vol.call(`/api/incidents/${id}/offers/${offer.id}`,{decision:'accept'})).status,409);
+  assert.equal((await mo.call('/api/state')).data.incidents[0].assignee,'vol-priya');
+  assert.equal((await vol.call(`/api/incidents/${id}/assistance`,{action:'arrive'})).status,200);
+  assert.equal((await vol.call(`/api/incidents/${id}/action`,{action:'resolve'})).status,200);
+  assert.equal((await mo.call('/api/state')).data.incidents[0].assistance.state,'completed');
+});

@@ -4,6 +4,47 @@ const data = require('../data/fixtures.js');
 const createIncidents = require('../src/js/domain/incidents.js');
 const { createAssistance, position, distance } = require('../server/assistance.cjs');
 const { validateStations, firstAid } = require('../server/stations.cjs');
+test('Mo can offer an ordinary zone-only report; acceptance and arrival remain explicit',async()=>{
+  const t=setup(),mo={id:'mo',role:'mo'};t.available('priya');
+  const report=await t.workflow.submitReport({zone:'zone-a',text:'Fictional help needed',immediateConcern:true,reporter:{id:'guest-test',role:'public'}});
+  assert.throws(()=>t.manager.offer(t.volunteer('priya'),report.id,'vol-priya'),e=>e.status===403);
+  t.manager.offer(mo,report.id,'vol-priya');assert.equal(t.incident(report.id).assignee,null);assert.equal(t.offer(report.id).volunteerId,'vol-priya');
+  assert.equal(t.incident(report.id).assistance.destination,undefined);
+  assert.equal(t.incident(report.id).attention,'urgent');
+  assert.throws(()=>t.manager.offer(mo,report.id,'vol-alex'),e=>e.status===409);
+  t.manager.respond(t.volunteer('priya'),report.id,t.offer(report.id).id,'accept');
+  assert.equal(t.incident(report.id).assignee,'vol-priya');assert.equal(t.incident(report.id).assistance.state,'accepted');
+  t.manager.action(t.volunteer('priya'),report.id,'arrive');assert.equal(t.incident(report.id).assistance.state,'arrived');
+  t.workflow.act(report.id,'resolve',t.volunteer('priya'));t.manager.tick();assert.equal(t.incident(report.id).assistance.state,'completed');
+  assert.throws(()=>t.manager.offer(mo,report.id,'vol-alex'),e=>e.status===409);
+});
+test('manual offers reject self, missing-account, unavailable and reserved helpers; decline and expiry return to Mo',async()=>{
+  for(const outcome of ['decline','expire']){
+    const t=setup(),mo={id:'mo',role:'mo'};t.available('priya');t.available('alex');
+    const report=await t.workflow.submitReport({zone:'zone-a',text:'Fictional issue',reporter:{id:'guest-test',role:'public'}});
+    assert.throws(()=>t.manager.offer(mo,report.id,'vol-sam'),e=>e.status===409);
+    t.accounts.delete('vol-sam');assert.throws(()=>t.manager.offer(mo,report.id,'vol-sam'),e=>e.status===400);
+    const own=await t.workflow.submitReport({zone:'zone-a',text:'Own report',volunteerId:'vol-priya'});
+    assert.throws(()=>t.manager.offer(mo,own.id,'vol-priya'),e=>e.status===409);
+    t.manager.offer(mo,report.id,'vol-priya');
+    assert.throws(()=>t.manager.offer(mo,own.id,'vol-priya'),e=>e.status===409);
+    if(outcome==='decline')t.manager.respond(t.volunteer('priya'),report.id,t.offer(report.id).id,'decline');else{t.advance(60001);t.manager.tick()}
+    assert.equal(t.incident(report.id).assistance.state,'unavailable');assert.equal(t.incident(report.id).status,'open');
+    assert.equal(t.incident(report.id).assistance.offers.length,1);
+    assert.throws(()=>t.manager.offer(mo,report.id,'vol-priya'),e=>e.status===409);
+    t.manager.offer(mo,report.id,'vol-alex');assert.equal(t.offer(report.id).volunteerId,'vol-alex');
+  }
+});
+test('sharing lasts ten minutes with honest freshness and periodic uploads cannot renew an expired session',async()=>{
+  const t=setup();t.available('priya');const expires=t.manager.snapshot(t.volunteer('priya')).presence[0].expiresAt;
+  t.advance(120000);let p=t.manager.snapshot(t.volunteer('priya')).presence[0];assert.equal(p.state,'available');assert.equal(p.fresh,false);assert.equal(p.eligible,true);
+  const request=await t.request();assert.equal(t.offer(request).volunteerId,'vol-priya');
+  t.advance(470000);t.manager.setPresence(t.volunteer('priya'),{available:true,start:false,position:t.pos()},'priya');
+  assert.equal(t.manager.snapshot(t.volunteer('priya')).presence[0].expiresAt,expires);
+  t.advance(10001);p=t.manager.snapshot(t.volunteer('priya')).presence[0];assert.equal(p.state,'paused');assert.equal(p.position,undefined);
+  assert.throws(()=>t.manager.setPresence(t.volunteer('priya'),{available:true,start:false,position:t.pos()},'priya'),e=>e.status===409);
+  t.manager.setPresence(t.volunteer('priya'),{available:true,start:true,position:t.pos()},'priya');assert.equal(t.manager.snapshot(t.volunteer('priya')).presence[0].eligible,true);
+});
 function setup() {
   let time = 1000000;
   const accounts = new Set(data.volunteers.map(v => v.id)), alive = new Set(['priya', 'alex', 'sam']);
@@ -54,7 +95,7 @@ test('declines and sixty-second expiry move to the next volunteer and never repe
 test('stale GPS, paused presence and expired sessions withdraw offers', async () => {
   for (const mode of ['stale', 'pause', 'logout', 'inaccurate']) {
     const t = setup(); t.available('priya'); const id = await t.request(), offer = t.offer(id);
-    if (mode === 'stale') t.advance(60001);
+    if (mode === 'stale') t.advance(600001);
     if (mode === 'pause') t.manager.setPresence(t.volunteer('priya'), { available: false }, 'priya');
     if (mode === 'logout') t.alive.delete('priya');
     if (mode === 'inaccurate') assert.throws(() => t.manager.setPresence(t.volunteer('priya'), { available: true, position: t.pos(0, 101) }, 'priya'), e => e.status === 400);

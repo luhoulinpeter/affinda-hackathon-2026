@@ -14,6 +14,8 @@ This separates tab sign-ins for convenient use/testing; tabs on the same website
 
 ## Volunteer GPS ownership
 
+Latest update: tab switching now preserves sharing for a fixed ten-minute session; it does not pause on hiding the page. Initial/new GPS fixes remain validated, older last-known positions are labelled, and the lease expires without automatic renewal. This supersedes the hidden-page/60-second presence rules in the original paragraph below. See [the current sharing and Mo-offer behaviour](GPS-ASSISTANCE.md#latest-update-mo-offers-and-ten-minute-sharing).
+
 Only one session can own active location sharing for a volunteer account. Another tab/device signed into that same account receives HTTP 409 when trying to start or pause its fresh tracking. It must pause in the owning tab first, or wait until the position/session expires. Signing out or replacing the account in a non-owning tab does not pause the owner's presence. Mo's explicit withdrawal/retry/reset and human resolution retain their existing behaviour. Hidden-page pausing and 60-second freshness rules still apply; changing tabs does not add background GPS support.
 
 ## Verification

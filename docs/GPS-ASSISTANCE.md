@@ -2,6 +2,18 @@
 
 Implemented 7 October 2026 on the existing Node.js / plain JavaScript stack. All stations and demonstration incidents are fictional. Real-device GPS and HTTPS phone access must be verified separately from the simulated checks.
 
+## Latest update: Mo offers and ten-minute sharing
+
+Mo can select any unresolved incident, including an ordinary report without GPS, choose an eligible volunteer under **Offer to a volunteer**, and click **Send volunteer offer**. This sends a 60-second offer, not an immediate assignment. Only acceptance assigns the helper. A manual decline/timeout returns the incident to Mo's review; Mo can choose a different helper. Self-assignment to the reporter, missing accounts, unavailable/busy/reserved volunteers, repeated candidates and resolved incidents are rejected on the server. History records Mo's offer. No requester GPS is invented for zone-only reports.
+
+**Retry matching** applies to active requests with a confirmed requester GPS destination. Without it, Mo sees a disabled explanation and can offer manually. Retry switches to nearest matching and respects candidates already attempted. Ordinary reports remain ordinary until Mo explicitly offers them or the requester confirms an assistance request.
+
+**Go available** now starts a fixed ten-minute sharing session. Tab switches no longer pause it. Updates remain limited to one per ten seconds; updates never silently extend the session. Initial/new fixes still require capture within 60 seconds and accuracy of 100 metres or better. During the ten-minute session, matching may use the last accepted position up to ten minutes old, with its age and **older position** label shown. The `fresh` flag still means within 60 seconds; `eligible` is separate. This replaces the earlier 60-second presence-expiry and hidden-page-pause rules below. Fresh location pins remain governed by the map's freshness policy.
+
+The server ends availability and removes volunteer coordinates when the ten-minute lease expires, even if browser timers are suspended. Pause, sign-out, assignment completion/withdrawal and restart can end it sooner. Accepted assignment records remain visible for human follow-up; expiration never resolves an incident. Browsers may suspend background GPS or timers, especially on locked phones, so this does not promise continuous background tracking. Start a new session explicitly after expiry. No AI call is required for these features.
+
+Current verification: 64 automated tests pass in the isolated staged version with simulated providers, positions and clocks, including manual offers without GPS, HTTP permissions/visibility, duplicate offers, acceptance conflicts, expiry/decline, self/busy exclusion, fixed lease expiry, background callbacks and no automatic renewal. An isolated browser check verified Mo offering an ordinary report without GPS, Priya accepting, and Priya marking arrival. Sharing remained active across tab switches; Mo’s panel fit at 375px without horizontal overflow. Physical GPS and a real-device ten-minute background run remain unverified. Historical verification below describes the earlier release.
+
 ## Try the workflow
 
 1. Mo creates volunteer accounts under **Volunteer accounts**. Roster entries alone cannot receive offers.

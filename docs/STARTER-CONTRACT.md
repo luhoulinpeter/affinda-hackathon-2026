@@ -69,4 +69,6 @@ Reset preserves accounts, the persisted report/incident sequence and provider cr
 
 ## GPS assistance extension — 7 October 2026
 
+Mo can send `POST /api/incidents/:id/assignment-offer` with `{volunteerId}` to create a manual 60-second offer on any unresolved report, with or without requester GPS. The recipient uses the existing accept/decline route; decline/expiry returns a manual offer to Mo. Presence opt-in accepts `start:true` to explicitly start a ten-minute lease and periodic updates use `start:false` without renewing it. Presence includes `expiresAt`, `eligible`, `fresh`, `hasAccount` and a pause reason. `fresh` means a fix within 60 seconds; eligible matching may use the labelled last-known position within the fixed ten-minute session. Hidden tabs no longer auto-pause. See [current behaviour and limits](GPS-ASSISTANCE.md#latest-update-mo-offers-and-ten-minute-sharing).
+
 The role-filtered state and report submission contracts now include optional GPS assistance and volunteer offers. See [the current API and lifecycle contract](GPS-ASSISTANCE.md#api-additions). Existing reports have no assistance request by default. Station lookup is separate from report creation; model input never includes structured GPS.

@@ -72,6 +72,7 @@ window.RiversideAPI = (() => {
   return { refresh, submitReport, act, authenticate, logout, createAccount, resetDemo,
     async setPresence(input) { const result = await request('/api/presence', input); await refresh(); return result; },
     async respondOffer(id, offerId, decision) { await request(`/api/incidents/${encodeURIComponent(id)}/offers/${encodeURIComponent(offerId)}`, { decision }); await refresh(); },
+    async offerVolunteer(id, volunteerId) { await request(`/api/incidents/${encodeURIComponent(id)}/assignment-offer`, { volunteerId }); await refresh(); },
     async assistanceAction(id, action) { await request(`/api/incidents/${encodeURIComponent(id)}/assistance`, { action }); await refresh(); },
     getStations: () => request('/api/stations'),
     saveStations: input => request('/api/stations', input),

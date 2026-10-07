@@ -198,6 +198,8 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       }
       const offerRoute = url.pathname.match(/^\/api\/incidents\/(I-\d+)\/offers\/([a-f0-9-]+)$/);
       if (offerRoute) { assistance.respond(ctx.actor, offerRoute[1], offerRoute[2], body.decision); return json(res, 200, { ok: true }); }
+      const manualOfferRoute = url.pathname.match(/^\/api\/incidents\/(I-\d+)\/assignment-offer$/);
+      if (manualOfferRoute) { assistance.offer(ctx.actor, manualOfferRoute[1], body.volunteerId); return json(res, 200, { ok: true }); }
       const assistanceRoute = url.pathname.match(/^\/api\/incidents\/(I-\d+)\/assistance$/);
       if (assistanceRoute) {
         if (!stateFor(ctx.actor).incidents.some(i => i.id === assistanceRoute[1])) return json(res, 404, { error: 'Incident not found.' });
