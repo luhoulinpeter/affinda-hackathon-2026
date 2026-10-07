@@ -172,6 +172,40 @@ test('verified provider call allowance persists over restart and prevents excess
   assert.equal(JSON.parse(fs.readFileSync(path.join(dataDir, 'store.json'), 'utf8')).workflow.incidents.at(-1).analysis.jev.state, 'failed'); assert.equal(incident.status, 'open');
 });
 
+test('OpenRouter allowance uses its own ledger and survives failures and restart with original reports intact', async t => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'riverside-openrouter-test-'));
+  const proof = { id: 'simulated-openrouter-test', freeOnlyConfirmed: true, liveTestApproved: true, verifiedAt: new Date(Date.now() - 1000).toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString(), maxCalls: 1 };
+  fs.writeFileSync(path.join(dataDir, 'ai-credit-verification.json'), JSON.stringify({ openrouter: proof }));
+  let calls = 0;
+  const options = { dataDir, aiEnv: { RIVERSIDE_OPENROUTER_ENABLED: 'true', OPENROUTER_API_KEY: 'test-placeholder' }, aiFetch: async url => {
+    assert.equal(url, 'https://openrouter.ai/api/v1/chat/completions'); calls++;
+    return new Response('{}', { status: 429 });
+  } };
+  let server = createApp(options);
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  t.after(async () => { await server.whenAIIdle(); await new Promise(resolve => server.close(resolve)); fs.rmSync(dataDir, { recursive: true, force: true }); });
+  const guest = client(`http://127.0.0.1:${port}`); await guest.request('/api/session');
+  assert.equal((await guest.request('/api/session')).result.ai.luna.label, 'OpenRouter');
+  assert.equal((await guest.request('/api/reports', { zone: 'zone-a', text: 'Original fictional spill', immediateConcern: true })).status, 201);
+  await server.whenAIIdle();
+  let stored = JSON.parse(fs.readFileSync(path.join(dataDir, 'store.json'), 'utf8'));
+  assert.equal(stored.workflow.incidents[0].analysis.luna.state, 'failed');
+  assert.equal(stored.workflow.incidents[0].attention, 'urgent');
+  assert.equal(stored.workflow.reports[0].text, 'Original fictional spill');
+  assert.equal(stored.aiUsage['openrouter:simulated-openrouter-test'], 1);
+  assert.equal(stored.aiUsage['luna:simulated-openrouter-test'], undefined);
+  await new Promise(resolve => server.close(resolve));
+  server = createApp(options); await new Promise(resolve => server.listen(port, '127.0.0.1', resolve));
+  await guest.request('/api/session');
+  assert.equal((await guest.request('/api/reports', { zone: 'zone-b', text: 'Second fictional spill' })).status, 201);
+  await server.whenAIIdle();
+  assert.equal(calls, 1);
+  stored = JSON.parse(fs.readFileSync(path.join(dataDir, 'store.json'), 'utf8'));
+  assert.equal(stored.workflow.reports.length, 2);
+  assert.equal(stored.workflow.incidents.at(-1).analysis.luna.state, 'failed');
+});
+
 test('event stream signals changes without sending data, and only Mo can reset the demo', async t => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'riverside-events-test-'));
   const server = createApp({ dataDir });

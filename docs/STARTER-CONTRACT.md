@@ -43,7 +43,9 @@ Mo receives all records. Volunteers receive their own reports and assigned incid
 
 Only Mo may acknowledge. Mo, the assigned volunteer or the original reporter may explicitly resolve. Public reporters cannot escalate or acknowledge. Volunteers may escalate their own/assigned incidents. Acknowledgement and escalation leave the incident open. There is no automatic closure or timeout.
 
-The original report and its reporter-selected category are saved before independent Jev/Luna calls. Each result is pending, complete or failed. Valid Jev suggestions update the incident category and can promote attention to urgent; Luna supplies a labelled summary. Neither can change location, assignment, human history or resolution. Provider failure retains the original report for Mo; each report remains a separate incident. Restart marks interrupted analysis failed without replaying requests. Older stub records remain readable and appear as unavailable analysis.
+`analysis.luna` and `session.ai.luna` are retained compatibility fields for the language-model result/status, now backed by OpenRouter. `session.ai.luna.label` is `OpenRouter` and its `model` identifies the pinned free model. The private call ledger uses `openrouter:<proof.id>`; old Luna verification cannot enable it.
+
+The original report and its reporter-selected category are saved before independent Jev/OpenRouter calls. Each result is pending, complete or failed. Valid Jev suggestions update the incident category and can promote attention to urgent; the LLM supplies a labelled summary. Neither can change location, assignment, human history or resolution. Provider failure retains the original report for Mo; each report remains a separate incident. Restart marks interrupted analysis failed without replaying requests. Older stub records remain readable and appear as unavailable analysis.
 
 ## Q&A
 
@@ -53,7 +55,7 @@ Approved public guide entries are shared; staff guidance is withheld from event-
 
 ## Remaining contracts from the original plan
 
-- Real Jev/Luna access, verified credit-only controls, team approval of the fictional guide and real-call evaluation. The code and Q&A API exist; live providers have not been verified.
+- Real Jev/OpenRouter access, verified credit-only controls, team approval of the fictional guide and real-call evaluation. The code and Q&A API exist; live providers have not been verified.
 - Offer, accept/decline, arrival and proposed-resolution actions, distinct from final incident resolution.
 - Roster skills, availability, current assignments and minimum zone coverage; eligibility checked on the server before an offer.
 - Validated volunteer candidate selection once eligibility/coverage and offers exist; no assignment is performed by the current adapters.

@@ -14,7 +14,7 @@
     const session = api.getSession();
     if (!session) return;
     $('#qa-panel').hidden = false;
-    const status = ['jev', 'luna'].map(name => `${name === 'jev' ? 'Jev' : 'Luna'}: ${session.ai?.[name]?.enabled ? 'live calls enabled' : session.ai?.[name]?.reason || 'unavailable'}`).join(' · ');
+    const status = ['jev', 'luna'].map(name => `${name === 'jev' ? 'Jev' : 'OpenRouter'}: ${session.ai?.[name]?.enabled ? 'live calls enabled' : session.ai?.[name]?.reason || 'unavailable'}`).join(' · ');
     $('#ai-status').textContent = status;
     $('#qa-availability').textContent = `${status}. ${session.guideApproved ? 'Fictional event guide approved.' : 'Fictional event guide awaiting team approval; site facts are unavailable.'} Only your permitted records are used.`;
     $('#qa-send').disabled = asking || submitting || api.isIdentityChanging();

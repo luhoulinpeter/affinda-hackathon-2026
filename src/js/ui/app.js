@@ -31,7 +31,7 @@
     const jev = incident.analysis?.jev;
     const luna = incident.analysis?.luna;
     const classification = jev?.state === 'complete' ? `Jev suggestion: ${escape(categoryName(jev.suggestion.category))} · ${escape(jev.suggestion.urgency)}` : `Jev analysis: ${jev?.state === 'pending' ? 'pending' : 'unavailable'}`;
-    const summary = luna?.state === 'complete' ? `Luna summary (AI suggestion): ${escape(luna.suggestion.summary)}` : `Luna summary: ${luna?.state === 'pending' ? 'pending' : 'unavailable'}`;
+    const summary = luna?.state === 'complete' ? `AI summary (suggestion): ${escape(luna.suggestion.summary)}` : `AI summary: ${luna?.state === 'pending' ? 'pending' : 'unavailable'}`;
     return `<div class="analysis-note"><p>${classification}</p><p>${summary}</p><small>Check the original report. Human review required; no automatic assignment.</small></div>`;
   }
   function actionButtons(incident, role) {

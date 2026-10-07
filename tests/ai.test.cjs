@@ -1,12 +1,13 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createProviders } = require('../server/ai/providers.cjs');
+const { createProviders, DEFAULT_MODEL } = require('../server/ai/providers.cjs');
 const { answerQuestion, buildSources, validateInput } = require('../server/ai/qa.cjs');
 const guide = { ...require('../data/event-guide.json'), approved: true };
 const proof = () => ({ id: 'test-only', creditOnlyConfirmed: true, providerHardStopVerified: true, verifiedAt: new Date(Date.now() - 1000).toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString(), maxCalls: 10 });
-const env = { RIVERSIDE_JEV_ENABLED: 'true', RIVERSIDE_LUNA_ENABLED: 'true', OPENAI_API_KEY: 'test-placeholder', TYPESAFE_API_KEY: 'test-placeholder' };
+const env = { RIVERSIDE_JEV_ENABLED: 'true', RIVERSIDE_OPENROUTER_ENABLED: 'true', OPENROUTER_API_KEY: 'test-placeholder', TYPESAFE_API_KEY: 'test-placeholder' };
 const jsonResponse = value => new Response(JSON.stringify(value), { status: 200 });
-const lunaResponse = value => jsonResponse({ status: 'completed', output: [{ type: 'reasoning' }, { type: 'message', content: [{ type: 'output_text', text: JSON.stringify(value) }] }] });
+const openrouterProof = () => ({ ...proof(), freeOnlyConfirmed: true, liveTestApproved: true });
+const llmResponse = value => jsonResponse({ choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: JSON.stringify(value) } }] });
 const choice = choice => ({ type: 'choice', choice, confidence: 0.9 });
 const state = { reports: [{ id: 'R-1', zone: 'zone-a', text: 'A fictional spill', category: 'hazard', immediateConcern: false }], incidents: [{ id: 'I-1', zone: 'zone-a', reportIds: ['R-1'], status: 'open', attention: 'review' }] };
 
@@ -31,23 +32,77 @@ test('Jev requests fixed choices on original text and validates returned labels'
   await assert.rejects(bad.screen('x', []), /Invalid Jev/);
 });
 
-test('Luna uses strict Responses output, no tools, no stored responses and bounded text', async () => {
-  let captured;
-  const providers = createProviders({ env, verification: { luna: proof() }, reserveCall: () => true, fetchImpl: async (url, options) => {
-    assert.equal(url, 'https://api.openai.com/v1/responses'); captured = JSON.parse(options.body); return lunaResponse({ summary: 'A fictional spill was reported.' });
+test('OpenRouter pins a free model, enforces zero-price routing and strict JSON without tools', async () => {
+  let captured, reserved;
+  const providers = createProviders({ env, verification: { openrouter: openrouterProof() }, reserveCall: name => { reserved = name; return true; }, fetchImpl: async (url, options) => {
+    assert.equal(url, 'https://openrouter.ai/api/v1/chat/completions');
+    assert.equal(options.headers.Authorization, 'Bearer test-placeholder');
+    assert.equal(options.redirect, 'error');
+    captured = JSON.parse(options.body); return llmResponse({ summary: 'A fictional spill was reported.' });
   } });
   assert.equal((await providers.summarise({ text: 'Spill' })).summary, 'A fictional spill was reported.');
-  assert.equal(captured.model, 'gpt-6-luna'); assert.equal(captured.store, false); assert.equal(captured.tools, undefined);
-  assert.equal(captured.text.format.strict, true); assert.equal(captured.max_output_tokens, 400);
+  assert.equal(reserved, 'openrouter'); assert.equal(captured.model, DEFAULT_MODEL);
+  assert.deepEqual(captured.provider, { require_parameters: true, allow_fallbacks: false, sort: 'latency', max_price: { prompt: 0, completion: 0, request: 0 } });
+  assert.deepEqual(captured.reasoning, { enabled: false }); assert.equal(captured.stream, false);
+  assert.equal(captured.tools, undefined); assert.equal(captured.models, undefined); assert.equal(captured.plugins, undefined);
+  assert.equal(captured.response_format.json_schema.strict, true); assert.equal(captured.max_tokens, 400);
+  assert.match(captured.messages[0].content, /untrusted/); assert.equal(JSON.parse(captured.messages[1].content).report.text, 'Spill');
+  assert.equal(providers.status().luna.label, 'OpenRouter');
 });
 
-test('malformed, refused, oversized and timed-out provider responses fail', async () => {
-  for (const response of [() => lunaResponse({ summary: 'x', action: 'resolve' }), () => jsonResponse({ status: 'incomplete', output: [] }), () => jsonResponse({ status: 'completed', output: [{ type: 'message', content: [{ type: 'refusal', refusal: 'No' }] }] }), () => new Response('x'.repeat(65537)), () => new Response('{not json')]) {
-    const providers = createProviders({ env, verification: { luna: proof() }, reserveCall: () => true, fetchImpl: async () => response() });
-    await assert.rejects(providers.summarise({ text: 'report' }));
+test('OpenRouter rejects paid IDs, routers, missing approval and legacy OpenAI settings before transport', async () => {
+  let calls = 0;
+  const settings = [
+    { env: { ...env, OPENROUTER_MODEL: 'nvidia/nemotron-3-super-120b-a12b' } },
+    { env: { ...env, OPENROUTER_MODEL: 'openrouter/free' } },
+    { env: { ...env, OPENROUTER_MODEL: 'model:free:online' } },
+    { env: { ...env, OPENROUTER_API_KEY: '' } },
+    { env: { RIVERSIDE_LUNA_ENABLED: 'true', OPENAI_API_KEY: 'legacy-key' } },
+    { verification: { openrouter: { ...openrouterProof(), liveTestApproved: false } } },
+    { verification: { openrouter: { ...openrouterProof(), freeOnlyConfirmed: false } } },
+    { verification: { openrouter: { ...openrouterProof(), expiresAt: new Date(0).toISOString() } } },
+    { verification: { luna: proof() } },
+    { reserveCall: () => false }
+  ];
+  for (const overrides of settings) {
+    const providers = createProviders({ env, verification: { openrouter: openrouterProof() }, reserveCall: () => true, fetchImpl: async () => { calls++; return llmResponse({ summary: 'Unexpected call' }); }, ...overrides });
+    await assert.rejects(providers.summarise({ text: 'Fictional' }));
   }
-  const providers = createProviders({ env, verification: { luna: proof() }, reserveCall: () => true, timeoutMs: 10, fetchImpl: (url, options) => new Promise((resolve, reject) => options.signal.addEventListener('abort', () => reject(new Error('Timed out')))) });
+  assert.equal(calls, 0);
+});
+
+test('malformed, refused, truncated, tool-calling, oversized and timed-out responses fail without retries', async () => {
+  for (const response of [
+    () => llmResponse({ summary: 'x', action: 'resolve' }),
+    () => jsonResponse({ error: { message: 'Offline' } }),
+    () => jsonResponse({ choices: [{ finish_reason: 'length', message: { role: 'assistant', content: '{"summary":"Truncated"}' } }] }),
+    () => jsonResponse({ choices: [{ finish_reason: 'stop', message: { role: 'assistant', refusal: 'No', content: '{}' } }] }),
+    () => jsonResponse({ choices: [{ finish_reason: 'stop', message: { role: 'assistant', tool_calls: [{}], content: '{}' } }] }),
+    () => jsonResponse({ choices: [] }),
+    () => new Response('{}', { status: 429 }),
+    () => new Response('x'.repeat(65537)),
+    () => new Response('{not json')
+  ]) {
+    let calls = 0;
+    const providers = createProviders({ env, verification: { openrouter: openrouterProof() }, reserveCall: () => true, fetchImpl: async () => { calls++; return response(); } });
+    await assert.rejects(providers.summarise({ text: 'report' })); assert.equal(calls, 1);
+  }
+  const providers = createProviders({ env, verification: { openrouter: openrouterProof() }, reserveCall: () => true, timeoutMs: 10, fetchImpl: (url, options) => new Promise((resolve, reject) => options.signal.addEventListener('abort', () => reject(new Error('Timed out')))) });
   await assert.rejects(providers.summarise({ text: 'report' }), /Timed out/);
+});
+
+test('OpenRouter answer parses citations and rejects invented sources at the adapter boundary', async () => {
+  let captured;
+  const sources = [{ id: 'I-1', text: 'An unverified fictional report is open.' }];
+  for (const sourceId of ['I-1', 'staff-secret']) {
+    const providers = createProviders({ env, verification: { openrouter: openrouterProof() }, reserveCall: () => true, fetchImpl: async (url, options) => {
+      captured = JSON.parse(options.body);
+      return llmResponse({ answer: 'The fictional report is open.', sources: [sourceId], unknown: false });
+    } });
+    if (sourceId === 'I-1') assert.deepEqual((await providers.answer('Status?', [], sources)).sources, ['I-1']);
+    else await assert.rejects(providers.answer('Status?', [], sources));
+  }
+  assert.equal(captured.max_tokens, 1200); assert.deepEqual(JSON.parse(captured.messages[1].content).sources, sources);
 });
 
 test('unapproved guide is withheld and staff sources are absent from public context', () => {
@@ -70,12 +125,12 @@ test('Q&A validates bounded history and supplies only fresh sources as evidence'
   assert.equal(captured.history.length, 1); assert.ok(!JSON.stringify(captured.sources).includes('Previous untrusted answer'));
 });
 
-test('safety, unclear and failed screening draft the original message without calling Luna or mutating state', async () => {
+test('safety, unclear and failed screening draft the original message without calling the LLM or mutating state', async () => {
   const before = JSON.stringify(state);
   for (const intent of ['safety', 'unclear', 'failure']) {
     const result = await answerQuestion({ body: { question: 'Fictional crowd pressure near the exit' }, actor: { role: 'public' }, getState: () => state, providers: {
       screen: async () => { if (intent === 'failure') throw new Error('Offline'); return { intent }; },
-      answer: async () => { assert.fail('Luna must not answer a safety handoff'); }
+      answer: async () => { assert.fail('LLM must not answer a safety handoff'); }
     } });
     assert.equal(result.draft.text, 'Fictional crowd pressure near the exit');
     assert.match(result.answer, /not been submitted/); assert.equal(JSON.stringify(state), before);

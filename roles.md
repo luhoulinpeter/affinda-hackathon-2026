@@ -4,9 +4,9 @@ This working split follows the team's discussion on 7 October. Replace Person 1â
 
 | Owner | Files to start in | Responsibility | First next step |
 |---|---|---|---|
-| Person 1: interface | `index.html`, `src/css/app.css`, `src/js/ui/` | Public, Mo and volunteer views, account entry, report feedback; Luna Q&A interface and voice/transcript editing | Maintain Q&A, source display and confirmed drafts; guide content awaits team approval |
+| Person 1: interface | `index.html`, `src/css/app.css`, `src/js/ui/` | Public, Mo and volunteer views, account entry, report feedback; LLM Q&A interface and voice/transcript editing | Maintain Q&A, source display and confirmed drafts; guide content awaits team approval |
 | Person 2: application/server | `server/`, `src/js/services/api.js`, `src/js/domain/incidents.js`, `data/fixtures.js`, `tests/` | Account sessions, server permissions, role-scoped LLM context retrieval, authoritative state, assignment/coverage rules and history | Maintain current stack, permission-scoped Q&A and background analysis; add offers after agreeing eligibility rules |
-| Person 3: AI/services | `src/js/services/analysis.js` (server-side), `server/ai/`, `data/event-guide.json`, AI evaluation tests | Separate Jev and LLM adapters/prompts, interpretation and less urgent Q&A, transcription, audio storage and AI evaluation | Configure/verify free-credit-only access and test real calls; adapters and validators are implemented |
+| Person 3: AI/services | `src/js/services/analysis.js` (server-side), `server/ai/`, `data/event-guide.json`, AI evaluation tests | Separate Jev and LLM adapters/prompts, interpretation and less urgent Q&A, transcription, audio storage and AI evaluation | Configure/verify Jev credit controls and OpenRouter free-only access; ask before bounded live tests; adapters and validators are implemented |
 
 Person 2 owns the server entry point and shared configuration. Person 3 adds provider adapters in separate files. Keep API keys on the server, never in browser scripts. Person 1 owns shared HTML and CSS; coordinate changes rather than editing the same files simultaneously.
 
@@ -23,4 +23,4 @@ Everyone tests on their own phone once a server preview is available. Person 1 c
 
 ## Not yet implemented
 
-Automatic assignment, volunteer offers/acceptance/arrival, skills or coverage checks, verified live Jev/Luna calls and approved guide facts, maps/zone counts/cluster alerts, audio/transcription, spoken alerts and public deployment. Server storage, real staff accounts, public/Mo reporting, background AI adapters and role-scoped Q&A are implemented. AI tests use simulated responses; live providers are not verified. Armaan's grouping/Split/Merge revision is set aside.
+Automatic assignment, volunteer offers/acceptance/arrival, skills or coverage checks, verified live Jev/OpenRouter calls and approved guide facts, maps/zone counts/cluster alerts, audio/transcription, spoken alerts and public deployment. Server storage, real staff accounts, public/Mo reporting, background AI adapters and role-scoped Q&A are implemented. AI tests use simulated responses; live providers are not verified. Armaan's grouping/Split/Merge revision is set aside.
