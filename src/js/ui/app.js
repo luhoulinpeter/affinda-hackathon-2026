@@ -8,6 +8,12 @@
   const zoneName = id => data.zones.find(zone => zone.id === id)?.name || id;
   const actorName = id => id === "mo" ? "Mo" : id === "system" ? "System" : data.volunteers.find(person => person.id === id)?.name || id;
   let selectedId = null;
+  // Follow available space, including resizing and phone rotation.
+  // Keep this breakpoint in sync with app.css.
+  const narrowScreen = window.matchMedia("(max-width: 720px)");
+  const setQueueLayout = () => { $("#queue-panel").open = !narrowScreen.matches; };
+  setQueueLayout();
+  narrowScreen.addEventListener("change", setQueueLayout);
 
   $("#volunteer").innerHTML = data.volunteers.map(person => `<option value="${escape(person.id)}">${escape(person.name)}</option>`).join("");
   $("#zone").innerHTML = data.zones.map(zone => `<option value="${escape(zone.id)}">${escape(zone.name)}</option>`).join("");
@@ -35,6 +41,7 @@
     $("#open-count").textContent = open.length;
     $("#urgent-count").textContent = open.filter(item => item.attention === "urgent").length;
     $("#resolved-count").textContent = state.incidents.length - open.length;
+    $("#queue-count").textContent = `(${state.incidents.length})`;
     const sorted = [...state.incidents].sort((a, b) => Number(a.status === "resolved") - Number(b.status === "resolved") || Number(b.attention === "urgent") - Number(a.attention === "urgent") || Number(b.id.slice(2)) - Number(a.id.slice(2)));
     if (!selectedId && sorted.length) selectedId = sorted[0].id;
     $("#incident-list").innerHTML = sorted.length ? sorted.map(incident => {
@@ -67,7 +74,16 @@
     const button = event.target.closest("button");
     if (!button) return;
     if (button.dataset.view) setView(button.dataset.view);
-    if (button.dataset.select) { selectedId = button.dataset.select; render(); }
+    if (button.dataset.select) {
+      selectedId = button.dataset.select;
+      if (narrowScreen.matches) $("#queue-panel").open = false;
+      render();
+      // Move keyboard focus out of the now-collapsed list into the selected card.
+      if (narrowScreen.matches) {
+        $("#incident-detail").tabIndex = -1;
+        $("#incident-detail").focus({ preventScroll: true });
+      }
+    }
     if (button.dataset.action) {
       const actor = button.dataset.actor === "mo" ? { id: "mo", role: "mo" } : { id: $("#volunteer").value, role: "volunteer" };
       try {

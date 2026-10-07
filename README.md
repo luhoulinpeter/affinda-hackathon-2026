@@ -12,6 +12,8 @@ This repository holds the team's project notes and a small browser prototype. Tr
 
 All people and examples are fictional. State lives in one tab and resets on refresh. The identity selector is a demo, not authentication. There is no connected AI, voice service, automatic assignment, server or deployment.
 
+The layout adapts to the browser's available width. At 720px or narrower, panels stack, action buttons fill the width and the incident queue starts collapsed. Tap **Incident queue** to choose another incident; selecting it collapses the list. Resize the browser to try the phone layout; it also updates on rotation. Physical phones still need testing.
+
 For the three-person work split, see [roles.md](roles.md). The implemented interface and next integration agreements are in [docs/STARTER-CONTRACT.md](docs/STARTER-CONTRACT.md).
 
 ## Folder structure

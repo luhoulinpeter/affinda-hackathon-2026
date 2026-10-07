@@ -2,7 +2,7 @@
 * { box-sizing: border-box; }
 body { margin: 0; background: #f3f6f4; color: var(--ink); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 button, input, select, textarea { font: inherit; }
-button { cursor: pointer; }
+button { cursor: pointer; min-height: 44px; touch-action: manipulation; }
 button:disabled { opacity: .6; cursor: wait; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid #388eae; outline-offset: 3px; }
 [hidden] { display: none !important; }
@@ -30,6 +30,12 @@ h1 { font-size: clamp(27px, 4vw, 37px); font-weight: 650; letter-spacing: -1.2px
 .operations-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.3fr); align-items: start; gap: 20px; }
 .panel { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 22px; min-width: 0; }
 .panel-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 20px; }
+.queue-panel > summary { cursor: pointer; list-style: none; min-height: 44px; margin-bottom: 0; }
+.queue-panel > summary::-webkit-details-marker { display: none; }
+.queue-panel > summary::after { content: "+"; color: var(--accent); font-size: 22px; }
+.queue-panel[open] > summary::after { content: "−"; }
+.queue-panel[open] > summary { margin-bottom: 16px; }
+.queue-panel > summary:focus-visible { outline: 3px solid #388eae; outline-offset: 4px; border-radius: 4px; }
 h2 { margin: 0; font-size: 17px; letter-spacing: -.3px; }
 h3 { font-size: 15px; margin: 12px 0 6px; }
 .muted { color: var(--muted); font-size: 12px; }
@@ -63,7 +69,7 @@ blockquote footer { margin: 0; padding: 0; text-align: left; }
 .history li { display: flex; flex-direction: column; gap: 3px; border-bottom: 1px solid #eef2ef; padding: 10px 0; font-size: 13px; }
 .history small { color: var(--muted); }
 label { display: block; font-size: 13px; font-weight: 600; margin: 16px 0 6px; }
-select, textarea { width: 100%; border: 1px solid #baccc3; padding: 10px; background: #fff; color: var(--ink); border-radius: 7px; }
+select, textarea { width: 100%; border: 1px solid #baccc3; padding: 10px; background: #fff; color: var(--ink); border-radius: 7px; font-size: 16px; }
 textarea { resize: vertical; min-height: 130px; }
 .checkbox-label { display: flex; gap: 10px; align-items: center; font-weight: 400; }
 .checkbox-label input { width: 18px; height: 18px; accent-color: var(--accent); flex-shrink: 0; }
@@ -72,12 +78,35 @@ textarea { resize: vertical; min-height: 130px; }
 .own-report > p { overflow-wrap: anywhere; white-space: pre-wrap; }
 main > footer { text-align: center; color: var(--muted); font-size: 11px; margin-top: 32px; padding: 12px; }
 @media (max-width: 720px) {
-  main { padding: 24px 16px 12px; }
-  .site-header { padding: 16px; }
-  .operations-grid { grid-template-columns: 1fr; }
+  main { padding: 18px 12px 12px; }
+  .site-header { padding: 12px; min-height: 70px; gap: 8px; }
+  .brand { gap: 9px; min-width: 0; }
+  .brand-icon { width: 34px; height: 34px; font-size: 21px; flex-shrink: 0; }
+  .brand strong { font-size: 19px; }
+  .brand div > span { display: block; font-size: 10px; }
+  .demo-label { padding: 4px 7px; font-size: 10px; }
+  h1 { font-size: 26px; letter-spacing: -.8px; }
+  .page-heading p:last-child { font-size: 13px; margin: 6px 0 12px; }
+  .notice { padding: 10px 12px; font-size: 12px; }
+  .view-switch { width: 100%; display: flex; margin-top: 14px; }
+  .view-switch button { flex: 1; padding: 10px 8px; font-size: 14px; }
+  .feedback { margin: 8px 0; min-height: 0; }
+  .feedback:empty { display: none; }
+  .operations-grid { grid-template-columns: 1fr; gap: 12px; }
   .stats { gap: 8px; }
-  .stats > div { padding: 12px; }
-  .stats span { font-size: 11px; min-height: 34px; }
+  .stats { margin-top: 14px; margin-bottom: 12px; }
+  .stats > div { padding: 10px; }
+  .stats span { font-size: 11px; min-height: 0; }
   .stats strong { font-size: 27px; }
-  .panel { padding: 18px; }
+  .panel { padding: 14px; }
+  .queue-hint { display: none; }
+  .queue-panel .incident-list { max-height: 420px; max-height: min(55dvh, 420px); overflow-y: auto; overscroll-behavior: contain; }
+  .incident-actions, .form-actions { flex-direction: column; gap: 10px; }
+  .incident-actions button, .form-actions button { width: 100%; min-height: 48px; font-size: 14px; }
+  select { min-height: 48px; }
+  label { font-size: 14px; }
+  .checkbox-label { min-height: 48px; margin-top: 8px; }
+  #volunteer-view { margin-top: 14px; }
+  blockquote { padding: 12px; margin: 14px 0; }
+  main > footer { margin-top: 18px; }
 }
