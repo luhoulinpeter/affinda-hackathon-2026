@@ -1,13 +1,15 @@
-// Person 2: owns state and permitted changes. Later replace this local service
-// with a server API that enforces identity and the same workflow rules.
-window.RiversideIncidents = (() => {
-  const reports = [];
-  const incidents = [];
+// Person 2: server-side state and permitted changes. The browser uses api.js.
+(function (root, factory) {
+  if (typeof module !== "undefined" && module.exports) module.exports = factory;
+  else root.RiversideIncidents = factory(root.RiversideData, () => root.RiversideAI);
+})(typeof window !== "undefined" ? window : globalThis, (data, getAI, initial = {}, persist = () => {}) => {
+  const reports = JSON.parse(JSON.stringify(initial.reports || []));
+  const incidents = JSON.parse(JSON.stringify(initial.incidents || []));
   const subscribers = new Set();
-  let sequence = 0;
+  let sequence = reports.reduce((max, report) => Math.max(max, Number(report.id.slice(2)) || 0), 0);
   const clone = value => JSON.parse(JSON.stringify(value));
   const now = () => new Date().toISOString();
-  const notify = () => subscribers.forEach(callback => callback());
+  const notify = () => { persist(getState()); subscribers.forEach(callback => callback()); };
 
   function history(incident, actor, action) {
     incident.history.push({ actorId: actor.id, actorRole: actor.role, action, time: now() });
@@ -18,15 +20,19 @@ window.RiversideIncidents = (() => {
   }
 
   async function submitReport(input) {
-    const volunteer = window.RiversideData.volunteers.find(item => item.id === input.volunteerId);
-    if (!volunteer) throw new Error("Choose a demo volunteer.");
-    if (!window.RiversideData.zones.some(item => item.id === input.zone)) throw new Error("Choose a valid zone.");
+    const volunteer = data.volunteers.find(item => item.id === input.volunteerId);
+    const publicReporter = input.reporter && input.reporter.role === "public" && /^guest-[a-z0-9-]+$/i.test(input.reporter.id);
+    if (!volunteer && !publicReporter) throw new Error("Choose a valid reporter.");
+    const reporter = volunteer ? { id: volunteer.id, role: "volunteer" } : { id: input.reporter.id, role: "public" };
+    if (!data.zones.some(item => item.id === input.zone)) throw new Error("Choose a valid zone.");
     const text = String(input.text || "").trim();
     if (!text || text.length > 2000) throw new Error("Write a report between 1 and 2,000 characters.");
+    const category = input.category || "other";
+    if (!data.categories.some(item => item.id === category)) throw new Error("Choose a valid issue type.");
 
     const number = ++sequence;
     const report = {
-      id: `R-${number}`, volunteerId: volunteer.id, zone: input.zone, text,
+      id: `R-${number}`, volunteerId: volunteer ? volunteer.id : null, reporter, category, zone: input.zone, text,
       immediateConcern: input.immediateConcern === true, time: now()
     };
     const incident = {
@@ -36,14 +42,14 @@ window.RiversideIncidents = (() => {
       assignee: null, acknowledgedBy: null, resolvedBy: null, resolvedAt: null,
       analysis: { state: "pending", mode: "stub" }, history: []
     };
-    history(incident, { id: volunteer.id, role: "volunteer" }, "reported");
+    history(incident, reporter, "reported");
     // Save and show the source report BEFORE waiting for any external service.
     reports.push(report);
     incidents.push(incident);
     notify();
 
     try {
-      const suggestion = await window.RiversideAI.analyse(clone(report), getState().incidents.filter(item => item.id !== incident.id && item.status !== "resolved"));
+      const suggestion = await getAI().analyse(clone(report), getState().incidents.filter(item => item.id !== incident.id && item.status !== "resolved"));
       if (!suggestion || suggestion.mode !== "stub") {
         throw new Error("Real AI results need server-side validation before integration.");
       }
@@ -61,10 +67,11 @@ window.RiversideIncidents = (() => {
     const incident = incidents.find(item => item.id === incidentId);
     if (!incident) throw new Error("Incident not found.");
     const isMo = actor && actor.role === "mo" && actor.id === "mo";
-    const isVolunteer = actor && actor.role === "volunteer" && window.RiversideData.volunteers.some(item => item.id === actor.id);
-    const isReporter = isVolunteer && reports.some(report => incident.reportIds.includes(report.id) && report.volunteerId === actor.id);
+    const isVolunteer = actor && actor.role === "volunteer" && data.volunteers.some(item => item.id === actor.id);
+    const isReporter = actor && reports.some(report => incident.reportIds.includes(report.id) && report.reporter.id === actor.id && report.reporter.role === actor.role);
     const isAssignee = isVolunteer && actor.id === incident.assignee;
-    if (!(isMo || isReporter || isAssignee)) throw new Error("This demo role cannot change this incident.");
+    if (!(isMo || isReporter || isAssignee)) throw new Error("This account cannot change this incident.");
+    if (actor.role === "public" && action !== "resolve") throw new Error("An event-goer may only confirm resolution of their own report.");
     if (incident.status === "resolved") throw new Error("This incident is already confirmed resolved.");
 
     if (action === "acknowledge") {
@@ -91,4 +98,4 @@ window.RiversideIncidents = (() => {
     getState, submitReport, act,
     subscribe(callback) { subscribers.add(callback); return () => subscribers.delete(callback); }
   };
-})();
+});

@@ -1,123 +1,168 @@
-// Person 1: owns the views. Change incidents through the shared service only.
+// Person 1: views follow the server session. Person 2 owns api.js and permissions.
 (() => {
-  const service = window.RiversideIncidents;
+  const api = window.RiversideAPI;
   const data = window.RiversideData;
   const $ = selector => document.querySelector(selector);
   const escape = value => String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
-  const time = value => new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const time = value => new Date(value).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   const zoneName = id => data.zones.find(zone => zone.id === id)?.name || id;
-  const actorName = id => id === "mo" ? "Mo" : id === "system" ? "System" : data.volunteers.find(person => person.id === id)?.name || id;
+  const categoryName = id => data.categories.find(category => category.id === id)?.name || "Other / unsure";
+  const actorName = id => id === "mo" ? "Mo" : id === "system" ? "System" : id?.startsWith("guest-") ? "Event-goer" : data.volunteers.find(person => person.id === id)?.name || id;
   let selectedId = null;
-  // Follow available space, including resizing and phone rotation.
-  // Keep this breakpoint in sync with app.css.
+  let previousActor = null;
   const narrowScreen = window.matchMedia("(max-width: 720px)");
   const setQueueLayout = () => { $("#queue-panel").open = !narrowScreen.matches; };
   setQueueLayout();
   narrowScreen.addEventListener("change", setQueueLayout);
-
-  $("#volunteer").innerHTML = data.volunteers.map(person => `<option value="${escape(person.id)}">${escape(person.name)}</option>`).join("");
   $("#zone").innerHTML = data.zones.map(zone => `<option value="${escape(zone.id)}">${escape(zone.name)}</option>`).join("");
-  $("#zone").value = data.volunteers[0].zone;
+  $("#category").innerHTML = data.categories.map(category => `<option value="${escape(category.id)}">${escape(category.name)}</option>`).join("");
+  $("#category").value = "other";
+  $("#account-volunteer").innerHTML = data.volunteers.map(person => `<option value="${escape(person.id)}">${escape(person.name)}</option>`).join("");
 
   function feedback(message, isError = false) {
     $("#feedback").textContent = message;
     $("#feedback").classList.toggle("error", isError);
   }
-
   function badge(incident) {
     const label = incident.status === "resolved" ? "Confirmed resolved" : incident.status === "escalated" ? "Escalated · open" : incident.attention === "urgent" ? "Immediate concern" : "Needs review";
     return `<span class="badge ${incident.status === "resolved" ? "resolved" : incident.attention === "urgent" ? "urgent" : ""}">${label}</span>`;
   }
-
-  function actionButtons(incident, view) {
+  function actionButtons(incident, role) {
     if (incident.status === "resolved") return "";
-    const action = (name, label, style = "secondary") => `<button type="button" class="${style}" data-action="${name}" data-incident="${incident.id}" data-actor="${view}">${label}</button>`;
-    return `<div class="incident-actions">${view === "mo" && !incident.acknowledgedBy ? action("acknowledge", "Acknowledge") : ""}${incident.status !== "escalated" ? action("escalate", view === "mo" ? "Mark escalated" : "Escalate to Mo") : ""}${action("resolve", "Confirm resolved", "primary")}</div>`;
+    const action = (name, label, style = "secondary") => `<button type="button" class="${style}" data-action="${name}" data-incident="${escape(incident.id)}">${label}</button>`;
+    return `<div class="incident-actions">${role === "mo" && !incident.acknowledgedBy ? action("acknowledge", "Acknowledge") : ""}${role !== "public" && incident.status !== "escalated" ? action("escalate", role === "mo" ? "Mark escalated" : "Escalate to Mo") : ""}${action("resolve", "Confirm resolved", "primary")}</div>`;
   }
-
   function render() {
-    const state = service.getState();
-    const open = state.incidents.filter(item => item.status !== "resolved");
-    $("#open-count").textContent = open.length;
-    $("#urgent-count").textContent = open.filter(item => item.attention === "urgent").length;
-    $("#resolved-count").textContent = state.incidents.length - open.length;
-    $("#queue-count").textContent = `(${state.incidents.length})`;
-    const sorted = [...state.incidents].sort((a, b) => Number(a.status === "resolved") - Number(b.status === "resolved") || Number(b.attention === "urgent") - Number(a.attention === "urgent") || Number(b.id.slice(2)) - Number(a.id.slice(2)));
-    if (!selectedId && sorted.length) selectedId = sorted[0].id;
-    $("#incident-list").innerHTML = sorted.length ? sorted.map(incident => {
-      const report = state.reports.find(item => item.id === incident.reportIds[0]);
-      return `<button type="button" class="queue-item ${selectedId === incident.id ? "selected" : ""}" data-select="${incident.id}" aria-pressed="${selectedId === incident.id}"><span class="queue-top"><strong>${incident.id}</strong>${badge(incident)}</span><span class="queue-zone">${escape(zoneName(incident.zone))}</span><span class="queue-text">${escape(report.text)}</span><span class="muted">${incident.reportIds.length} report · ${time(report.time)}</span></button>`;
-    }).join("") : '<div class="empty"><span class="empty-symbol" aria-hidden="true">↗</span><h3>No reports yet</h3><p>Open Volunteer view and send a fictional report to begin.</p><button type="button" class="secondary" data-view="volunteer">Go to volunteer view</button></div>';
-
-    const selected = state.incidents.find(item => item.id === selectedId);
-    if (!selected) {
-      $("#incident-detail").innerHTML = '<div class="empty"><h2>Ready for the first report</h2><p>Original reports, human actions and their times will appear here.</p></div>';
-    } else {
-      const actions = { reported: "Submitted report", acknowledge: "Acknowledged · still open", escalate: "Escalated · still open", resolve: "Explicitly confirmed resolved", analysis_failed: "Analysis failed · report retained for Mo" };
-      $("#incident-detail").innerHTML = `<div class="panel-heading"><h2>${selected.id} · Incident record</h2>${badge(selected)}</div><h3>${escape(zoneName(selected.zone))}</h3><p class="muted">${selected.acknowledgedBy ? "Acknowledged by Mo" : "Awaiting Mo’s acknowledgement"} · ${selected.assignee ? escape(actorName(selected.assignee)) : "No volunteer assigned"}</p><div class="source-reports">${state.reports.filter(report => selected.reportIds.includes(report.id)).map(report => `<blockquote><p>${escape(report.text)}</p><footer>${escape(actorName(report.volunteerId))} · ${time(report.time)} · ${report.id}</footer></blockquote>`).join("")}</div><p class="analysis-note">${selected.analysis.state === "failed" ? "Analysis unavailable. The original report is retained for Mo." : "AI not connected. No grouping or automatic assignment has been performed."}</p>${selected.status === "resolved" ? `<p class="resolution-note">Confirmed by ${escape(actorName(selected.resolvedBy.id))} at ${time(selected.resolvedAt)}.</p>` : ""}${actionButtons(selected, "mo")}<h3 class="history-heading">Activity</h3><ol class="history">${selected.history.map(event => `<li><span>${escape(actions[event.action] || event.action)}</span><small>${escape(actorName(event.actorId))} · ${time(event.time)}</small></li>`).join("")}</ol>`;
+    const session = api.getSession();
+    if (!session) return;
+    const state = api.getState();
+    const role = session.user?.role || "public";
+    const actorId = session.user?.id || session.guest.id;
+    $("#signin-button").disabled = false;
+    $("#signin-button").hidden = !!session.user;
+    $("#signout-button").hidden = !session.user;
+    $("#session-label").textContent = session.user ? `${session.user.name} · ${role === "mo" ? "Safety lead" : "Volunteer"}` : "Event-goer";
+    $("#mo-view").hidden = role !== "mo";
+    $("#reporting-view").hidden = role === "mo";
+    $("#reporting-view").setAttribute("aria-label", role === "public" ? "Event-goer reporting view" : "Volunteer reporting view");
+    $("#page-eyebrow").textContent = role === "mo" ? "Ground control" : role === "volunteer" ? "Volunteer workspace" : "Riverside festival";
+    $("#page-title").textContent = role === "mo" ? "Review. Respond. Follow through." : role === "volunteer" ? "Your reports. Your response." : "Get help. Report an issue.";
+    $("#page-description").textContent = role === "mo" ? "Review incoming incidents and record your decisions." : "Tell the safety team what you saw and where it happened.";
+    $("#reporter-label").textContent = role === "volunteer" ? `Reporting as ${session.user.name}` : "No sign-in needed";
+    $("#reports-note").textContent = role === "volunteer" ? "Your staff account" : "From this browser";
+    if (actorId !== previousActor) {
+      if (role === "volunteer") $("#zone").value = data.volunteers.find(person => person.id === actorId)?.zone || data.zones[0].id;
+      $("#report-text").value = "";
+      $("#immediate-concern").checked = false;
+      previousActor = actorId;
     }
-
-    const ownReports = state.reports.filter(report => report.volunteerId === $("#volunteer").value).reverse();
-    $("#volunteer-reports").innerHTML = ownReports.length ? ownReports.map(report => {
+    // Clear the other role's rendered data as well as hiding its panel.
+    if (role !== "mo") {
+      for (const id of ["open-count", "urgent-count", "resolved-count"]) $(`#${id}`).textContent = "0";
+      $("#queue-count").textContent = "(0)";
+      $("#incident-list").innerHTML = "";
+      $("#incident-detail").innerHTML = "";
+      $("#accounts-panel").open = false;
+      $("#account-form").reset();
+      $("#account-feedback").textContent = "";
+      selectedId = null;
+    } else {
+      const open = state.incidents.filter(item => item.status !== "resolved");
+      $("#open-count").textContent = open.length;
+      $("#urgent-count").textContent = open.filter(item => item.attention === "urgent").length;
+      $("#resolved-count").textContent = state.incidents.length - open.length;
+      $("#queue-count").textContent = `(${state.incidents.length})`;
+      const sorted = [...state.incidents].sort((a, b) => Number(a.status === "resolved") - Number(b.status === "resolved") || Number(b.attention === "urgent") - Number(a.attention === "urgent") || Number(b.id.slice(2)) - Number(a.id.slice(2)));
+      if (!state.incidents.some(item => item.id === selectedId)) selectedId = sorted[0]?.id || null;
+      $("#incident-list").innerHTML = sorted.length ? sorted.map(incident => {
+        const report = state.reports.find(item => item.id === incident.reportIds[0]);
+        return `<button type="button" class="queue-item ${selectedId === incident.id ? "selected" : ""}" data-select="${escape(incident.id)}" aria-pressed="${selectedId === incident.id}"><span class="queue-top"><strong>${escape(incident.id)}</strong>${badge(incident)}</span><span class="queue-zone">${escape(zoneName(incident.zone))}</span><span class="queue-text">${escape(report.text)}</span><span class="muted">${incident.reportIds.length} report · ${time(report.time)}</span></button>`;
+      }).join("") : '<div class="empty"><h3>No reports yet</h3><p>Reports from event-goers and volunteers will appear here.</p></div>';
+      const selected = state.incidents.find(item => item.id === selectedId);
+      if (!selected) {
+        $("#incident-detail").innerHTML = '<div class="empty"><h2>Ready for the first report</h2><p>Original reports, human actions and their times will appear here.</p></div>';
+      } else {
+        const actions = { reported: "Submitted report", acknowledge: "Acknowledged · still open", escalate: "Escalated · still open", resolve: "Explicitly confirmed resolved", analysis_failed: "Analysis failed · report retained for Mo" };
+        $("#incident-detail").innerHTML = `<div class="panel-heading"><h2>${escape(selected.id)} · Incident record</h2>${badge(selected)}</div><h3>${escape(zoneName(selected.zone))}</h3><p class="muted">${selected.acknowledgedBy ? "Acknowledged by Mo" : "Awaiting Mo’s acknowledgement"} · ${selected.assignee ? escape(actorName(selected.assignee)) : "No volunteer assigned"}</p><div class="source-reports">${state.reports.filter(report => selected.reportIds.includes(report.id)).map(report => `<blockquote><p>${escape(report.text)}</p><footer>${escape(actorName(report.reporter.id))} · ${escape(categoryName(report.category))} · ${time(report.time)} · ${escape(report.id)}</footer></blockquote>`).join("")}</div><p class="analysis-note">${selected.analysis.state === "failed" ? "Analysis unavailable. The original report is retained for Mo." : "AI not connected. No automatic assignment has been performed."}</p>${selected.status === "resolved" ? `<p class="resolution-note">Confirmed by ${escape(actorName(selected.resolvedBy.id))} at ${time(selected.resolvedAt)}.</p>` : ""}${actionButtons(selected, "mo")}<h3 class="history-heading">Activity</h3><ol class="history">${selected.history.map(event => `<li><span>${escape(actions[event.action] || event.action)}</span><small>${escape(actorName(event.actorId))} · ${time(event.time)}</small></li>`).join("")}</ol>`;
+      }
+    }
+    const ownReports = state.reports.filter(report => report.reporter.id === actorId && report.reporter.role === role).reverse();
+    $("#own-reports").innerHTML = role === "mo" ? "" : ownReports.length ? ownReports.map(report => {
       const incident = state.incidents.find(item => item.reportIds.includes(report.id));
-      return `<article class="own-report"><div class="queue-top"><strong>${report.id} → ${incident.id}</strong>${badge(incident)}</div><p>${escape(report.text)}</p><p class="muted">${escape(zoneName(report.zone))} · ${time(report.time)}</p>${incident.status === "resolved" ? `<p class="resolution-note">Confirmed by ${escape(actorName(incident.resolvedBy.id))} at ${time(incident.resolvedAt)}.</p>` : '<p class="field-note">Keep the incident open until you can explicitly confirm resolution.</p>'}${actionButtons(incident, "volunteer")}</article>`;
-    }).join("") : '<div class="empty"><h3>No reports from this volunteer</h3><p>Send a report using the form. Switch to Mo’s view to review it.</p></div>';
+      return `<article class="own-report"><div class="queue-top"><strong>${escape(report.id)} → ${escape(incident.id)}</strong>${badge(incident)}</div><p>${escape(report.text)}</p><p class="muted">${escape(zoneName(report.zone))} · ${escape(categoryName(report.category))} · ${time(report.time)}</p>${incident.status === "resolved" ? `<p class="resolution-note">Confirmed by ${incident.resolvedBy.id === actorId ? "you" : escape(actorName(incident.resolvedBy.id))} at ${time(incident.resolvedAt)}.</p>` : '<p class="field-note">Your report remains open until a person explicitly confirms resolution.</p>'}${actionButtons(incident, role)}</article>`;
+    }).join("") : '<div class="empty"><h3>No reports yet</h3><p>Send a report to receive a reference and check its status here.</p><p>Your event-goer report history depends on this browser’s cookie. Use the same browser to return to it.</p></div>';
   }
-
-  function setView(view) {
-    $("#mo-view").hidden = view !== "mo";
-    $("#volunteer-view").hidden = view !== "volunteer";
-    document.querySelectorAll("nav [data-view]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.view === view)));
-  }
-
-  document.addEventListener("click", event => {
+  document.addEventListener("click", async event => {
     const button = event.target.closest("button");
     if (!button) return;
-    if (button.dataset.view) setView(button.dataset.view);
     if (button.dataset.select) {
       selectedId = button.dataset.select;
       if (narrowScreen.matches) $("#queue-panel").open = false;
       render();
-      // Move keyboard focus out of the now-collapsed list into the selected card.
-      if (narrowScreen.matches) {
-        $("#incident-detail").tabIndex = -1;
-        $("#incident-detail").focus({ preventScroll: true });
-      }
+      if (narrowScreen.matches) { $("#incident-detail").tabIndex = -1; $("#incident-detail").focus({ preventScroll: true }); }
     }
     if (button.dataset.action) {
-      const actor = button.dataset.actor === "mo" ? { id: "mo", role: "mo" } : { id: $("#volunteer").value, role: "volunteer" };
+      button.disabled = true;
       try {
-        service.act(button.dataset.incident, button.dataset.action, actor);
-        feedback(button.dataset.action === "resolve" ? `${button.dataset.incident}: resolution explicitly confirmed by ${actorName(actor.id)}.` : `${button.dataset.incident}: action recorded; incident remains open.`);
+        await api.act(button.dataset.incident, button.dataset.action);
+        feedback(button.dataset.action === "resolve" ? `${button.dataset.incident}: resolution explicitly confirmed.` : `${button.dataset.incident}: action recorded; incident remains open.`);
       } catch (error) { feedback(error.message, true); }
+      finally { button.disabled = false; }
     }
   });
-
-  $("#volunteer").addEventListener("change", () => {
-    $("#zone").value = data.volunteers.find(person => person.id === $("#volunteer").value).zone;
-    feedback("");
-    render();
-  });
   $("#example-report").addEventListener("click", () => {
-    $("#zone").value = data.example.zone;
-    $("#report-text").value = data.example.text;
-    $("#immediate-concern").checked = data.example.immediateConcern;
+    $("#zone").value = data.example.zone; $("#category").value = "hazard";
+    $("#report-text").value = data.example.text; $("#immediate-concern").checked = false;
     $("#report-text").focus();
   });
   $("#report-form").addEventListener("submit", async event => {
     event.preventDefault();
-    const button = event.target.querySelector('[type="submit"]');
-    button.disabled = true;
+    const button = event.target.querySelector('[type="submit"]'); button.disabled = true;
     try {
-      const incident = await service.submitReport({ volunteerId: $("#volunteer").value, zone: $("#zone").value, text: $("#report-text").value, immediateConcern: $("#immediate-concern").checked });
-      selectedId = incident.id;
-      $("#report-text").value = "";
-      $("#immediate-concern").checked = false;
-      render();
-      feedback(`Report received as ${incident.id}. Open Mo’s view to review it. No responder has been dispatched.`);
+      const incident = await api.submitReport({ zone: $("#zone").value, category: $("#category").value, text: $("#report-text").value, immediateConcern: $("#immediate-concern").checked });
+      $("#report-text").value = ""; $("#immediate-concern").checked = false;
+      feedback(`Report received as ${incident.id}. Check its status in Your reports. No responder has been dispatched.`);
     } catch (error) { feedback(error.message, true); }
     finally { button.disabled = false; }
   });
-  service.subscribe(render);
-  render();
+  $("#signin-button").addEventListener("click", () => {
+    const setup = api.getSession().setupRequired;
+    $("#signin-form").reset(); $("#signin-feedback").textContent = "";
+    $("#signin-title").textContent = setup ? "Create the first Mo account" : "Staff sign in";
+    $("#signin-description").textContent = setup ? "Local first-run setup: choose a username and a password of at least 12 characters. Mo can then create volunteer accounts. Do not reuse a password from another service." : "Your account determines whether you see the Volunteer or Mo workspace.";
+    $("#confirm-password-field").hidden = !setup;
+    $("#confirm-password").required = setup;
+    $("#signin-password").minLength = setup ? 12 : 1;
+    $("#signin-password").autocomplete = setup ? "new-password" : "current-password";
+    $("#signin-submit").textContent = setup ? "Create Mo account" : "Sign in";
+    $("#signin-dialog").showModal();
+  });
+  $("#close-signin").addEventListener("click", () => $("#signin-dialog").close());
+  $("#signin-dialog").addEventListener("close", () => { $("#signin-form").reset(); $("#signin-feedback").textContent = ""; });
+  $("#signin-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    if (api.getSession().setupRequired && $("#signin-password").value !== $("#confirm-password").value) { $("#signin-feedback").textContent = "The passwords do not match."; return; }
+    $("#signin-submit").disabled = true;
+    try {
+      await api.authenticate($("#signin-username").value.trim().toLowerCase(), $("#signin-password").value);
+      $("#signin-dialog").close(); feedback(`Signed in as ${api.getSession().user.name}.`);
+    } catch (error) { $("#signin-feedback").textContent = error.message; }
+    finally { $("#signin-submit").disabled = false; }
+  });
+  $("#signout-button").addEventListener("click", async () => {
+    try { await api.logout(); feedback("Signed out. You are back on the event-goer page."); }
+    catch (error) { feedback(error.message, true); }
+  });
+  $("#account-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    const button = event.target.querySelector('[type="submit"]'); button.disabled = true;
+    try {
+      await api.createAccount({ username: $("#account-username").value.trim().toLowerCase(), password: $("#account-password").value, volunteerId: $("#account-volunteer").value });
+      $("#account-form").reset(); $("#account-feedback").textContent = "Volunteer account created. They can now sign in with those credentials.";
+    } catch (error) { $("#account-feedback").textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+  api.subscribe(render);
+  api.refresh().then(() => feedback("")).catch(error => feedback(`Cannot connect. Run node server/index.cjs and open the local server URL. ${error.message}`, true));
+  setInterval(() => { if (!document.hidden && !$("#signin-dialog").open) api.refresh().catch(error => feedback(error.message, true)); }, 6000);
 })();

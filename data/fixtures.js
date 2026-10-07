@@ -1,5 +1,13 @@
 // Shared fictional examples. Person 2 owns changes to these data shapes.
-window.RiversideData = {
+const riversideFixtures = {
+  categories: [
+    { id: "medical", name: "Medical" },
+    { id: "crowding", name: "Crowding" },
+    { id: "lost-person", name: "Lost person" },
+    { id: "staffing", name: "Staffing" },
+    { id: "hazard", name: "Hazard" },
+    { id: "other", name: "Other / unsure" }
+  ],
   zones: [
     { id: "zone-a", name: "Zone A · Main stage" },
     { id: "zone-b", name: "Zone B · Water tent" },
@@ -12,3 +20,5 @@ window.RiversideData = {
   ],
   example: { zone: "zone-b", text: "There is a spill beside the water tent. The walkway is slippery.", immediateConcern: false }
 };
+if (typeof module !== "undefined" && module.exports) module.exports = riversideFixtures;
+else window.RiversideData = riversideFixtures;

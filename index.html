@@ -6,27 +6,22 @@
   <title>Riverside · Incident response starter</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23173c36'/%3E%3Ctext x='8' y='24' fill='white' font-size='24'%3ER%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="src/css/app.css">
-  <!-- Classic scripts keep this starter usable by double-click, without a server. -->
+  <!-- Run node server/index.cjs, then open the local server URL. -->
   <script defer src="data/fixtures.js"></script>
-  <script defer src="src/js/services/analysis.js"></script>
-  <script defer src="src/js/domain/incidents.js"></script>
+  <script defer src="src/js/services/api.js"></script>
   <script defer src="src/js/ui/app.js"></script>
 </head>
 <body>
   <header class="site-header">
     <div class="brand"><span class="brand-icon" aria-hidden="true">R</span><div><strong>Riverside</strong><span>Incident response · team starter</span></div></div>
-    <span class="demo-label">Fictional demo</span>
+    <div class="account-controls"><span id="session-label" class="demo-label">Event-goer</span><button id="signin-button" type="button" class="header-button" disabled>Staff sign in</button><button id="signout-button" type="button" class="header-button" hidden>Sign out</button></div>
   </header>
   <main>
-    <div class="page-heading"><div><p class="eyebrow">Ground control</p><h1>A shared starting point.</h1><p>Report an issue. Review it. Record a human decision.</p></div></div>
-    <aside class="notice"><strong>Local prototype · AI is not connected.</strong> Reports stay in this tab and reset on refresh. No live dispatch or emergency service is connected.</aside>
-    <nav class="view-switch" aria-label="Demo role">
-      <button type="button" data-view="mo" aria-pressed="true">Mo’s view</button>
-      <button type="button" data-view="volunteer" aria-pressed="false">Volunteer view</button>
-    </nav>
-    <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+    <div class="page-heading"><div><p id="page-eyebrow" class="eyebrow">Riverside festival</p><h1 id="page-title">Get help. Report an issue.</h1><p id="page-description">Tell the safety team what you saw and where it happened.</p></div></div>
+    <aside class="notice"><strong>Prototype · fictional data · AI is not connected.</strong> Reports are stored on this server. No live dispatch or emergency service is connected.</aside>
+    <p id="feedback" class="feedback" role="status" aria-live="polite">Connecting to the server…</p>
 
-    <section id="mo-view" aria-label="Mo’s operations view">
+    <section id="mo-view" aria-label="Mo’s operations view" hidden>
       <div class="stats" aria-label="Incident counts">
         <div><span>Open incidents</span><strong id="open-count">0</strong></div>
         <div><span>Urgent · open</span><strong id="urgent-count">0</strong></div>
@@ -39,16 +34,26 @@
         </details>
         <section id="incident-detail" class="panel detail-panel" aria-label="Selected incident"></section>
       </div>
+      <details id="accounts-panel" class="panel accounts-panel">
+        <summary><strong>Volunteer accounts</strong></summary>
+        <p class="field-note">Mo creates staff accounts. The roster identity determines the volunteer's access; people cannot choose their own role when signing in.</p>
+        <form id="account-form">
+          <label for="account-volunteer">Volunteer</label><select id="account-volunteer" required></select>
+          <label for="account-username">Username</label><input id="account-username" type="text" minlength="3" maxlength="40" pattern="[a-z0-9._-]{3,40}" autocomplete="off" required>
+          <label for="account-password">Password · at least 12 characters</label><input id="account-password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required>
+          <button class="primary" type="submit">Create volunteer account</button>
+          <p id="account-feedback" class="feedback" role="status"></p>
+        </form>
+      </details>
     </section>
 
-    <section id="volunteer-view" aria-label="Volunteer reporting view" hidden>
+    <section id="reporting-view" aria-label="Event-goer reporting view" hidden>
       <div class="operations-grid">
         <section class="panel">
-          <div class="panel-heading"><h2>Send a report</h2><span class="muted">Text first</span></div>
+          <div class="panel-heading"><h2>Send a report</h2><span id="reporter-label" class="muted">No sign-in needed</span></div>
           <form id="report-form">
-            <label for="volunteer">Demo volunteer</label><select id="volunteer" name="volunteerId" required></select>
-            <p class="field-note">This selector simulates identity; it is not a sign-in.</p>
             <label for="zone">Incident zone</label><select id="zone" name="zone" required></select>
+            <label for="category">Issue type</label><select id="category" name="category" required></select>
             <label for="report-text">What did you see?</label>
             <textarea id="report-text" name="text" rows="5" maxlength="2000" required placeholder="Describe the issue and where it is. Use fictional examples."></textarea>
             <label class="checkbox-label"><input id="immediate-concern" type="checkbox" name="immediateConcern"> Flag immediate concern for Mo</label>
@@ -56,11 +61,22 @@
             <p class="field-note">Submitting a report does not guarantee a response. Follow the event’s established emergency procedure for immediate help.</p>
           </form>
         </section>
-        <section class="panel"><div class="panel-heading"><h2>Your reports</h2><span class="muted">Current demo volunteer</span></div><div id="volunteer-reports"></div></section>
+        <section class="panel"><div class="panel-heading"><h2>Your reports</h2><span id="reports-note" class="muted">From this browser</span></div><div id="own-reports"></div></section>
       </div>
     </section>
-    <footer>Text workflow starter · fictional zones and people · human confirmation required to resolve</footer>
+    <footer>Fictional zones and people · human confirmation required to resolve</footer>
     <noscript>This prototype needs JavaScript enabled in your browser.</noscript>
   </main>
+  <dialog id="signin-dialog" aria-labelledby="signin-title">
+    <div class="dialog-heading"><h2 id="signin-title">Staff sign in</h2><button id="close-signin" type="button" class="secondary" aria-label="Close sign-in">Close</button></div>
+    <p id="signin-description" class="field-note">Your account determines whether you see the Volunteer or Mo workspace.</p>
+    <form id="signin-form">
+      <label for="signin-username">Username</label><input id="signin-username" type="text" minlength="3" maxlength="40" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      <label for="signin-password">Password</label><input id="signin-password" type="password" maxlength="128" autocomplete="current-password" required>
+      <div id="confirm-password-field" hidden><label for="confirm-password">Confirm password</label><input id="confirm-password" type="password" maxlength="128" autocomplete="new-password"></div>
+      <p id="signin-feedback" class="feedback" role="alert"></p>
+      <button id="signin-submit" class="primary" type="submit">Sign in</button>
+    </form>
+  </dialog>
 </body>
 </html>
