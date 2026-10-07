@@ -10,7 +10,7 @@ This working split follows the team's discussion on 7 October. Replace Person 1â
 
 Person 2 owns the server entry point and shared configuration. Person 3 adds provider adapters in separate files. Keep API keys on the server, never in browser scripts. Person 1 owns shared HTML and CSS; coordinate changes rather than editing the same files simultaneously.
 
-See [the AI plan](docs/AI-PLAN.md) for Jev/LLM boundaries and unresolved Q&A decisions. Next.js/Supabase are being considered; the file paths above describe the implemented starter until a migration is agreed.
+See [the AI plan](docs/AI-PLAN.md) for Jev/LLM boundaries and unresolved Q&A decisions. The team kept the Node.js server and JSON file store (no database) on 7 October.
 
 ## Work together first
 

@@ -27,12 +27,11 @@
 - 7 October 2026: After reviewing the Armaan branch and discussing a three-person split, the team requested a starting point on main. Added a local text-report workflow with separate interface, incident-domain and analysis-adapter files. This does not settle whether all of Armaan's proposed scope changes are accepted; the original direction above and Armaan's revision still need reconciliation.
 - 7 October 2026: The team chose the original incident-response plan and asked to set Armaan's revision aside. Keep three views: public/event-goer reporting as the default, Volunteer after sign-in, and Mo after sign-in. The team explicitly chose real accounts with a server enforcing access. Added local first-account setup for Mo and Mo-only volunteer account creation; the stored account role determines the workspace, replacing role-switch buttons.
 - 7 October 2026: The team clarified that Jev is not the only planned AI integration. Add a separate LLM to interpret information and answer less urgent questions. Provider/model, Q&A audiences and knowledge sources are still undecided; no LLM connection or chat interface has been implemented.
+- 7 October 2026: Keep the Node.js server with a JSON file store; no database (no Supabase/Next.js migration). Reason: this is an MVP and a single JSON file is enough.
 
 ## Stack review
 
-The implemented starter uses browser HTML/CSS/JavaScript, a Node.js HTTP server, custom local account sessions and a JSON file store. This followed the starter guidance to get the smallest version running first. The team has now raised Next.js and Supabase as alternatives; migration has not been approved or implemented.
-
-Proposed alternative for the shared app: Next.js for React-based screens and server endpoints; Supabase Auth and Postgres for accounts/shared records; database access policies for public/Volunteer/Mo boundaries; Storage for audio when needed; Realtime for updates if needed. Jev/LLM calls and workflow validation still belong on trusted server code. Supabase does not supply the team's eligibility, escalation or resolution rules automatically. Migration would require rewriting the interface, setting up a Supabase project, schema/policies and account migration, and rechecking the existing workflows. Team familiarity and service access should guide the decision.
+The implemented starter uses browser HTML/CSS/JavaScript, a Node.js HTTP server, custom local account sessions and a JSON file store. This followed the starter guidance to get the smallest version running first. **Decided 7 October 2026: keep this stack.** No database; the JSON file store is enough for the MVP. Next.js/Supabase will not be adopted.
 
 ## Registration and track checklist — Wednesday 7 October 2026, 5:00pm
 
@@ -40,9 +39,9 @@ HACKATHON.md states: "both forms close **Wed 7 Oct, 5:00pm**. Use the same team 
 
 - [ ] Confirm 3–4 members, each on one team, and a [ticket for every member](https://events.humanitix.com/affinda-ai-innovation-challenge).
 - [ ] Agree on the team name: <TODO>.
-- [x] Team chooses a track using the [Track Guide](https://groovy-prune-775.notion.site/Affinda-AI-Innovation-Challenge-Track-Guide-3ef1e973de588137b302fd544dfc1a76): Track 3. The selection form is still unchecked below.
-- [ ] One person submits the [team registration form](https://forms.gle/kL6HoJAnumiAe8Ry8). Responsible member / completion: <TODO>.
-- [ ] One person submits the [track selection form](https://forms.gle/71QCPtin8XqmcvLf7), using the same team name. Responsible member / completion: <TODO>.
+- [x] Team chooses a track using the [Track Guide](https://groovy-prune-775.notion.site/Affinda-AI-Innovation-Challenge-Track-Guide-3ef1e973de588137b302fd544dfc1a76): Track 3.
+- [x] One person submits the [team registration form](https://forms.gle/kL6HoJAnumiAe8Ry8). Responsible member / completion: <TODO>.
+- [x] One person submits the [track selection form](https://forms.gle/71QCPtin8XqmcvLf7), using the same team name. Responsible member / completion: <TODO>.
 
 ## Event requirements
 - All work must happen between Opening Night and the submission deadline; no pre-existing projects.
@@ -57,7 +56,8 @@ HACKATHON.md states: "both forms close **Wed 7 Oct, 5:00pm**. Use the same team 
 - Starter checked on 7 October: seven domain tests plus an HTTP integration test passed. The integration checks covered server-enforced roles, forged client roles/identities, guest isolation, CSRF/origin rejection, password verification, session invalidation, private-file exclusion and account/report persistence after server restart. Browser checks covered default public reporting, refresh persistence, first Mo setup, volunteer account creation/sign-in, wrong-password feedback, logout restoring guest history, human resolution and 320–1280px layouts. Physical phones remain untested.
 - Implemented: public/event-goer reporting by default, issue types/zones, private public-report history via a signed browser cookie, real staff sign-in, role-based workspaces, Mo-only volunteer-account creation, server-enforced permissions, persistent local report/account storage, explicit human action history and a labelled analysis stub. Run `node server/index.cjs`; direct file opening has been replaced by the server. See [roles.md](roles.md) and [the API contract](docs/STARTER-CONTRACT.md).
 - Responsive layout checked on 7 October: at widths of 320, 375, 390, 430, 720, 768 and 1280px, both views fit without horizontal scrolling. Narrow screens use a collapsed incident queue, stacked panels and 48px-high action buttons. Browser checks verified selecting an incident, acknowledgement, explicit resolution and changing layout on resize. These are viewport checks, not physical-phone tests.
-- Not implemented or verified: registration/track forms, automatic assignment and volunteer offers, eligibility/coverage checks, real Jev calls, LLM interpretation/Q&A, audio/transcription, spoken alerts, maps/zone counts/cluster alerts, public deployment, password reset/recovery and physical-phone access. Model/service access remains unverified. Grouping/Split/Merge from Armaan's revision is set aside. Next.js/Supabase are under discussion, not installed.
+- Team registration and track selection forms: submitted (confirmed by Armaan, 7 October).
+- Not implemented or verified: automatic assignment and volunteer offers, eligibility/coverage checks, real Jev calls, LLM interpretation/Q&A, audio/transcription, spoken alerts, maps/zone counts/cluster alerts, public deployment, password reset/recovery and physical-phone access. Model/service access remains unverified. Grouping/Split/Merge from Armaan's revision is set aside. Next.js/Supabase were considered and rejected for the MVP.
 - Next step: decide whether to keep the starter stack or migrate before adding more infrastructure; assign names to roles, verify Jev/LLM API access, and agree the LLM audience/knowledge sources plus safety/eligibility rules. Continue with the original MVP draft and the new AI plan. The existing server still runs locally; AI, voice and maps remain planned.
 
 ## Traps

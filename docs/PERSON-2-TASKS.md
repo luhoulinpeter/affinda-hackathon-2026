@@ -35,7 +35,7 @@ Updated 7 October 2026 after merging peterlu's server work from `main`. Run `nod
 - `src/js/domain/incidents.js`: factory `(data, getAI, initial, persist)` used by the server. Actions `acknowledge` | `escalate` | `resolve`, plus `reset()`. Still rejects any non-`stub` AI result.
 - `src/js/services/api.js`: browser client on `window.RiversideAPI`. Async `act`/`submitReport`, subscribes to `/api/events`; the UI also polls every 6s.
 - State persists to `.riverside/store.json` (git-ignored). Double-click mode is gone; the server is required.
-- Team decisions since this list was first written: original plan chosen, **grouping/Split/Merge set aside**; public/Volunteer/Mo views with real sign-in; a separate LLM alongside Jev (`docs/AI-PLAN.md`); **Next.js + Supabase under discussion** (not approved).
+- Team decisions since this list was first written: original plan chosen, **grouping/Split/Merge set aside**; public/Volunteer/Mo views with real sign-in; a separate LLM alongside Jev (`docs/AI-PLAN.md`); **stack kept: Node server + JSON file, no database** (decided 7 Oct).
 
 ## Tasks
 
@@ -54,7 +54,6 @@ Updated 7 October 2026 after merging peterlu's server work from `main`. Run `nod
 ### P0: still open
 
 - **Phone access / deployment.** The server only accepts `127.0.0.1`/`localhost`, so phones cannot reach it. Needed for phone testing and a public prototype link. Agree with the team: deploy (Render, Railway or Fly: one long-running process with a persistent disk; serverless platforms lose state), or allow LAN hosts. Either requires HTTPS/`secureCookies` and a host allowlist, not just removing the check.
-- **Stack decision.** Settle Node starter vs Next.js + Supabase before large new builds.
 
 ### P1: the workflow rules behind the product
 
@@ -85,7 +84,7 @@ Duplicate reports, wrong zone, ambiguous text, nobody eligible, decline, offer n
 1. ~~Grouping/Split/Merge vs. original plan~~: decided 7 Oct, original plan chosen.
 2. Auto-offer to volunteers without Mo's approval, and for which categories.
 3. Skills, availability and per-zone minimums; the cluster threshold.
-4. ~~Double-click local mode~~: replaced by the server. **New:** Node starter vs Next.js + Supabase; how phones reach the server (deploy vs LAN).
+4. ~~Double-click local mode~~: replaced by the server. Stack decided: Node + JSON file. **Still open:** how phones reach the server (deploy vs LAN).
 5. Model choice (Jev vs. another) and validated output fields, with Person 3.
 
 When a decision is made, record it in `PROJECT.md` → Decisions, with the date and reason.
