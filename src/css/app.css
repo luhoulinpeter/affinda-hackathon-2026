@@ -2,6 +2,9 @@
 * { box-sizing: border-box; }
 body { margin: 0; background: #f3f6f4; color: var(--ink); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 button, input, select, textarea { font: inherit; }
+.account-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+.header-button { color: #fff; background: transparent; border: 1px solid #78998b; border-radius: 7px; padding: 8px 12px; }
+.header-button:hover { background: #ffffff15; }
 button { cursor: pointer; min-height: 44px; touch-action: manipulation; }
 button:disabled { opacity: .6; cursor: wait; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid #388eae; outline-offset: 3px; }
@@ -69,7 +72,7 @@ blockquote footer { margin: 0; padding: 0; text-align: left; }
 .history li { display: flex; flex-direction: column; gap: 3px; border-bottom: 1px solid #eef2ef; padding: 10px 0; font-size: 13px; }
 .history small { color: var(--muted); }
 label { display: block; font-size: 13px; font-weight: 600; margin: 16px 0 6px; }
-select, textarea { width: 100%; border: 1px solid #baccc3; padding: 10px; background: #fff; color: var(--ink); border-radius: 7px; font-size: 16px; }
+select, textarea, input:not([type="checkbox"]) { width: 100%; border: 1px solid #baccc3; padding: 10px; background: #fff; color: var(--ink); border-radius: 7px; font-size: 16px; }
 textarea { resize: vertical; min-height: 130px; }
 .checkbox-label { display: flex; gap: 10px; align-items: center; font-weight: 400; }
 .checkbox-label input { width: 18px; height: 18px; accent-color: var(--accent); flex-shrink: 0; }
@@ -77,6 +80,15 @@ textarea { resize: vertical; min-height: 130px; }
 .own-report:first-child { border: 0; padding-top: 0; }
 .own-report > p { overflow-wrap: anywhere; white-space: pre-wrap; }
 main > footer { text-align: center; color: var(--muted); font-size: 11px; margin-top: 32px; padding: 12px; }
+.accounts-panel { margin-top: 20px; }
+.accounts-panel summary { cursor: pointer; min-height: 44px; }
+.accounts-panel form { max-width: 480px; }
+.accounts-panel form > button { margin-top: 18px; }
+#reporting-view { margin-top: 20px; }
+dialog { border: 1px solid var(--line); border-radius: 14px; padding: 24px; width: min(440px, calc(100% - 24px)); max-height: calc(100dvh - 24px); color: var(--ink); overflow-y: auto; }
+dialog::backdrop { background: #102d35a6; }
+.dialog-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+dialog form > .primary { width: 100%; min-height: 48px; }
 @media (max-width: 720px) {
   main { padding: 18px 12px 12px; }
   .site-header { padding: 12px; min-height: 70px; gap: 8px; }
@@ -85,6 +97,9 @@ main > footer { text-align: center; color: var(--muted); font-size: 11px; margin
   .brand strong { font-size: 19px; }
   .brand div > span { display: block; font-size: 10px; }
   .demo-label { padding: 4px 7px; font-size: 10px; }
+  .account-controls { gap: 6px; max-width: 145px; }
+  .account-controls .demo-label { white-space: normal; text-align: right; }
+  .header-button { padding: 6px 10px; font-size: 12px; }
   h1 { font-size: 26px; letter-spacing: -.8px; }
   .page-heading p:last-child { font-size: 13px; margin: 6px 0 12px; }
   .notice { padding: 10px 12px; font-size: 12px; }
@@ -106,7 +121,8 @@ main > footer { text-align: center; color: var(--muted); font-size: 11px; margin
   select { min-height: 48px; }
   label { font-size: 14px; }
   .checkbox-label { min-height: 48px; margin-top: 8px; }
-  #volunteer-view { margin-top: 14px; }
+  #reporting-view { margin-top: 14px; }
+  dialog { padding: 18px; }
   blockquote { padding: 12px; margin: 14px 0; }
   main > footer { margin-top: 18px; }
 }

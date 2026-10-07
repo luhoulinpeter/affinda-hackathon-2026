@@ -1,60 +1,46 @@
-# Affinda Hackathon team workspace
+# Riverside incident-response starter
 
-This repository holds the team's project notes and a small browser prototype. Track 3 is confirmed; product details are still being refined. Read [PROJECT.md](PROJECT.md) for current decisions and deadlines, and [AGENTS.md](AGENTS.md) for AI coding guidance.
+The team is following [the original incident-response plan](docs/INCIDENT-MVP-DRAFT.md). Event-goers get the public reporting page by default. Staff sign in to the Volunteer or Mo workspace assigned to their account. Armaan's revision is set aside.
 
-## Try the starter
+## Start the app
 
-1. Double-click `index.html`. No install or server is required for this local starter.
-2. Select **Volunteer view**, click **Use example text**, then **Send report**. You should receive an incident reference and see the report under **Your reports**.
-3. Select **Mo's view** and open the incident. Click **Acknowledge**: the open count should stay the same.
-4. Click **Mark escalated**: it should still be open. Click **Confirm resolved**: the resolved count should increase, with Mo and the confirmation time in the record.
-5. Submit another report with **Flag immediate concern for Mo** checked. It should appear ahead of ordinary open reports.
+Node.js is required; no package installation is needed.
 
-All people and examples are fictional. State lives in one tab and resets on refresh. The identity selector is a demo, not authentication. There is no connected AI, voice service, automatic assignment, server or deployment.
+1. In a terminal in this folder, run `node server/index.cjs`.
+2. Open [http://127.0.0.1:8765/](http://127.0.0.1:8765/).
+3. The event-goer reporting page opens without sign-in. Use fictional reports only.
+4. Click **Staff sign in**. On the first run, create the first Mo account with your own username and a unique password of at least 12 characters. Enter passwords in the browser, never in chat.
+5. In Mo's workspace, expand **Volunteer accounts** to create a username/password for someone on the fictional volunteer roster.
+6. Sign out, then sign in with that volunteer account. The Volunteer workspace opens automatically; there is no role chooser.
 
-The layout adapts to the browser's available width. At 720px or narrower, panels stack, action buttons fill the width and the incident queue starts collapsed. Tap **Incident queue** to choose another incident; selecting it collapses the list. Resize the browser to try the phone layout; it also updates on rotation. Physical phones still need testing.
+Opening `index.html` directly is no longer supported: real accounts and permissions require the running server. This replaces the earlier static Python preview. The server listens only on this computer; public hosting and physical-phone access are not set up.
 
-For the three-person work split, see [roles.md](roles.md). The implemented interface and next integration agreements are in [docs/STARTER-CONTRACT.md](docs/STARTER-CONTRACT.md).
+## Try the workflow
 
-## Folder structure
+- As an event-goer, use **Use example text**, then **Send report**. Its reference and status appear under **Your reports**.
+- Sign in as Mo to review it. Acknowledging or escalating keeps it open. Only explicit resolution closes it and records who confirmed and when.
+- Sign out to return to the same browser's event-goer history. Its original reporter can also confirm resolution.
+- In a private browser window, unrelated event-goer reports should not appear.
+- Volunteer accounts see their own reports and, when assignment is implemented, assigned incidents. They cannot read Mo's full queue or create accounts.
 
-```text
-src/
-  js/ui/     Person 1: browser views
-  js/domain/ Person 2: incident state and actions
-  js/services/ Person 3: analysis adapter (currently a labelled stub)
-  css/       Styles and layout
-assets/      Images, icons and map artwork shown in the app
-data/        Fictional sample incidents, volunteers and zones
-server/      Future server code for private API calls
-tests/       Automated checks as app behaviour is implemented
-docs/        Product drafts and technical notes
-guides/      Original hackathon guides for working with AI
-```
+The server stores reports and password hashes in `.riverside/store.json`, excluded from Git and unavailable through the web server. Reports/accounts survive restarts. Staff sessions last up to eight hours and require sign-in again after a restart. Public report ownership uses a signed cookie lasting up to seven days; clearing that cookie loses access to the original reporter's history.
 
-Keep `README.md`, `PROJECT.md`, `AGENTS.md`, `CLAUDE.md` and the starter-pack files at the top level so teammates and AI tools can find them. The [incident MVP draft](docs/INCIDENT-MVP-DRAFT.md) lives in `docs/`; it contains proposals as well as confirmed decisions.
+## Three-person file ownership
 
-The local app uses HTML, CSS and JavaScript without packages. The `server/` folder remains reserved for private API calls and shared storage.
+See [roles.md](roles.md) and [the API contract](docs/STARTER-CONTRACT.md).
 
-## First implementation
+| Area | Files |
+|---|---|
+| Person 1: public and staff interface | `index.html`, `src/css/app.css`, `src/js/ui/app.js` |
+| Person 2: server, permissions and workflow | `server/index.cjs`, `server/auth.cjs`, `src/js/services/api.js`, `src/js/domain/incidents.js`, `data/fixtures.js` |
+| Person 3: model and voice integration | `src/js/services/analysis.js` (server-side stub), future provider modules under `server/` |
 
-`index.html` links styles from `src/css/` and classic scripts from `src/js/`. The text journey is implemented; extend it in small working steps.
+AI, voice, automatic assignment, coverage checks, maps and public deployment are not implemented. Text reporting and real local staff accounts are implemented. The layout adapts below 720px and preserves large action buttons and a collapsible incident queue.
 
-Use `assets/` for displayed files and `data/` for fictional examples. Fixtures are a classic JavaScript file so no local JSON fetch is needed. Keep this double-click path until a server is ready.
+## Verification
 
-Private Jev or transcription API calls belong in `server/` once a server is implemented. See [server/README.md](server/README.md). Never add a provider key to the browser adapter.
+Run `node --test tests/incidents.test.cjs tests/server.test.cjs`. The server test creates isolated temporary accounts and data, checks role restrictions and server restart, and removes its own test directory. No test account is created in your app database.
 
-## Check the workflow rules
+## Team workflow
 
-With Node.js already installed, run `node --test tests/incidents.test.cjs`. These checks cover explicit human resolution, role restrictions, retained reports when analysis fails, concurrent reports and invalid input. Also click through the steps above; automated rule checks do not verify the browser interface or phone behaviour.
-
-## Collaborating
-
-1. Clone this repository and read `PROJECT.md` before starting work.
-2. Create a short branch for each task, such as `issue-input` or `classifier-test-cases`.
-3. Commit and push your changes, then open a pull request for a teammate to review.
-4. Merge working changes into `main` frequently; update `PROJECT.md` when the team makes a decision or verifies a result.
-
-Keep API keys in a local `.env` file, which Git ignores. Share required variable names through `.env.example`, never the values. Use fictional festival data.
-
-The repository is private while the team develops. Only invited GitHub collaborators can access it.
+Start each task branch from the latest `main`, commit small working steps, and have a teammate review each pull request. Keep [PROJECT.md](PROJECT.md) updated with decisions, checked behaviour and the main AI tools used. Never commit credentials or real personal data. Provider keys belong in server environment variables.

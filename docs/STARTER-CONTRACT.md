@@ -1,59 +1,53 @@
-# Starter contract
+# Server and browser contract
 
-This describes the implemented local service, not a deployed HTTP API. Classic scripts work without installing packages. The interface calls `window.RiversideIncidents`; moving to a server will require making the relevant callers asynchronous together. No browser state or identity is trusted security.
+The browser loads fixtures, `src/js/services/api.js`, then `src/js/ui/app.js`. The incident domain and analysis adapter run on the server. The server is the source of truth; `getState()` in the browser is only a defensive copy of the latest permitted response.
 
-## Files and load order
+## Sessions and entry
 
-`data/fixtures.js` → `src/js/services/analysis.js` → `src/js/domain/incidents.js` → `src/js/ui/app.js`.
+`GET /api/session` returns `{ user, guest, csrf, setupRequired }`. `user` is null for event-goers or `{ username, id, role, name }` for signed-in staff. The interface follows this role automatically. Event-goers do not sign in.
 
-The store is in memory for one tab. Refresh starts empty. IDs such as `R-1` and `I-1` are local demo identifiers, not globally unique. There is no cross-tab or cross-device sharing.
+State-changing requests send JSON and the `X-CSRF-Token` from the session response. Cookies are HttpOnly. Request-body actor IDs/roles are ignored: the server derives identity from its verified cookie/session.
 
-## Implemented calls
+| Endpoint | Behaviour |
+|---|---|
+| `POST /api/setup` | Create the first Mo account once, using `{ username, password }` |
+| `POST /api/login` | Verify `{ username, password }`, rotate the staff session |
+| `POST /api/logout` | Invalidate the staff session and restore public access |
+| `POST /api/accounts` | Mo only: create a volunteer account using `{ username, password, volunteerId }` |
+| `GET /api/state` | Return only reports/incidents permitted for the current actor |
+| `POST /api/reports` | Accept `{ zone, category, text, immediateConcern }`; derive reporter from session; return `{ id }` |
+| `POST /api/incidents/:id/action` | Apply `{ action }` as the current actor; never accept a client-selected actor |
 
-```js
-const incident = await RiversideIncidents.submitReport({
-  volunteerId: 'vol-priya',
-  zone: 'zone-b',
-  text: 'A fictional spill beside the water tent.',
-  immediateConcern: false
-});
+Errors return a non-success HTTP status and `{ error }`. The browser refreshes session/state after mutations and every six seconds while visible. Forms keep their input during background refresh; identity changes clear unsent report text. A server outage is shown as an error.
 
-RiversideIncidents.getState(); // defensive copy of { reports, incidents }
-RiversideIncidents.act(incident.id, 'acknowledge', { id: 'mo', role: 'mo' });
-RiversideIncidents.act(incident.id, 'escalate', { id: 'vol-priya', role: 'volunteer' });
-RiversideIncidents.act(incident.id, 'resolve', { id: 'mo', role: 'mo' });
-const unsubscribe = RiversideIncidents.subscribe(() => { /* render state */ });
-```
-
-Invalid input/actions throw an Error with a user-readable message. `submitReport` rejects invalid input. A failed analysis does not reject or discard an already saved report: it returns an incident with `analysis.state === 'failed'` for human review.
-
-## Shapes
+## State and actions
 
 ```text
 Report:
-  id, volunteerId, zone, text, immediateConcern (boolean), time (ISO string)
+  id, reporter: { id, role: public | volunteer },
+  volunteerId: string | null (compatibility field), category,
+  zone, text, immediateConcern, time
 
 Incident:
   id, reportIds[], zone, category, brief,
-  status: open | escalated | resolved,
-  attention: review | urgent,
-  assignee: null (assignment not implemented),
-  acknowledgedBy: null | 'mo',
-  resolvedBy: null | { id, role }, resolvedAt: null | ISO string,
-  analysis: { state: pending | complete | failed, mode: 'stub', suggestion? },
-  history: [{ actorId, actorRole, action, time }]
+  status: open | escalated | resolved, attention: review | urgent,
+  assignee: null (not yet implemented), acknowledgedBy,
+  resolvedBy: null | { id, role }, resolvedAt, analysis, history[]
 ```
 
-The original report is saved and made visible before analysis runs. Every report creates a separate incident. The stub returns `unclassified`, `unclear`, `linkTo: null` and `mode: 'stub'`; it performs no model call. Suggestions are stored separately and cannot assign, merge, resolve or downgrade urgency.
+Mo receives all records. Volunteers receive their own reports and assigned incidents. Event-goers receive only their own source reports and a reduced incident status record, without internal history or other reporters' sources. Guest history depends on the signed browser cookie, not a guessable report reference.
 
-Only Mo may acknowledge. Mo, the assigned volunteer (future), or an original reporter may escalate or explicitly resolve. Acknowledgement and escalation keep the incident open. Resolution records the actor and time; there is no timer or automatic closure. These are local demo checks, not server authentication.
+Only Mo may acknowledge. Mo, the assigned volunteer or the original reporter may explicitly resolve. Public reporters cannot escalate or acknowledge. Volunteers may escalate their own/assigned incidents. Acknowledgement and escalation leave the incident open. There is no automatic closure or timeout.
 
-## Agree before implementing next
+The original report is saved before analysis. The current adapter is explicitly a stub, performs no model call and cannot resolve or assign. Each report currently creates a separate incident. Analysis failure retains it for Mo. Real model outputs still need server-side validation before integration.
 
-- **Person 1 + 2:** action requests and responses for offers, accept/decline, arrival, correction, Split and Merge. Separate assignment progress from incident resolution. Preserve original reports and audit history through grouping changes.
-- **Person 2 + 3:** a server-side validator for real model results, valid categories, urgency signals, uncertain/multiple matches, and whether related incidents are separate from duplicate reports. The starter rejects non-stub results until this exists.
-- **Person 2:** roster skills, availability, current assignment, coverage minimums and identity enforcement. No policy is implied by the three fictional volunteer examples.
-- **Person 1 + 3:** audio upload, transcription request/response, editing and original-audio retrieval. Keep text usable when voice fails.
-- **Everyone:** server run instructions, data persistence/reset policy and the shared deployment configuration.
+## Remaining contracts from the original plan
 
-Suggested future HTTP routes from Armaan's plan are `POST /reports`, `GET /incidents`, and `POST /incidents/:id/action`. Add source-report and voice retrieval contracts when implementing those services. Do not let separate interfaces keep independent copies of authoritative incident state.
+- Offer, accept/decline, arrival and proposed-resolution actions, distinct from final incident resolution.
+- Roster skills, availability, current assignments and minimum zone coverage; eligibility checked on the server before an offer.
+- Validated model category and candidate selection, urgent/unclear signals and fallback when a provider fails.
+- Zone counts, cluster-alert rules and a map based on stored reports; the team defines thresholds and coverage rules.
+- Audio upload, transcription, editable transcript and original-audio retrieval; text stays usable if voice fails.
+- Hosting, HTTPS, administrator provisioning and persistent deployment storage.
+
+Armaan's duplicate-grouping/Split/Merge revision is set aside. It is not a prerequisite for the original plan.

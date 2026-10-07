@@ -1,6 +1,6 @@
 # Riverside incident response: MVP draft
 
-**Status:** Updated 7 October 2026. The team has confirmed Track 3 and a browser-based MVP. Product details are still being refined; no prototype has been built or tested.
+**Status:** Updated 7 October 2026. The team chose this original direction and set Armaan's revision aside. A limited text-report starter with public reporting and real local staff accounts has been built and checked; assignment, AI, voice and maps remain planned. See PROJECT.md for current verification and remaining decisions.
 
 ## One-sentence product
 

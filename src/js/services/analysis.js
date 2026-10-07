@@ -1,6 +1,6 @@
-// Person 3: replace this adapter with a call to the team's server.
-// Never put API keys in this browser file. This is NOT an AI classifier.
-window.RiversideAI = {
+// Person 3: this module is called by the server. Add provider credentials via
+// server environment variables only. This is NOT an AI classifier.
+const riversideAnalysis = {
   async analyse(report, openIncidents) {
     return {
       zone: report.zone,
@@ -12,3 +12,5 @@ window.RiversideAI = {
     };
   }
 };
+if (typeof module !== "undefined" && module.exports) module.exports = riversideAnalysis;
+else window.RiversideAI = riversideAnalysis;
