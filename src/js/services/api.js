@@ -60,6 +60,7 @@ window.RiversideAPI = (() => {
   // first requests can set different guest IDs and orphan the first report.
   let events = null;
   async function connectEvents() {
+    if (session?.liveUpdates === 'polling') return;
     if (events || typeof EventSource === "undefined") return;
     const tabId = await window.RiversideTab.ready;
     if (events) return;

@@ -17,7 +17,7 @@ const mapDemo = require('../data/map-demo.json');
 const root = path.resolve(__dirname, '..');
 
 // A public origin enables HTTPS deployment and disables browser first-account setup.
-function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = null, secureCookies = false, aiProviders, guide, aiEnv = process.env, aiFetch, now = Date.now } = {}) {
+function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = null, secureCookies = false, eventStreams = true, aiProviders, guide, aiEnv = process.env, aiFetch, now = Date.now } = {}) {
   let deployed = null;
   if (publicOrigin !== null) {
     try { deployed = new URL(publicOrigin); } catch { throw new Error('PUBLIC_ORIGIN must be an HTTPS origin.'); }
@@ -199,7 +199,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         return;
       }
       const ctx = context(req, res, url);
-      if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: ctx.user ? publicUser(ctx.user) : null, guest: ctx.guest, csrf: ctx.csrf, setupRequired: !deployed && db.users.length === 0, ai: providers.status(), guideApproved: (guide || require('../data/event-guide.json')).approved === true });
+      if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: ctx.user ? publicUser(ctx.user) : null, guest: ctx.guest, csrf: ctx.csrf, setupRequired: !deployed && db.users.length === 0, liveUpdates: eventStreams ? 'events' : 'polling', ai: providers.status(), guideApproved: (guide || require('../data/event-guide.json')).approved === true });
       if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, stateFor(ctx.actor));
       if (req.method === 'GET' && url.pathname === '/api/maps-config') return json(res, 200, { key: mapsKey, centre: mapDemo.centre });
       if (req.method === 'GET' && url.pathname === '/api/available-incidents') return json(res, 200, { incidents: volunteerClaims.list(ctx.actor) });

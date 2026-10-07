@@ -14,7 +14,7 @@ In local mode the server binds to `127.0.0.1` only. `PORT` changes the port; `RI
 - State-changing API calls require a session-bound CSRF token and same-origin requests. Login attempts are limited, and the server caps concurrent password-hashing work.
 - Only allowlisted browser assets are served. Account data, server code, environment files and Git files are not web assets.
 
-The local first-run setup is intended for the laptop operator. This app has not been publicly deployed. Before a later deployment, configure HTTPS, secure cookies, permitted hosts, controlled administrator provisioning and a persistent data volume. Password reset and account recovery are not implemented; record your credentials privately.
+The local first-run setup is intended for the laptop operator. Temporary HTTPS phone access is configured through a loopback-only tunnel launcher; see [phone instructions](../docs/PHONE-HTTPS.md). Independent hosting remains unconfigured. Before a later deployment, configure HTTPS, secure cookies, permitted hosts, controlled administrator provisioning and a persistent data volume. Password reset and account recovery are not implemented; record your credentials privately.
 
 The password-storage implementation follows [Node's crypto API](https://nodejs.org/api/crypto.html) and [OWASP's scrypt guidance](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#scrypt).
 
@@ -33,7 +33,7 @@ The server runs on any host that runs one long-running Node.js process (for exam
 
 ## Storage and integration
 
-**Live updates.** Browsers connected to `GET /api/events` are told immediately when reports or incidents change, then re-fetch their own permitted state. The interface's 6-second polling remains as a fallback. Local mode supports windows on this computer; configured HTTPS deployment supports remote browsers. Actual hosting and physical phones remain unverified.
+**Live updates.** Browsers connected to `GET /api/events` are told immediately when reports or incidents change, then re-fetch their own permitted state. The interface's 6-second polling remains as a fallback. Local mode supports windows on this computer; configured HTTPS deployment supports remote browsers. Temporary tunnel HTTPS access is verified; independent hosting and physical phones remain unverified.
 
 **Demo reset.** Signed in as Mo, run `RiversideAPI.resetDemo()` in the browser console (or `POST /api/reset`) to clear all reports and incidents before re-recording a demo. Accounts, the report ID counter and provider usage allowances are kept. IDs stay unique across reset/restart, and late analysis or Q&A from before reset is discarded. To wipe everything including accounts, stop the server and delete the `.riverside/` folder.
 

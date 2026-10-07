@@ -4,6 +4,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
+test('polling-only session avoids unsupported event streams on temporary HTTPS links', async () => {
+  let streams = 0, requests = 0;
+  const context = { window: { RiversideTab: { ready: Promise.resolve('11111111-1111-4111-8111-111111111111') } },
+    EventSource: class { constructor() { streams++; } }, fetch: async route => {
+      requests++;
+      return { ok: true, json: async () => route === '/api/session' ? { liveUpdates: 'polling', csrf: 'same' } : { reports: [], incidents: [] } };
+    } };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../src/js/services/api.js'), 'utf8'), context);
+  await context.window.RiversideAPI.refresh(); await context.window.RiversideAPI.refresh();
+  assert.equal(streams, 0); assert.equal(requests, 4);
+});
+
 test('live updates wait for the guest cookie and retain report ownership', async () => {
   let cookie = null, nextGuest = 0, streamCount = 0, onState;
   const records = [];
