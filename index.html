@@ -40,8 +40,8 @@
         <p class="field-note">Mo creates staff accounts. The roster identity determines the volunteer's access; people cannot choose their own role when signing in.</p>
         <form id="account-form">
           <label for="account-volunteer">Volunteer</label><select id="account-volunteer" required></select>
-          <label for="account-username">Username</label><input id="account-username" type="text" minlength="3" maxlength="40" pattern="[a-z0-9._-]{3,40}" autocomplete="off" required>
-          <label for="account-password">Password · at least 12 characters</label><input id="account-password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required>
+          <label for="account-username">Username</label><input id="account-username" type="text" pattern="[a-z0-9._-]+" autocomplete="off" required>
+          <label for="account-password">Password</label><input id="account-password" type="password" autocomplete="new-password" required>
           <button class="primary" type="submit">Create volunteer account</button>
           <p id="account-feedback" class="feedback" role="status"></p>
         </form>
@@ -95,9 +95,9 @@
     <div class="dialog-heading"><h2 id="signin-title">Staff sign in</h2><button id="close-signin" type="button" class="secondary" aria-label="Close sign-in">Close</button></div>
     <p id="signin-description" class="field-note">Your account determines whether you see the Volunteer or Mo workspace.</p>
     <form id="signin-form">
-      <label for="signin-username">Username</label><input id="signin-username" type="text" minlength="3" maxlength="40" autocomplete="username" autocapitalize="none" spellcheck="false" required>
-      <label for="signin-password">Password</label><input id="signin-password" type="password" maxlength="128" autocomplete="current-password" required>
-      <div id="confirm-password-field" hidden><label for="confirm-password">Confirm password</label><input id="confirm-password" type="password" maxlength="128" autocomplete="new-password"></div>
+      <label for="signin-username">Username</label><input id="signin-username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      <label for="signin-password">Password</label><input id="signin-password" type="password" autocomplete="current-password" required>
+      <div id="confirm-password-field" hidden><label for="confirm-password">Confirm password</label><input id="confirm-password" type="password" autocomplete="new-password"></div>
       <p id="signin-feedback" class="feedback" role="alert"></p>
       <button id="signin-submit" class="primary" type="submit">Sign in</button>
     </form>

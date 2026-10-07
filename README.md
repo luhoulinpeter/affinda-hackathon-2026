@@ -9,7 +9,7 @@ Node.js is required; no package installation is needed.
 1. In a terminal in this folder, run `node server/index.cjs`.
 2. Open [http://127.0.0.1:8765/](http://127.0.0.1:8765/).
 3. The event-goer reporting page opens without sign-in. Use fictional reports only.
-4. Click **Staff sign in**. On the first run, create the first Mo account with your own username and a unique password of at least 12 characters. Enter passwords in the browser, never in chat.
+4. Click **Staff sign in**. On the first run, create the first Mo account with your own username and a password (both username and password may be any non-empty length). Enter passwords in the browser, never in chat.
 5. In Mo's workspace, expand **Volunteer accounts** to create a username/password for someone on the fictional volunteer roster.
 6. Sign out, then sign in with that volunteer account. The Volunteer workspace opens automatically; there is no role chooser.
 

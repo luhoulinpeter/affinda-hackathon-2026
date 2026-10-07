@@ -182,7 +182,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       }
       if (url.pathname === '/api/login') {
         const username = typeof body.username === 'string' ? body.username.toLowerCase() : '';
-        if (typeof body.password !== 'string' || body.password.length > 128) return json(res, 401, { error: 'Incorrect username or password.' });
+        if (typeof body.password !== 'string' || body.password.length === 0) return json(res, 401, { error: 'Incorrect username or password.' });
         const key = req.socket.remoteAddress;
         const attempt = loginAttempts.get(key) || { count: 0, until: Date.now() + 15 * 60 * 1000 };
         if (attempt.until < Date.now()) { attempt.count = 0; attempt.until = Date.now() + 15 * 60 * 1000; }

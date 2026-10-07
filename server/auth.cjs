@@ -5,8 +5,8 @@ const derive = promisify(scrypt);
 const work = { N: 131072, r: 8, p: 1, maxmem: 256 * 1024 * 1024 };
 
 function validCredentials(username, password) {
-  if (typeof username !== 'string' || !/^[a-z0-9._-]{3,40}$/.test(username)) throw new Error('Use a username of 3–40 lowercase letters, numbers, dots, dashes or underscores.');
-  if (typeof password !== 'string' || password.length < 12 || password.length > 128) throw new Error('Use a password of 12–128 characters.');
+  if (typeof username !== 'string' || !/^[a-z0-9._-]+$/.test(username)) throw Object.assign(new Error('Enter a username using lowercase letters, numbers, dots, dashes or underscores.'), { status: 400 });
+  if (typeof password !== 'string' || password.length === 0) throw Object.assign(new Error('Enter a password.'), { status: 400 });
 }
 async function hashPassword(password) {
   const salt = randomBytes(16).toString('hex');

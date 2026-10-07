@@ -106,7 +106,7 @@ Required structured output: an object with only `answer` (string), `sources` (ar
 
 There are no built-in usernames or passwords. At the time this document was prepared, the local app had no staff accounts.
 
-1. Open the app and click **Staff sign in**. In first-account setup, create Mo's account using a username of 3–40 lowercase letters, numbers, dots, dashes or underscores, and a password of 12–128 characters.
+1. Open the app and click **Staff sign in**. In first-account setup, create Mo's account using a non-empty username using lowercase letters, numbers, dots, dashes or underscores, and a non-empty password. There are no field length limits; the server caps the complete request at 16 KiB.
 2. In Mo's view, expand **Volunteer accounts**, choose a volunteer from the roster, and create their username/password.
 3. Sign out, then use **Staff sign in** with that volunteer's credentials to check their view.
 

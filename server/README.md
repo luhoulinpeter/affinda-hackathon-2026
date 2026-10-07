@@ -25,7 +25,7 @@ The server runs on any host that runs one long-running Node.js process (for exam
 - **Start command:** `npm start` (no build step, no install needed). Node 20 or newer.
 - **Environment variables** (set in the host's dashboard, never in Git; names in `.env.example`):
   - `PUBLIC_ORIGIN`: the site's HTTPS origin, without credentials, paths, queries or fragments, e.g. `https://riverside-xyz.onrender.com`. This switches on deployed mode.
-  - `MO_USERNAME`, `MO_PASSWORD`: Mo's account (password 12–128 characters). Created or updated on every start.
+  - `MO_USERNAME`, `MO_PASSWORD`: Mo's account (non-empty username and password; no field length limits). Created or updated on every start.
   - `PORT`: usually set by the host automatically.
 - In deployed mode the server listens on all interfaces, accepts only the `PUBLIC_ORIGIN` host, marks cookies `Secure`, and **disables browser first-run setup**, so a visitor cannot claim the Mo account.
 - **Storage caveat:** `store.json` lives on the host's disk. On hosts or plans without a persistent disk, it is wiped on every restart or redeploy, and Mo's volunteer accounts must be recreated. Mo's account is recreated automatically from the environment variables.

@@ -35,6 +35,8 @@
 
 - 7 October 2026: Latest authorisation supersedes the earlier per-test approval rule: the user approved the two OpenRouter checks, allowed small Jev checks using existing credits, requested advance notice for large runs and asked for an AI-enabled local app. Default automatic checks to at most five calls per provider per session; notify before larger/batch/load runs and ask before expanding agreed allowances or substantial/new costs. Never drain credits, buy more, enable recharge or use paid OpenRouter routes. The local interactive session has a persisted 20-call allowance per provider and eight-hour expiry; UI shows remaining calls. Jev uses an explicitly approved existing-credit mode with recharge off and checked $5 balance; do not claim a provider hard stop was verified.
 
+- 7 October 2026: The user requested usernames/passwords of any length. Removed field minimum/maximum lengths across first Mo setup, volunteer creation and sign-in. Both fields remain required; username characters, password hashing, role checks, rate limits and the 16 KiB request cap remain enforced.
+
 ## Stack review
 
 The implemented starter uses browser HTML/CSS/JavaScript, a Node.js HTTP server, custom local account sessions and a JSON file store. This followed the starter guidance to get the smallest version running first. The team considered Next.js and Supabase and explicitly chose to keep the current stack for now; no migration is planned for this milestone.

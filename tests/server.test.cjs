@@ -137,6 +137,35 @@ test('real accounts enforce guest, volunteer and Mo access over HTTP and survive
   assert.equal((await volunteer.request('/api/session')).result.user.role, 'volunteer');
 });
 
+test('staff accounts accept short and long credentials while rejecting empty fields and incorrect passwords', async t => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'riverside-credential-length-test-'));
+  const server = createApp({ dataDir, aiEnv: {} });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); fs.rmSync(dataDir, { recursive: true, force: true }); });
+  const mo = client(`http://127.0.0.1:${server.address().port}`);
+  await mo.request('/api/session');
+  const shortPassword = randomBytes(1).toString('hex').slice(0, 1);
+  assert.equal((await mo.request('/api/setup', { username: '', password: shortPassword })).status, 400);
+  assert.equal((await mo.request('/api/setup', { username: 'm', password: '' })).status, 400);
+  assert.equal((await mo.request('/api/setup', { username: 'm', password: shortPassword })).status, 201);
+  await mo.request('/api/logout', {});
+  await mo.request('/api/session');
+  assert.equal((await mo.request('/api/login', { username: 'm', password: '' })).status, 401);
+  assert.equal((await mo.request('/api/login', { username: 'm', password: 'incorrect' })).status, 401);
+  assert.equal((await mo.request('/api/login', { username: 'm', password: shortPassword })).status, 200);
+  await mo.request('/api/session');
+  assert.equal((await mo.request('/api/session')).result.user.role, 'mo');
+  const longUsername = 'v'.repeat(200);
+  const longPassword = randomBytes(150).toString('hex');
+  assert.equal((await mo.request('/api/accounts', { username: longUsername, password: longPassword, volunteerId: 'vol-priya' })).status, 201);
+  const volunteer = client(`http://127.0.0.1:${server.address().port}`);
+  await volunteer.request('/api/session');
+  assert.equal((await volunteer.request('/api/login', { username: longUsername, password: longPassword })).status, 200);
+  assert.equal((await volunteer.request('/api/session')).result.user.role, 'volunteer');
+  assert.equal((await volunteer.request('/api/accounts', { username: 'x', password: shortPassword, volunteerId: 'vol-sam' })).status, 403);
+  assert.equal((await volunteer.request('/api/login', { username: 'v'.repeat(17000), password: shortPassword })).status, 413);
+});
+
 test('verified provider call allowance persists over restart and prevents excess requests', async t => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'riverside-credit-test-'));
   const proof = { id: 'simulated-credit-test', creditOnlyConfirmed: true, providerHardStopVerified: true, verifiedAt: new Date(Date.now() - 1000).toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString(), maxCalls: 1 };
