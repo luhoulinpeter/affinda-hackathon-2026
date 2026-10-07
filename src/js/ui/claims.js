@@ -9,9 +9,12 @@
       const result = await api.getAvailableIncidents();
       if (request !== sequence || identity !== api.getIdentityVersion()) return;
       const state = api.getState(), me = state.presence?.find(p => p.id === api.getSession().user.id);
-      const ready = me?.state === 'available' && me.eligible;
+      const active = (state.incidents || []).filter(i => i.status !== 'resolved' && !['cancelled', 'completed'].includes(i.assistance?.state));
+      const assigned = active.some(i => i.assignee === api.getSession().user.id);
+      const offered = active.some(i => i.assistance?.offers?.some(o => o.volunteerId === api.getSession().user.id && o.status === 'pending'));
+      const ready = me?.state === 'available' && me.eligible && !assigned && !offered;
       const status = $('#claim-feedback').textContent;
-      const availabilityNote = status.startsWith('Choose Go available') || status.startsWith('You can see new incidents while busy');
+      const availabilityNote = status.startsWith('Choose Go available') || status.startsWith('You can see new incidents while busy') || status.startsWith('Respond to your current offer');
       if (ready && availabilityNote) $('#claim-feedback').textContent = '';
       $('#available-incidents').replaceChildren();
       for (const incident of result.incidents) {
@@ -22,7 +25,7 @@
         card.append(title, note, button); $('#available-incidents').append(card);
       }
       if (!result.incidents.length) $('#available-incidents').textContent = 'No ordinary incidents waiting for a volunteer.';
-      else if (!ready && !claiming && (!status || availabilityNote)) $('#claim-feedback').textContent = me?.state === 'busy' ? 'You can see new incidents while busy. Finish your current assignment before accepting another.' : 'Choose Go available before accepting an incident.';
+      else if (!ready && !claiming && (!status || availabilityNote)) $('#claim-feedback').textContent = assigned || me?.state === 'busy' ? 'You can see new incidents while busy. Finish your current assignment before accepting another.' : offered ? 'Respond to your current offer before accepting another incident.' : 'Choose Go available before accepting an incident.';
     } catch (e) { if (request === sequence && identity === api.getIdentityVersion()) { $('#available-incidents').replaceChildren(); $('#claim-feedback').textContent = e.message; } }
   }
   document.addEventListener('click', async event => {

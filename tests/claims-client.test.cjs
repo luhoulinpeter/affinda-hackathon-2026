@@ -91,6 +91,23 @@ test('claim happens only after an explicit click; duplicate clicks are ignored w
   await first;
 });
 
+test('active assignments and incoming offers disable other claims even when presence is paused or available', async () => {
+  for (const [presence, incident, message] of [
+    ['paused', { id: 'I-owned', status: 'open', assignee: 'vol-priya', assistance: { state: 'accepted', offers: [] } }, /Finish your current assignment/],
+    ['available', { id: 'I-offered', status: 'open', assistance: { state: 'offered', offers: [{ volunteerId: 'vol-priya', status: 'pending' }] } }, /Respond to your current offer/]
+  ]) {
+    const app = harness({ presence, eligible: true });
+    app.setState({ presence: [{ id: 'vol-priya', state: presence, eligible: true }], incidents: [incident] });
+    await app.render();
+    assert.equal(app.nodes.get('available-incidents').children[0].children[2].disabled, true);
+    assert.match(app.nodes.get('claim-feedback').textContent, message);
+    app.setState({ presence: [{ id: 'vol-priya', state: 'available', eligible: true }], incidents: [{ ...incident, status: 'resolved' }] });
+    await app.render();
+    assert.equal(app.nodes.get('available-incidents').children[0].children[2].disabled, false);
+    assert.equal(app.nodes.get('claim-feedback').textContent, '');
+  }
+});
+
 test('late queue fetch after identity change cannot reveal old incident details or feedback', async () => {
   const pending = deferred();
   const app = harness({ getAvailableIncidents: () => pending.promise });

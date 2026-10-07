@@ -1,6 +1,6 @@
 # Riverside map MVP: criteria and overnight plan
 
-Prepared and updated 7 October 2026, Melbourne time. **Browser MVP implemented and verified within the explicit limits below; all requested behaviour decisions are answered.** This document records requirements, tests and limitations; implementation alone is not proof that a feature passes.
+Prepared 7 October and final checks saved just after midnight 8 October 2026, Melbourne time. **Browser MVP implemented and verified within the explicit limits below; all requested behaviour decisions are answered.** This document records requirements, tests and limitations; implementation alone is not proof that a feature passes.
 
 ## Confirmed decisions and current continuation — late evening
 
@@ -13,7 +13,7 @@ Prepared and updated 7 October 2026, Melbourne time. **Browser MVP implemented a
 - Mo's on-demand AI ranking uses free OpenRouter with coarse distance bands, roster zone and location freshness; it never sends an offer. Candidate eligibility is rechecked after inference and again when Mo sends an offer. No medical qualifications are invented.
 - Another user chat owns concurrent improvements to Mo assignment. Preserve its edits; do not overwrite or restart its development server.
 - **Reminder changed by the user to 5:00am Thursday 8 October, Melbourne time** after a usage reset. The existing one-time heartbeat remains active under ID `resume-riverside-mvp-at-1am` (the ID was preserved; its name/time now say 5am). The user reports the next reset around 4:30am. Keep the Mac awake and Codex open. Earlier 1am mentions below are historical.
-- Verification: the final full suite passed **142/142**, including the independently reproduced/fixed legacy privacy gap. Reports without a privacy decision now wait for Mo; explicit review/manual assignment remain usable. Actual Google loading and three-role browser walkthroughs passed. One additional live call per provider checked sensitivity/ranking successfully; see the evidence below. Physical-device GPS remains unverified.
+- Verification: the final full suite passed **143/143**, including the independently reproduced/fixed legacy privacy gap. Reports without a privacy decision now wait for Mo; explicit review/manual assignment remain usable. Actual Google loading and three-role browser walkthroughs passed. One additional live call per provider checked sensitivity/ranking successfully; see the evidence below. Physical-device GPS remains unverified.
 
 Implementation and verification are complete for this browser MVP within the recorded limits. The disposable browser tabs/server are closed; the other chat’s development server was left running. No behaviour questions remain unanswered.
 
@@ -191,7 +191,7 @@ The outstanding list at the foundation checkpoint is superseded by the late-even
 
 ## Late-evening verification — 7 October
 
-Automated evidence: `npm test` passed **142/142** in isolated temporary stores, using simulated AI, GPS and clocks. The first restricted-shell run could not bind localhost (`listen EPERM`); the permitted localhost run passed. No checks were weakened. Independent review reproduced a legacy privacy gap; the fix holds old two-field classifications from automatic offers, self-claim and unrelated map visibility until Mo reviews them. `sensitivity-legacy.test.cjs` plus rendered recommendations checks cover migration, holds, withdrawal and explicit Mo review/manual assignment. Two old fixtures were updated to the current three-field ordinary classification contract; validation was not weakened.
+Automated evidence: [saved full test output](checks/automated-tests.txt), `npm test` passed **143/143** in isolated temporary stores, using simulated AI, GPS and clocks. The first restricted-shell run could not bind localhost (`listen EPERM`); the permitted localhost run passed. No checks were weakened. Independent review reproduced a legacy privacy gap; the fix holds old two-field classifications from automatic offers, self-claim and unrelated map visibility until Mo reviews them. `sensitivity-legacy.test.cjs` plus rendered recommendations checks cover migration, holds, withdrawal and explicit Mo review/manual assignment. Two old fixtures were updated to the current three-field ordinary classification contract; validation was not weakened.
 
 | Requirement / scenario | Authoritative evidence |
 |---|---|
@@ -233,3 +233,5 @@ Limitations: physical-phone GPS, multi-device HTTPS access and reliable backgrou
 4. For a physical-phone trial, use HTTPS and browser GPS permission, then check last-fix age on two devices. This remains unverified and no public deployment was authorised.
 
 The 5am continuation should review new concurrent changes against this evidence and continue meaningful checks where needed. It must preserve expired/spent AI allowances; useful simulated checks and Maps/UI verification remain available if inference is disabled. There are no unresolved product decisions or integration blockers for the completed local browser MVP. Broader model reliability, physical-device access and native background tracking are not claimed.
+
+Final UI follow-up: incoming offers and accepted assignments now disable other claim buttons independently of location-sharing state. The UI asks the volunteer to respond to their offer or finish their assignment, instead of inviting an action that the server would reject. `claims-client.test.cjs` verifies both cases and re-enabling after resolution. The final 143-test run includes this fix.
