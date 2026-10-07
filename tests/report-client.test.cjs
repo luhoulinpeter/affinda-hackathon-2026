@@ -33,9 +33,9 @@ function harness({ gps = async () => ({ latitude: 1, longitude: 2, accuracy: 5, 
   const fields = {
     zone: element('zone'), category: element('category'), 'report-text': element('report-text'),
     'immediate-concern': element('immediate-concern'), 'report-feedback': element('report-feedback'),
-    'report-sensitive': element('report-sensitive'), 'report-location': element('report-location')
+    'report-sensitive': element('report-sensitive')
   };
-  fields.zone.value = 'zone-a'; fields.category.value = 'hazard'; fields['report-text'].value = 'Fictional report';
+  fields.zone.value = 'current-location'; fields.category.value = 'hazard'; fields['report-text'].value = 'Fictional report';
   let identityVersion = 1, identityChanging = false;
   const identityListeners = [];
   const calls = [];
@@ -57,9 +57,10 @@ function harness({ gps = async () => ({ latitude: 1, longitude: 2, accuracy: 5, 
   };
 }
 
-test('report-only submits without GPS or assistance fields and gives a distinct receipt', async () => {
+test('manual-zone report submits without GPS or assistance fields and gives a distinct receipt', async () => {
   let gpsCalls = 0;
   const app = harness({ gps: async () => { gpsCalls++; throw new Error('must not request GPS'); } });
+  app.fields.zone.value = 'zone-a';
   await app.submit(false);
   assert.equal(gpsCalls, 0);
   assert.equal(app.calls.length, 1);
@@ -75,11 +76,11 @@ test('a private report flag is explicit and survives submission without requesti
   await app.submit(false);assert.equal(app.calls[0].sensitive,true);
   assert.equal(app.calls[0].requestAssistance,undefined);assert.equal(app.fields['report-sensitive'].checked,false);
 });
-test('optional report location obtains GPS without creating a volunteer request',async()=>{
+test('default current-location report obtains GPS without creating a volunteer request',async()=>{
   let calls=0;const app=harness({gps:async()=>{calls++;return {latitude:-37.798,longitude:144.961,accuracy:5,capturedAt:1000}}});
-  app.fields['report-location'].checked=true;await app.submit(false);
+  await app.submit(false);
   assert.equal(calls,1);assert.equal(app.calls[0].reportLocation,true);assert.equal(app.calls[0].position.latitude,-37.798);
-  assert.equal(app.calls[0].requestAssistance,undefined);assert.equal(app.fields['report-location'].checked,false);
+  assert.equal(app.calls[0].requestAssistance,undefined);assert.equal(app.calls[0].zone,'current-location');
 });
 
 test('request volunteer gets one GPS fix and submits an explicit request with an ID', async () => {
@@ -157,3 +158,13 @@ test('report form has one handler and Q&A does not retain the removed request ro
   assert.match(html, /src\/js\/ui\/report\.js/);
   assert.doesNotMatch(qa, /request-volunteer|report-form/);
 });
+
+ test('denied default GPS permits a manual-zone retry without losing report text or requesting attendance',async()=>{
+  let gpsCalls=0;const app=harness({gps:async()=>{gpsCalls++;throw Error('Location access is blocked.')}});
+  await app.submit(false);assert.equal(app.calls.length,0);assert.equal(app.fields['report-text'].value,'Fictional report');
+  assert.match(app.fields['report-feedback'].textContent,/choose a zone to send without GPS/);
+  app.fields.zone.value='zone-b';await app.submit(false);
+  assert.equal(gpsCalls,1);assert.equal(app.calls.length,1);assert.equal(app.calls[0].zone,'zone-b');
+  assert.equal(app.calls[0].reportLocation,undefined);assert.equal(app.calls[0].position,undefined);
+  assert.equal(app.calls[0].requestAssistance,undefined);
+ });

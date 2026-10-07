@@ -43,7 +43,7 @@ test('identity change clears staff markers and suppresses a late staff map respo
   assert.equal(t.createdMarkers.at(-1).title,'Demo station · fictional');
 });
 test('missing key makes no Google request; transient map-data failure recovers without stale staff markers',async()=>{
-  const absent=fixture({key:''});await absent.refresh();assert.equal(absent.scripts.length,0);assert.equal(absent.get('#map-fallback').hidden,false);assert.equal(absent.get('#map-stations').children.length,1);
+  const absent=fixture({key:''});await absent.refresh();assert.equal(absent.scripts.length,0);assert.equal(absent.get('#map-fallback').hidden,false);assert.equal(absent.createdMarkers.length,0);assert.match(absent.get('#map-status').textContent,/Use Find first aid/);
   const t=fixture();await t.refresh();t.setFailure(true);await t.refresh();assert.ok(t.createdMarkers.every(marker=>marker.map===null));
   t.setFailure(false);await t.refresh();assert.equal(t.get('#live-map').hidden,false);assert.equal(t.get('#map-fallback').hidden,true);
 });
@@ -63,7 +63,7 @@ test('public journey keeps its starting dot fixed while progress fills the dotte
   assert.notDeepEqual(t.createdLines[1].path.at(-1),early);
   assert.deepEqual(t.createdLines[0].path.at(-1),{lat:0,lng:0});
 });
-test('Google authentication failure hides the map and retains station fallback without repeated Google loads',async()=>{
+test('Google authentication failure hides the map and retains reporting fallback without repeated Google loads',async()=>{
   const t=fixture();await t.refresh();
   assert.equal(t.get('#live-map').hidden,false);
   t.authFailure();await t.refresh();
@@ -71,6 +71,6 @@ test('Google authentication failure hides the map and retains station fallback w
   assert.equal(t.get('#map-fallback').hidden,false);
   assert.equal(t.get('#map-recentre').disabled,true);
   assert.match(t.get('#map-status').textContent,/could not load.*key.*quota.*Reporting still works/);
-  assert.equal(t.get('#map-stations').children.length,1);
+  assert.ok(t.createdMarkers.some(marker=>marker.title==='Demo station · fictional'));
   assert.equal(t.scripts.length,1);
 });

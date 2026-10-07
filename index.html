@@ -36,7 +36,7 @@
       <div id="live-map" class="live-map" aria-label="Google Maps event area" hidden></div>
       <div id="map-fallback" class="map-fallback"><strong>Google Maps is not connected yet.</strong><p>You can still report an issue and request help below.</p></div>
       <div class="map-legend"><span><i class="legend-dot station-dot"></i>Fictional first aid</span><span id="staff-map-legend" hidden><i class="legend-dot volunteer-dot"></i>Volunteer <i class="legend-dot incident-dot"></i>Incident</span><span id="public-map-legend" hidden><i class="legend-dot volunteer-dot"></i>Volunteer start <i class="legend-dot incident-dot"></i>Your request</span></div>
-      <p id="map-summary" class="field-note"></p><div id="map-stations" class="map-stations"></div>
+      <p id="map-summary" class="field-note"></p>
       <p id="map-privacy" class="field-note">First-aid pins are fictional demo placements, not real facilities.</p>
     </section>
 
@@ -91,9 +91,8 @@
             <label for="report-text">What did you see?</label>
             <textarea id="report-text" name="text" rows="5" maxlength="2000" required placeholder="Describe the issue and where it is. Use fictional examples."></textarea>
             <label class="checkbox-label"><input id="immediate-concern" type="checkbox" name="immediateConcern"> Flag an immediate safety concern</label>
-            <label class="checkbox-label"><input id="report-sensitive" type="checkbox"> Private report — the safety lead assigns a volunteer</label>
-            <label class="checkbox-label"><input id="report-location" type="checkbox"> Add my current location to this report</label>
-            <p id="report-request-note" class="field-note">Sending an incident report does not request a volunteer. Choose “Send &amp; request volunteer” if you want someone to come; this shares your current GPS location with the safety team. Private reports and reports flagged by AI wait for the safety lead to assign.</p>
+            <label class="checkbox-label"><input id="report-sensitive" type="checkbox"> Contains sensitive information</label>
+            <p id="report-request-note" class="field-note">“Use my location” shares your current GPS location with the safety team when you send. Choose a zone instead if location access is unavailable. Sending a report does not request a volunteer; choose “Send &amp; request volunteer” if you want someone to come.</p>
             <div class="form-actions"><button class="primary" type="submit">Send report only</button><button id="request-volunteer" type="submit" class="secondary" aria-describedby="report-request-note">Send &amp; request volunteer</button><button id="example-report" type="button" class="secondary">Use example text</button></div>
             <p id="report-feedback" class="feedback" role="status" aria-live="polite"></p>
             <p class="field-note">Submitting a report does not guarantee a response. Follow the event’s established emergency procedure for immediate help.</p>
@@ -117,20 +116,20 @@
       <p id="qa-feedback" class="feedback" role="status"></p>
       <section id="qa-draft" class="qa-draft" aria-labelledby="qa-draft-title" hidden>
         <h3 id="qa-draft-title">Report draft · Not submitted yet</h3>
-        <p class="field-note">Check the original message and select the incident zone. Mo receives this report only after you submit it.</p>
+        <p class="field-note">Check the original message and location. The safety chief receives this report only after you submit it.</p>
         <form id="qa-draft-form">
           <label for="qa-draft-zone">Incident zone</label><select id="qa-draft-zone" required></select>
           <label for="qa-draft-category">Issue type</label><select id="qa-draft-category" required></select>
           <label for="qa-draft-text">What did you see?</label><textarea id="qa-draft-text" rows="4" maxlength="2000" required></textarea>
           <label class="checkbox-label"><input id="qa-draft-urgent" type="checkbox"> Flag an immediate safety concern</label>
-          <label class="checkbox-label"><input id="qa-draft-sensitive" type="checkbox"> Private report — the safety lead assigns a volunteer</label>
+          <label class="checkbox-label"><input id="qa-draft-sensitive" type="checkbox"> Contains sensitive information</label>
           <label class="checkbox-label"><input id="qa-draft-assistance" type="checkbox"> Request a volunteer to come</label>
-          <p class="field-note">Requesting attendance shares your current GPS destination with Mo and the offered volunteer. You must confirm below. GPS must be fresh and accurate to 100 metres or better. An offer does not mean someone is on their way.</p>
+          <p class="field-note">“Use my location” adds your current GPS location when you confirm below; choose a zone to report without GPS. Requesting a volunteer also requires GPS and shares the destination with the safety chief and the offered volunteer. An offer does not mean someone is on their way.</p>
           <div class="form-actions"><button id="qa-draft-submit" class="primary" type="submit">Confirm and submit report</button><button id="qa-draft-cancel" class="secondary" type="button">Discard draft</button></div>
         </form>
       </section>
     </section>
-    <footer>Fictional zones and people · human confirmation required to resolve</footer>
+    <footer>Sensitive information is handled directly by the safety chief.</footer>
     <noscript>This prototype needs JavaScript enabled in your browser.</noscript>
   </main>
   <dialog id="signin-dialog" aria-labelledby="signin-title">

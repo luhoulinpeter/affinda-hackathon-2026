@@ -16,7 +16,7 @@
     const input = { zone: $('#zone').value, category: $('#category').value,
       text: $('#report-text').value, immediateConcern: $('#immediate-concern').checked };
     if ($('#report-sensitive').checked) input.sensitive = true;
-    if ($('#report-location').checked) input.reportLocation = true;
+    if (input.zone === 'current-location') input.reportLocation = true;
     const requestHelp = event.submitter?.id === 'request-volunteer';
     submitting = true; buttons().forEach(button => { button.disabled = true; });
     try {
@@ -37,14 +37,13 @@
       if ($('#report-text').value === input.text) {
         $('#report-text').value = ''; $('#immediate-concern').checked = false;
         $('#report-sensitive').checked = false;
-        $('#report-location').checked = false;
       }
       retry = null;
       feedback(requestHelp
         ? `Report ${result.id} received with a volunteer request. Check Your reports for offers, acceptance and arrival. A volunteer has not necessarily accepted yet.`
         : `Report ${result.id} received. Check Your reports for its status. No volunteer was requested.`);
     } catch (error) {
-      if (identity === api.getIdentityVersion()) feedback(`${error.message} Your text is saved here; try the same button again.`, true);
+      if (identity === api.getIdentityVersion()) feedback(`${error.message} Your text is saved here; ${input.reportLocation && !input.position && !requestHelp ? 'choose a zone to send without GPS, or allow location and try the same button again.' : 'try the same button again.'}`, true);
     } finally {
       if (identity === api.getIdentityVersion()) { submitting = false; buttons().forEach(button => { button.disabled = false; }); }
     }

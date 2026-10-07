@@ -14,7 +14,8 @@
   const setQueueLayout = () => { $("#queue-panel").open = !narrowScreen.matches; };
   setQueueLayout();
   narrowScreen.addEventListener("change", setQueueLayout);
-  $("#zone").innerHTML = data.zones.map(zone => `<option value="${escape(zone.id)}">${escape(zone.name)}</option>`).join("");
+  $("#zone").innerHTML = data.zones.map(zone => `<option value="${escape(zone.id)}">${escape(zone.id === 'current-location' ? 'Use my location' : zone.name)}</option>`).join("");
+  $("#zone").value = 'current-location';
   $("#category").innerHTML = data.categories.map(category => `<option value="${escape(category.id)}">${escape(category.name)}</option>`).join("");
   $("#category").value = "other";
   $("#account-volunteer").innerHTML = data.volunteers.map(person => `<option value="${escape(person.id)}">${escape(person.name)}</option>`).join("");
@@ -58,11 +59,10 @@
     $("#reporter-label").textContent = role === "volunteer" ? `Reporting as ${session.user.name}` : "No sign-in needed";
     $("#reports-note").textContent = role === "volunteer" ? "Your staff account" : "From this browser";
     if (actorId !== previousActor) {
-      if (role === "volunteer") $("#zone").value = data.volunteers.find(person => person.id === actorId)?.zone || data.zones[0].id;
+      $("#zone").value = 'current-location';
       $("#report-text").value = "";
       $("#immediate-concern").checked = false;
       $("#report-sensitive").checked = false;
-      $("#report-location").checked = false;
       previousActor = actorId;
     }
     // Clear the other role's rendered data as well as hiding its panel.

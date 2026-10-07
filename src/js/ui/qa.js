@@ -8,8 +8,7 @@
   let asking = false;
   let submitting = false;
   let draftRequestId = null;
-  $('#qa-draft-zone').append(new Option('Select a zone', ''));
-  data.zones.forEach(zone => $('#qa-draft-zone').append(new Option(zone.name, zone.id)));
+  data.zones.forEach(zone => $('#qa-draft-zone').append(new Option(zone.id === 'current-location' ? 'Use my location' : zone.name, zone.id)));
   data.categories.forEach(item => $('#qa-draft-category').append(new Option(item.name, item.id)));
   function availability() {
     const session = api.getSession();
@@ -83,12 +82,14 @@
     submitting = true; availability(); $('#qa-feedback').textContent = 'Submitting report…';
     try {
       const input = { zone: $('#qa-draft-zone').value, category: $('#qa-draft-category').value, text: $('#qa-draft-text').value, immediateConcern: $('#qa-draft-urgent').checked };
+      const requestHelp = $('#qa-draft-assistance').checked;
       if ($('#qa-draft-sensitive').checked) input.sensitive = true;
-      if ($('#qa-draft-assistance').checked) {
+      if (input.zone === 'current-location') input.reportLocation = true;
+      if (requestHelp || input.reportLocation) {
         $('#qa-feedback').textContent = 'Getting GPS destination. Nothing has been submitted yet…';
         input.position = await window.RiversideAssistance.gps();
         if (version !== generation || identity !== api.getIdentityVersion()) return;
-        input.requestAssistance = true; input.requestId = draftRequestId ||= crypto.randomUUID();
+        if (requestHelp) { input.requestAssistance = true; input.requestId = draftRequestId ||= crypto.randomUUID(); }
       }
       const result = await api.submitReport(input);
       if (version !== generation || identity !== api.getIdentityVersion()) return;

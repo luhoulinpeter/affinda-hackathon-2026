@@ -20,7 +20,6 @@
     lines.forEach(pair => pair.forEach(line => line.setMap(null)));
     lines.clear();
     info?.close();
-    $('#map-stations').replaceChildren();
     $('#map-summary').textContent = '';
   }
   function loadGoogle(key) {
@@ -130,15 +129,8 @@
       const fresh = data.volunteers.filter(v => !v.demo && v.fresh && geometry.valid(v.position)).length;
       const simulated = data.volunteers.filter(v => v.demo && geometry.valid(v.position)).length;
       $('#map-summary').textContent = role === 'public' ? `${data.stations.length} fictional first-aid stations${data.incidents.length ? ` · ${data.incidents.length} assigned request${data.incidents.length === 1 ? '' : 's'} shown` : ''}` : `${data.incidents.length} incidents · ${unlocated} without a map position · ${fresh} volunteers sharing a current position${simulated ? ` · ${simulated} simulated journey` : ''}`;
-      $('#map-stations').replaceChildren();
-      data.stations.forEach(station => {
-        const card = document.createElement('article');
-        const title = document.createElement('strong'); title.textContent = station.name;
-        const text = document.createElement('p'); text.textContent = station.description;
-        card.append(title, text); $('#map-stations').append(card);
-      });
       if (!configured) { config = await api.getMapsConfig(); if (!current()) return; configured = true; }
-      if (!config.key) { unavailable('Google Maps needs a demo key. First-aid stations are listed below; reporting remains available.'); return; }
+      if (!config.key) { unavailable('Google Maps needs a demo key. Use Find first aid below to look up stations; reporting remains available.'); return; }
       if (!libraries) { $('#map-status').textContent = 'Loading Google Maps…'; libraries = await loadGoogle(config.key); if (!current()) return; }
       if (failure) return;
       $('#live-map').hidden = false;

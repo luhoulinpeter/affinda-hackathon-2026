@@ -9,6 +9,7 @@ const riversideFixtures = {
     { id: "other", name: "Other / unsure" }
   ],
   zones: [
+    { id: "current-location", name: "GPS location" },
     { id: "zone-a", name: "Zone A · Main stage" },
     { id: "zone-b", name: "Zone B · Water tent" },
     { id: "zone-c", name: "Zone C · Entry" }

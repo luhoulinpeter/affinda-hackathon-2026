@@ -335,6 +335,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         return json(res, 200, { ok: true });
       }
       if (url.pathname === '/api/reports') {
+        if (body.zone === 'current-location' && body.reportLocation !== true) return json(res, 400, { error: 'Use my location requires a current GPS position. Choose a zone to report without GPS.' });
         if (body.reportLocation !== undefined && typeof body.reportLocation !== 'boolean') return json(res, 400, { error: 'Choose whether to add your current location.' });
         const reportLocation = body.reportLocation === true ? position(body.position, now()) : undefined;
         let request;

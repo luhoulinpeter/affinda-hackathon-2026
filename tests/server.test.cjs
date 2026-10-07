@@ -421,3 +421,32 @@ test('reset invalidates a pending Q&A response built from cleared incident sourc
   assert.equal(JSON.stringify(response.result).includes('Obsolete queue'), false);
   assert.equal((await guest.request('/api/state')).result.reports.length, 0);
 });
+
+test('current-location reports require fresh accurate GPS and preserve coordinates without requesting a volunteer', async t => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'riverside-gps-report-'));
+  let calls = 0;
+  const server = createApp({ dataDir, aiProviders: {
+    status: () => ({}), classify: async () => { calls++; return { category: 'hazard', urgency: 'routine', sensitivity: 'ordinary' }; },
+    summarise: async () => { calls++; return { summary: 'A fictional report.' }; }
+  } });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(async () => { await server.whenAIIdle(); await new Promise(resolve => server.close(resolve)); fs.rmSync(dataDir, { recursive: true, force: true }); });
+  const guest = client(`http://127.0.0.1:${server.address().port}`); await guest.request('/api/session');
+  const report = { zone: 'current-location', text: 'Fictional GPS report', category: 'hazard' };
+  assert.equal((await guest.request('/api/reports', report)).status, 400);
+  const fix = { latitude: -37.7985, longitude: 144.961, accuracy: 5, capturedAt: Date.now() };
+  for (const position of [undefined, { ...fix, accuracy: 200 }, { ...fix, capturedAt: Date.now() - 120000 }]) {
+    assert.equal((await guest.request('/api/reports', { ...report, reportLocation: true, position })).status, 400);
+  }
+  assert.equal(calls, 0);
+  assert.equal((await guest.request('/api/reports', { ...report, sensitive: true, reportLocation: true, position: fix })).status, 201);
+  await server.whenAIIdle();
+  const incident = JSON.parse(fs.readFileSync(path.join(dataDir, 'store.json'))).workflow.incidents[0];
+  assert.equal(incident.zone, 'current-location'); assert.equal(incident.location.latitude, fix.latitude);
+  assert.equal(incident.sensitive, true); assert.equal(incident.assistance, undefined);
+  assert.equal((await guest.request('/api/reports', { ...report, zone: 'zone-b' })).status, 201);
+  await server.whenAIIdle();
+  const manual = (await guest.request('/api/state')).result.incidents[1];
+  assert.equal(manual.zone, 'zone-b'); assert.equal(manual.location, undefined); assert.equal(manual.assistance, undefined);
+  assert.equal(calls, 4);
+});
