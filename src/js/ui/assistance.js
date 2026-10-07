@@ -7,13 +7,19 @@ window.RiversideAssistance = (() => {
   let tracking = false, starting = false, trackingVersion = 0, watch = null, timer = null, lastUpload = 0, uploading = false, issue = '';
   let locationPending = null, stationIdentity = null, helpVersion = 0;
   let serverOffset = 0;
+  function locationError(error) {
+    if (error.code === 1) return new Error('Location access is blocked. Allow location for this website and for your browser in your device’s Location Services, then try again. Reports still work without GPS.');
+    if (error.code === 3) return new Error('Location timed out after 15 seconds. Keep this page visible and try again where your device can get a location. Reports still work without GPS.');
+    return new Error('Your browser could not get a location (position unavailable). Check your device’s Location Services and browser permission. If this persists in the embedded browser, open this same address in Safari or Chrome. Reports still work without GPS.');
+  }
   function gps() {
     if (!window.isSecureContext || !navigator.geolocation) return Promise.reject(new Error('GPS needs a supported browser and HTTPS (or localhost on this computer).'));
     return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(p => {
       const pos = { latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: p.coords.accuracy, capturedAt: p.timestamp };
-      if (pos.accuracy > 100 || Date.now() - pos.capturedAt > 60000) reject(new Error('GPS is stale or less accurate than 100 metres. Move to a clearer location and try again.'));
+      if (!Number.isFinite(pos.accuracy) || pos.accuracy < 0 || pos.accuracy > 100) reject(new Error(`Location accuracy ${Number.isFinite(pos.accuracy) && pos.accuracy >= 0 ? `is ±${Math.ceil(pos.accuracy)} metres` : 'is unavailable'}; volunteer attendance needs 100 metres or better. Try a clearer location or another device. Reports still work without GPS.`));
+      else if (!Number.isFinite(pos.capturedAt) || Date.now() - pos.capturedAt > 60000 || pos.capturedAt > Date.now() + 5000) reject(new Error('The location timestamp is stale or invalid. Check your device’s clock and try again.'));
       else resolve(pos);
-    }, error => reject(new Error(error.code === 1 ? 'Location permission was denied. Reports still work; volunteer attendance needs GPS.' : 'GPS is unavailable. Reports still work; try again for location-based help.')), { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }));
+    }, error => reject(locationError(error)), { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }));
   }
   function incidentHTML(i) {
     const a = i.assistance; if (!a) return '';
@@ -52,13 +58,14 @@ window.RiversideAssistance = (() => {
     $('#go-available').disabled = true; issue = 'Getting your GPS location…'; render();
     try {
       const pos = await gps();
-      if (identity !== api.getIdentityVersion() || document.hidden) return;
+      if (identity !== api.getIdentityVersion()) return;
+      if (document.hidden) throw new Error('Availability was not started because this page was hidden. Keep it visible and choose Go available again.');
       // Set tracking first, since the presence response refreshes the UI.
       tracking = true; const version = ++trackingVersion; lastUpload = Date.now();
       await api.setPresence({ available: true, position: pos });
       if (!tracking || identity !== api.getIdentityVersion()) return;
       issue = '';
-      watch = navigator.geolocation.watchPosition(p => upload({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: p.coords.accuracy, capturedAt: p.timestamp }, version), e => { issue = 'Location tracking failed; availability will expire. Pause and try again.'; render(); }, { enableHighAccuracy: true, maximumAge: 0 });
+      watch = navigator.geolocation.watchPosition(p => upload({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: p.coords.accuracy, capturedAt: p.timestamp }, version), e => { if (version !== trackingVersion) return; issue = `${locationError(e).message} Availability will expire without a fresh position. Pause and try again.`; render(); }, { enableHighAccuracy: true, maximumAge: 0 });
       timer = setInterval(async () => {
         if (!tracking || document.hidden || locationPending) return;
         locationPending = gps();
@@ -94,9 +101,13 @@ window.RiversideAssistance = (() => {
     $('#volunteer-assistance').hidden = role !== 'volunteer';
     if (role === 'volunteer') {
       const p = (state.presence || []).find(p => p.id === session.user.id);
-      if (tracking && p?.state === 'paused') stopTracking();
+      // A periodic refresh can still contain the old paused state while the
+      // initial presence POST is in flight. Do not cancel that opt-in early.
+      if (tracking && !starting && p?.state === 'paused') stopTracking();
       $('#presence-feedback').textContent = `${p?.state === 'busy' ? 'Busy on an accepted assignment' : p?.fresh && p?.state === 'available' ? 'Available for offers' : 'Paused / location unavailable'}${p?.position ? ` · GPS ±${Math.round(p.position.accuracy)} m · ${p.fresh ? 'fresh' : 'stale'}` : ''}${issue ? `. ${issue}` : ''}`;
-      $('#go-available').disabled = starting || tracking || api.isIdentityChanging(); $('#pause-volunteer').disabled = !tracking && p?.state === 'paused';
+      $('#go-available').disabled = starting || tracking || api.isIdentityChanging();
+      $('#go-available').textContent = starting ? 'Getting location…' : tracking ? 'Location sharing active' : 'Go available';
+      $('#pause-volunteer').disabled = starting || (!tracking && p?.state === 'paused');
       const tasks = state.incidents.filter(i => i.assignee === session.user.id || i.assistance?.offers.some(o => o.status === 'pending' && o.volunteerId === session.user.id));
       $('#volunteer-offers').innerHTML = tasks.map(i => {
         const offer = i.assistance.offers.find(o => o.status === 'pending' && o.volunteerId === session.user.id);

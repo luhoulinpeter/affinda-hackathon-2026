@@ -19,6 +19,14 @@ In Mo's **Fictional first-aid stations** panel, enter team-provided names, descr
 
 Station approval is independent of the general fictional event guide, which remains unapproved. Lookup shows straight-line GPS distance, not a walking route or arrival estimate. If location is denied, stale or inaccurate, list stations without identifying a nearest one. No AI call is needed for the button-based lookup.
 
+## When Go available returns to green
+
+Allowing the website to use location does not guarantee that the device can return a position. Read the message below the availability buttons: permission blocked, position unavailable, a 15-second timeout, or the measured accuracy exceeding 100 metres. The volunteer stays unavailable if no eligible position is obtained; do not weaken accuracy checks to make the button succeed.
+
+On a Mac, check **System Settings → Privacy & Security → Location Services**, including permission for the browser/app in use. If the embedded browser keeps reporting position unavailable, try `http://127.0.0.1:8765/` in Safari or Chrome on the same computer and sign in there. Keep one volunteer page visible while testing. This is a troubleshooting step, not a verified cure for every device. [Apple Location Services guidance](https://support.apple.com/guide/mac-help/allow-apps-to-see-the-location-of-your-mac-mh35873/mac); [browser location error meanings](https://developer.mozilla.org/en-US/docs/Web/API/GeolocationPositionError).
+
+The button shows **Getting location…** while waiting and **Location sharing active** while this page is tracking. A stale paused-state refresh during the initial presence request no longer cancels successful tracking. Refreshing the page stops its old GPS watcher; opt in again to start tracking in that page.
+
 ## Server rules
 
 - Deterministic distance ranking replaces the older proposed Jev volunteer-selection design. Jev screens messages and suggests category/urgency; OpenRouter summarises and answers permitted informational questions. Neither chooses or dispatches a responder.
@@ -53,7 +61,7 @@ Jev's fixed `intent` choices now include `first_aid_information`: a station-loca
 
 ## Verification
 
-47 automated tests pass. Automated checks use temporary stores, fake clocks/locations and simulated AI, covering nearest selection, reservations, busy/self/missing-account exclusion, expiry/reoffer, stale/invalid GPS, permissions, concurrent acceptance, duplicate submission, cancellation, destination deletion, restart recovery and station lookup. Browser checks use an isolated simulated-GPS server and temporary authenticated accounts, never production accounts or real coordinates.
+53 automated tests pass. Automated checks use temporary stores, fake clocks/locations and simulated AI, covering nearest selection, reservations, busy/self/missing-account exclusion, expiry/reoffer, stale/invalid GPS, permissions, concurrent acceptance, duplicate submission, cancellation, destination deletion, restart recovery and station lookup. Client regression checks also distinguish permission/unavailable/timeout errors, measured accuracy, hidden-page startup and stale refreshes during opt-in. The original workflow browser checks used an isolated simulated-GPS server and temporary authenticated accounts.
 
 Real phone GPS requires a secure origin (HTTPS; localhost is only local to the device), browser permission and suitable accuracy. Hosting, background notifications, walking routes and medical advice are outside this implementation. Existing AI credit approvals and call limits are unchanged; no live AI call is required for these checks.
 
