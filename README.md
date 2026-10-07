@@ -33,9 +33,11 @@ See [roles.md](roles.md) and [the API contract](docs/STARTER-CONTRACT.md).
 |---|---|
 | Person 1: public and staff interface | `index.html`, `src/css/app.css`, `src/js/ui/app.js` |
 | Person 2: server, permissions and workflow | `server/index.cjs`, `server/auth.cjs`, `src/js/services/api.js`, `src/js/domain/incidents.js`, `data/fixtures.js` |
-| Person 3: model and voice integration | `src/js/services/analysis.js` (server-side stub), future provider modules under `server/` |
+| Person 3: Jev, LLM and voice integration | `src/js/services/analysis.js` (server-side stub), future separate provider modules under `server/` |
 
 AI, voice, automatic assignment, coverage checks, maps and public deployment are not implemented. Text reporting and real local staff accounts are implemented. The layout adapts below 720px and preserves large action buttons and a collapsible incident queue.
+
+The [AI plan](docs/AI-PLAN.md) includes **Jev plus a separate LLM** for interpreting information and answering less urgent questions, with speech transcription as an additional integration if voice is included. Providers/access, Q&A audiences and knowledge sources remain undecided. Next.js and Supabase are under discussion; the current implementation remains the Node.js/browser starter described here.
 
 ## Verification
 

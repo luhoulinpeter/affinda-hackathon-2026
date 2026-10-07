@@ -29,11 +29,13 @@ A festival-goer or volunteer reports an issue in a browser; Jev offers it direct
 
 The heatmap shows report volume and unresolved work by zone using recent fictional events. It helps Mo spot where to look; it does not declare a zone safe or unsafe. Suggested redistribution is one proposed responder move with a before/after coverage preview, rather than a separate optimiser.
 
-## Jev's proposed role
+## Planned AI integrations: Jev, an LLM and optional speech
+
+The team clarified on 7 October that Jev is not the only AI integration. A separate **LLM (large language model)** is planned to interpret incoming information and permitted event/incident context, and to answer less urgent questions. The provider, knowledge sources, Q&A audience and exact interpretation/classification split with Jev remain undecided. See [AI-PLAN.md](AI-PLAN.md). Neither model can confirm resolution or replace the human incident workflow; context retrieval must respect public/Volunteer/Mo permissions. These integrations have not been implemented.
 
 The team confirmed **TypeSafe AI's Jev**. Its official quick start describes fixed-choice, yes/no and score outputs from a text `state` and defined questions. It does not produce a transcript or free-form explanation. Its proposed jobs here are: suggest a report category from a small set and choose one candidate from a list of **already eligible safety volunteers**. The app's own rules determine eligibility and whether a move leaves another zone short. The Jev choice can send an assignment offer without Mo's prior approval. It does not decide the medical, crowd or other safety response, and it cannot confirm resolution. The volunteer is the first person to assess the situation; Mo takes over when the case is serious, unclear, repeatedly reported or escalated. Show Jev's choice beside the original report for later human review and correction. Another model may be used if a tested option fits this bounded job better; transcription requires a separate speech tool.
 
-No Jev access, pricing or performance has been verified for this team. An API key, if used, must stay on a server, not in a public web page or repository.
+No Jev or LLM API access, budget or performance has been verified for this team. Provider keys must stay on a server, not in a public web page or repository. An LLM answer must use the agreed sources and acknowledge missing information; urgent/unclear concerns still reach a person.
 
 **Audio has a separate path:** the browser records the note, a transcription service creates text, and Jev receives that text after the speaker has checked it. The browser's built-in speech recognition is a lighter experiment if the team cannot access a transcription service, but it may not retain the original audio and has uneven support. Paid chat subscriptions do not establish application API access. The target phone/browser must be tested and the text form must remain usable.
 
@@ -48,7 +50,7 @@ No Jev access, pricing or performance has been verified for this team. An API ke
 
 ## Data and the smallest implementation
 
-Use three invented site zones, a small fictional roster with names, roles, skills, assigned zones and availability, plus several realistic reports. Store each report's source, time, zone, status, suggested category, assignment, acknowledgement, proposed outcome and explicit resolution confirmation. Deliver the MVP as a browser app; the first demo can use a role switch in one browser to show all three views. Exact desktop and mobile browsers still need checking. Real multi-user accounts, GPS tracking and live messaging are not needed to prove the workflow.
+Use three invented site zones, a small fictional roster with names, roles, skills, assigned zones and availability, plus several realistic reports. Store each report's source, time, zone, status, suggested category, assignment, acknowledgement, proposed outcome and explicit resolution confirmation. The team has since chosen real staff accounts: event-goers get the public page by default, and the signed-in staff account determines the Volunteer or Mo view. The local server implements that entry flow; exact physical-phone behaviour still needs checking. GPS tracking and live messaging remain unimplemented.
 
 Build in this order:
 
@@ -56,7 +58,8 @@ Build in this order:
 2. **Map and oversight view:** three-zone counts, unresolved/acknowledgement states and a cluster alert from multiple reports. Show a before/after coverage preview for a worker offered across zones.
 3. **Voice input:** record a clip, obtain an editable transcript from a service, then submit. Verify it on a teammate's actual phone and browser. If no transcription service is available, test browser dictation on the target browser; label it as dictation rather than a retained voice note.
 4. **Jev connection if accessible:** send report text and the eligible candidate list with fixed questions from a server; use the returned choice for the direct offer on a fresh report. If Jev is unavailable, send the report to Mo or a clearly labelled deterministic fallback; describe Jev as unintegrated rather than faking the call.
-5. **Independent check and demo:** test ambiguous, duplicate, wrong-zone, no-eligible-worker, decline, no-acknowledgement, unresolved-after-escalation and model-failure cases. Record a short demonstration of the whole journey.
+5. **Separate LLM interpretation and Q&A:** after agreeing provider, audience and sources, connect a real LLM through the server. Test interpretation on a new report and answers to less urgent questions using only the current user's permitted context. Unknown answers and service failures must be visible; urgent concerns keep their human workflow.
+6. **Independent check and demo:** test ambiguous, duplicate, wrong-zone, no-eligible-worker, decline, no-acknowledgement, unresolved-after-escalation and model-failure cases. Include unknown Q&A answers and cross-role context access. Record a short demonstration of the whole journey.
 
 The first working slice can be a local web app with fictional data and clear run instructions. The final submission needs an accessible prototype link **or** clear steps to run it; the public demo video is separately required.
 
@@ -72,6 +75,7 @@ The first working slice can be a local web app with fictional data and clear run
 - A volunteer can record arrival, propose resolution, explicitly confirm their own resolution, or escalate. Mo or the original reporter can also explicitly confirm resolution. The record shows who confirmed and when. A proposed resolution or escalation remains open until confirmed; no AI output or timeout marks the incident resolved.
 - If recorded voice notes are included, each submitted note has an editable transcript and its original audio remains available for review. If browser dictation is used instead, the interface does not imply that an audio file exists. Text submission still works if microphone or transcription fails.
 - If Jev is included, a real call routes unfamiliar text and chooses among eligible volunteers; the volunteer's and Mo's subsequent decisions remain visible. A missing Jev response does not hide or silently close the report.
+- The separate LLM interprets unfamiliar input and answers a fresh less urgent question from the agreed sources. It identifies missing information, respects role-specific context and does not resolve incidents or replace urgent human review. Demonstrate a real call before claiming this integration; provider/source failures leave incident reporting usable.
 - The heatmap counts are derived from stored reports and change when a new report or resolution changes the state.
 - All sample people and incidents are fictional; no credentials appear in client code.
 
@@ -81,6 +85,7 @@ The first working slice can be a local web app with fictional data and clear run
 2. Verify Jev API access and compare it with alternatives only if access, latency or tested decision quality becomes a problem.
 3. Decide who monitors Mo's alert queue and what pattern of related reports counts as a growing cluster. No incident or assignment timeout is planned.
 4. Choose and test the exact desktop and phone browsers, especially for microphone access and voice transcription.
+5. Choose the LLM/provider, define which users may ask questions and which sources they can access, and agree how urgent/uncertain questions reach the human workflow.
 
 **Time-sensitive event facts:** Team registration and track selection close **7 October 2026 at 5:00pm AEDT**. Devpost submission closes **8 October 2026 at 5:00pm AEDT**. The official rules require fictional data, disclosure of major AI tools and human control of safety decisions.
 

@@ -43,6 +43,7 @@ The original report is saved before analysis. The current adapter is explicitly 
 
 ## Remaining contracts from the original plan
 
+- Separate Jev and LLM integrations: interpretation/classification responsibilities, Q&A request/response, permission-scoped context, authoritative sources, uncertainty and urgent-question handoff. See [AI-PLAN.md](AI-PLAN.md). No Q&A API exists yet.
 - Offer, accept/decline, arrival and proposed-resolution actions, distinct from final incident resolution.
 - Roster skills, availability, current assignments and minimum zone coverage; eligibility checked on the server before an offer.
 - Validated model category and candidate selection, urgent/unclear signals and fallback when a provider fails.

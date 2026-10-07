@@ -4,11 +4,13 @@ This working split follows the team's discussion on 7 October. Replace Person 1â
 
 | Owner | Files to start in | Responsibility | First next step |
 |---|---|---|---|
-| Person 1: interface | `index.html`, `src/css/app.css`, `src/js/ui/` | Public, Mo and volunteer views, account-entry interface, form feedback, recording and transcript editing later | Complete the public â†’ staff review flow and show the staff view for the signed-in role |
-| Person 2: application/server | `server/`, `src/js/services/api.js`, `src/js/domain/incidents.js`, `data/fixtures.js`, `tests/` | Account sessions, server-enforced permissions, authoritative state, assignment and coverage rules, incident history | Extend the existing API with volunteer offers after agreeing eligibility rules |
-| Person 3: AI/services | `src/js/services/analysis.js` (server-side), new provider files in `server/`, AI evaluation tests | Model category/candidate adapter, transcription, audio storage, routing evaluation and deployment setup | Verify service access, then agree validated results with Person 2 before replacing the stub |
+| Person 1: interface | `index.html`, `src/css/app.css`, `src/js/ui/` | Public, Mo and volunteer views, account entry, report feedback; planned LLM Q&A interface and voice/transcript editing | Agree Q&A audience/placement, then extend the existing views without changing permissions |
+| Person 2: application/server | `server/`, `src/js/services/api.js`, `src/js/domain/incidents.js`, `data/fixtures.js`, `tests/` | Account sessions, server permissions, role-scoped LLM context retrieval, authoritative state, assignment/coverage rules and history | Agree the stack and Q&A context contract; add offers after agreeing eligibility rules |
+| Person 3: AI/services | `src/js/services/analysis.js` (server-side), new provider files in `server/`, AI evaluation tests | Separate Jev and LLM adapters/prompts, interpretation and less urgent Q&A, transcription, audio storage and AI evaluation | Verify both providers and agree sources/validated results with Person 2 before replacing the stub |
 
 Person 2 owns the server entry point and shared configuration. Person 3 adds provider adapters in separate files. Keep API keys on the server, never in browser scripts. Person 1 owns shared HTML and CSS; coordinate changes rather than editing the same files simultaneously.
+
+See [the AI plan](docs/AI-PLAN.md) for Jev/LLM boundaries and unresolved Q&A decisions. Next.js/Supabase are being considered; the file paths above describe the implemented starter until a migration is agreed.
 
 ## Work together first
 
@@ -21,4 +23,4 @@ Everyone tests on their own phone once a server preview is available. Person 1 c
 
 ## Not yet implemented
 
-Automatic assignment, volunteer offers/acceptance/arrival, skills or coverage checks, real AI, maps/zone counts/cluster alerts, audio/transcription, spoken alerts and public deployment. Server storage, real staff accounts and public reporting are now implemented. Armaan's grouping/Split/Merge revision is set aside.
+Automatic assignment, volunteer offers/acceptance/arrival, skills or coverage checks, real Jev/LLM calls, interpretation/Q&A, maps/zone counts/cluster alerts, audio/transcription, spoken alerts and public deployment. Server storage, real staff accounts and public reporting are implemented. Armaan's grouping/Split/Merge revision is set aside.
