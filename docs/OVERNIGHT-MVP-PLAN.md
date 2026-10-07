@@ -235,3 +235,11 @@ Limitations: physical-phone GPS, multi-device HTTPS access and reliable backgrou
 The 5am continuation should review new concurrent changes against this evidence and continue meaningful checks where needed. It must preserve expired/spent AI allowances; useful simulated checks and Maps/UI verification remain available if inference is disabled. There are no unresolved product decisions or integration blockers for the completed local browser MVP. Broader model reliability, physical-device access and native background tracking are not claimed.
 
 Final UI follow-up: incoming offers and accepted assignments now disable other claim buttons independently of location-sharing state. The UI asks the volunteer to respond to their offer or finish their assignment, instead of inviting an action that the server would reject. `claims-client.test.cjs` verifies both cases and re-enabling after resolution. The final 143-test run includes this fix.
+
+## 5am continuation — 8 October
+
+The worktree was clean at `c9d4b44`; no concurrent changes needed integration. The previous local server had stopped. Started the saved current version with `.env` at `http://127.0.0.1:8765/`, without interrupting another process, and verified actual Google loading, attribution/zoom and all three fictional station markers in the public browser view. [Current startup screenshot](checks/morning-startup.png). Existing accounts/reports remain stored; staff sign in again after startup. The previous restart instruction is now fulfilled.
+
+Read-only provider status confirmed both AI routes are disabled because the original approval expired. Original interactive remaining-call counts were Jev 11/OpenRouter 12; these are not current dollar balances and include activity outside the separate map check. No live calls, approval renewal, ledger reset, new purchases or recharge were performed. Maps loads independently of inference. No new report/account was created in the user's store for this check.
+
+There was no new source change or regression evidence to justify repeating the full 143-test suite. The last passing evidence remains applicable. Physical-phone GPS/HTTPS and wider model quality remain unverified. The one-time continuation has now run; the local app is left running for the user.
