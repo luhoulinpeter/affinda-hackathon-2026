@@ -20,7 +20,7 @@
 - 6 October 2026: Recorded Track 3 and an issue-classifier concept as tentative interests, not final product decisions.
 - 7 October 2026: The team moved away from a rostering-focused proposal toward incident intake, volunteer assignment and escalation. Reason: route incoming reports to people who can act and let Mo focus on larger or accumulating problems.
 - 7 October 2026: The team proposed Jev sending assignment offers directly to eligible safety volunteers. Volunteers would assess and escalate when needed; Mo would not approve every small assignment. This is the current design direction, not a verified safety workflow.
-- 7 October 2026: The team raised a public map of volunteer/staff locations, incident uploads, a heatmap, redistribution suggestions, and web-app voice messages as possibilities. Whether to show individual live locations or replace radios remains undecided; the [MVP draft](INCIDENT-MVP-DRAFT.md) uses fixed public help points and zone-level staff information until live-location accuracy can be established.
+- 7 October 2026: The team raised a public map of volunteer/staff locations, incident uploads, a heatmap, redistribution suggestions, and web-app voice messages as possibilities. Whether to show individual live locations or replace radios remains undecided; the [MVP draft](docs/INCIDENT-MVP-DRAFT.md) uses fixed public help points and zone-level staff information until live-location accuracy can be established.
 - 7 October 2026: The team confirmed Track 3 and TypeSafe AI's Jev as the intended decision model, while leaving room to compare alternatives if needed. The MVP will run in a browser; exact target browsers remain to be tested.
 - 7 October 2026: The team decided Mo, the assigned volunteer or the original reporter may confirm resolution. Every incident stays open until one of them explicitly confirms; no timeout automatically escalates or closes it.
 
@@ -43,8 +43,8 @@ HACKATHON.md states: "both forms close **Wed 7 Oct, 5:00pm**. Use the same team 
 - A draft is not a submission; late submissions are not accepted. Submission links must stay public and unchanged until judging finishes.
 
 ## Status
-- Checked: the official Track 3 page, judging rubric, Hacker Hub and Devpost requirements were read live; TypeSafe AI's Jev quick start was read; the [incident MVP draft](INCIDENT-MVP-DRAFT.md) has been written and reviewed for consistency with the team's latest direction.
-- Not yet checked: registration/track form completion, Jev account or API access, a transcription service, exact browser and microphone support, live location data, and the team repository contents. No app prototype or integration in this folder has been tested.
+- Checked: the official Track 3 page, judging rubric, Hacker Hub and Devpost requirements were read live; TypeSafe AI's Jev quick start was read; the [incident MVP draft](docs/INCIDENT-MVP-DRAFT.md) has been written and reviewed for consistency with the team's latest direction.
+- Not yet checked: registration/track form completion, Jev account or API access, a transcription service, exact browser and microphone support, live location data, and app behaviour. The repository currently contains project notes and a folder scaffold; no app prototype or integration has been implemented or tested.
 - Next step: confirm the registration and track checklist, then choose the first incident type, eligible volunteer skill and Mo escalation triggers. Build and test one browser text report → automatic offer → volunteer response → explicit human resolution confirmation or escalation flow before adding voice and the map.
 
 ## Traps
@@ -59,5 +59,5 @@ HACKATHON.md states: "both forms close **Wed 7 Oct, 5:00pm**. Use the same team 
 - [Devpost submissions and rules](https://affinda-challenge.devpost.com/)
 - [Discord announcements and questions](https://discord.gg/DZgMfVRfr)
 - Team repository: https://github.com/luhoulinpeter/affinda-hackathon-2026 (private; teammates need invitations).
-- Current [incident response MVP draft](INCIDENT-MVP-DRAFT.md).
+- Current [incident response MVP draft](docs/INCIDENT-MVP-DRAFT.md).
 - Prototype / demo video: <TODO>.
