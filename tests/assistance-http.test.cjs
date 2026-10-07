@@ -3,12 +3,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { randomBytes } = require('node:crypto');
+const { randomBytes, randomUUID } = require('node:crypto');
 const { createApp } = require('../server/index.cjs');
 function client(base) {
-  const cookies = new Map(); let csrf;
+  const cookies = new Map(); let csrf; const tabId = randomUUID();
   return { async request(route, body, extra = {}) {
-    const response = await fetch(base + route, { headers: { Connection: 'close', Cookie: [...cookies].map(([k,v]) => `${k}=${v}`).join('; '), ...(body === undefined ? {} : { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }), ...extra }, ...(body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) }) });
+    const response = await fetch(base + route, { headers: { Connection: 'close', 'X-Riverside-Tab': tabId, Cookie: [...cookies].map(([k,v]) => `${k}=${v}`).join('; '), ...(body === undefined ? {} : { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }), ...extra }, ...(body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) }) });
     for (const cookie of response.headers.getSetCookie()) { const [key,value] = cookie.split(';')[0].split('='); if (value) cookies.set(key,value); else cookies.delete(key); }
     const result = await response.json(); if (result.csrf) csrf = result.csrf;
     return { status: response.status, result };

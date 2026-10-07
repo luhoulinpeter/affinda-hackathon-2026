@@ -6,7 +6,7 @@ The browser loads fixtures, `src/js/services/api.js`, then `src/js/ui/app.js`. T
 
 `GET /api/session` returns `{ user, guest, csrf, setupRequired, ai, guideApproved }`. `user` is null for event-goers or `{ username, id, role, name }` for signed-in staff. The interface follows this role automatically. Event-goers do not sign in.
 
-State-changing requests send JSON and the `X-CSRF-Token` from the session response. Cookies are HttpOnly. Request-body actor IDs/roles are ignored: the server derives identity from its verified cookie/session.
+Every API request sends a random tab selector in `X-Riverside-Tab`; the live-update stream uses the non-secret `?tab=` selector instead. State-changing requests also send JSON and the `X-CSRF-Token` from the session response. The server selects an HttpOnly `riverside_session_<tab-id>` cookie, verifies its binding to the tab and signed browser guest identity, and derives the role from the server session. Request-body actor IDs/roles are ignored. Sign-in/sign-out affects only the selected tab. See [independent tab sessions](TAB-SESSIONS.md).
 
 | Endpoint | Behaviour |
 |---|---|

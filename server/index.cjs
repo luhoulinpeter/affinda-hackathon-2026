@@ -53,7 +53,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
   const sessions = new Map();
   const assistance = createAssistance({ workflow, volunteers: data.volunteers, now,
     hasAccount: id => db.users.some(u => u.role === 'volunteer' && u.actorId === id),
-    sessionAlive: token => sessions.has(token) && sessions.get(token).expires > Date.now() });
+    sessionAlive: token => sessions.has(token) && sessions.get(token).expires > now() });
   const assistanceTimer = setInterval(() => assistance.tick(), 1000);
   assistanceTimer.unref();
   const loginAttempts = new Map();
@@ -69,15 +69,21 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
     const cookies = res.getHeader('Set-Cookie') || [];
     res.setHeader('Set-Cookie', [...cookies, `${name}=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${seconds}${secureCookies ? '; Secure' : ''}`]);
   }
-  function newStaffSession(res, user, oldToken) {
+  function newStaffSession(res, user, ctx) {
+    const oldToken = ctx.token;
     const previousUser = db.users.find(u => u.username === sessions.get(oldToken)?.username);
-    if (previousUser?.role === 'volunteer') assistance.pause(previousUser.actorId);
+    if (previousUser?.role === 'volunteer') assistance.pause(previousUser.actorId, oldToken);
     if (oldToken) sessions.delete(oldToken);
     const token = randomBytes(32).toString('hex');
-    sessions.set(token, { username: user.username, csrf: randomBytes(32).toString('hex'), expires: Date.now() + 8 * 60 * 60 * 1000 });
-    cookie(res, 'riverside_session', token, 8 * 60 * 60);
+    sessions.set(token, { username: user.username, tabId: ctx.tabId, guestId: ctx.guest.id, csrf: randomBytes(32).toString('hex'), expires: now() + 8 * 60 * 60 * 1000 });
+    cookie(res, ctx.sessionCookie, token, 8 * 60 * 60);
   }
-  function context(req, res) {
+  function context(req, res, url) {
+    // The selector is tab-local, but authentication still requires an HttpOnly
+    // credential bound to this tab AND the signed browser guest cookie.
+    const tabId = url.pathname === '/api/events' ? url.searchParams.get('tab') : req.headers['x-riverside-tab'];
+    if (typeof tabId !== 'string' || !/^[a-f0-9-]{36}$/.test(tabId)) throw Object.assign(new Error('Reload this page to initialise its independent sign-in session.'), { status: 400 });
+    const sessionCookie = `riverside_session_${tabId}`;
     const cookies = Object.fromEntries((req.headers.cookie || '').split(';').map(item => item.trim().split('=')));
     const [guestId, signature] = (cookies.riverside_guest || '').split('.');
     let id = guestId;
@@ -85,14 +91,16 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       id = `guest-${randomUUID()}`;
       cookie(res, 'riverside_guest', `${id}.${sign(db.cookieSecret, 'guest', id)}`, 7 * 24 * 60 * 60);
     }
-    for (const [token, session] of sessions) if (session.expires <= Date.now()) sessions.delete(token);
-    const token = cookies.riverside_session;
-    const session = sessions.get(token);
+    for (const [token, session] of sessions) if (session.expires <= now()) sessions.delete(token);
+    const candidate = cookies[sessionCookie];
+    const stored = sessions.get(candidate);
+    const session = stored?.tabId === tabId && stored?.guestId === id ? stored : null;
+    const token = session ? candidate : undefined;
     const user = session && db.users.find(item => item.username === session.username);
     return {
-      token, user, guest: { id, role: 'public' },
+      token, user, tabId, sessionCookie, guest: { id, role: 'public' },
       actor: user ? { id: user.actorId, role: user.role } : { id, role: 'public' },
-      csrf: user ? session.csrf : sign(db.cookieSecret, 'csrf', id)
+      csrf: user ? session.csrf : sign(db.cookieSecret, 'csrf', `${id}:${tabId}`)
     };
   }
   function stateFor(actor) {
@@ -141,6 +149,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
     ['/src/css/app.css', ['src/css/app.css', 'text/css']],
     ['/data/fixtures.js', ['data/fixtures.js', 'text/javascript']],
     ['/src/js/services/api.js', ['src/js/services/api.js', 'text/javascript']],
+    ['/src/js/services/tab-session.js', ['src/js/services/tab-session.js', 'text/javascript']],
     ['/src/js/ui/app.js', ['src/js/ui/app.js', 'text/javascript']],
     ['/src/js/ui/qa.js', ['src/js/ui/qa.js', 'text/javascript']],
     ['/src/js/ui/assistance.js', ['src/js/ui/assistance.js', 'text/javascript']]
@@ -164,7 +173,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         res.end(fs.readFileSync(path.join(root, asset[0])));
         return;
       }
-      const ctx = context(req, res);
+      const ctx = context(req, res, url);
       if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: ctx.user ? publicUser(ctx.user) : null, guest: ctx.guest, csrf: ctx.csrf, setupRequired: !deployed && db.users.length === 0, ai: providers.status(), guideApproved: (guide || require('../data/event-guide.json')).approved === true });
       if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, stateFor(ctx.actor));
       if (req.method === 'GET' && url.pathname === '/api/stations') return json(res, 200, ctx.actor.role === 'mo' ? db.helpStations || { enabled: false, stations: [] } : { enabled: db.helpStations?.enabled === true, stations: db.helpStations?.enabled ? db.helpStations.stations : [] });
@@ -198,7 +207,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         const actorKey = `${ctx.actor.role}:${ctx.actor.id}`;
         if (qaActive.has(actorKey) || qaActive.size >= 4) return json(res, 429, { error: 'Questions are busy. Please try again shortly.' });
         const version = resetVersion;
-        const isCurrent = () => version === resetVersion && (!ctx.user || (sessions.get(ctx.token)?.username === ctx.user.username && sessions.get(ctx.token)?.expires > Date.now()));
+        const isCurrent = () => version === resetVersion && (!ctx.user || (sessions.get(ctx.token)?.username === ctx.user.username && sessions.get(ctx.token)?.expires > now()));
         qaActive.add(actorKey);
         try {
           const result = await answerQuestion({ body, actor: ctx.actor, getState: () => stateFor(ctx.actor), providers, guide, isCurrent, findFirstAid: () => firstAid(db.helpStations, body.position, now()) });
@@ -213,7 +222,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         const password = await passwordJob(() => hashPassword(body.password));
         if (db.users.length) return json(res, 409, { error: 'Initial setup is already complete.' });
         const user = { username: body.username, actorId: 'mo', role: 'mo', password };
-        db.users.push(user); save(); newStaffSession(res, user, ctx.token);
+        db.users.push(user); save(); newStaffSession(res, user, ctx);
         return json(res, 201, { ok: true });
       }
       if (url.pathname === '/api/login') {
@@ -227,12 +236,12 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         const user = db.users.find(item => item.username === username);
         const verified = await passwordJob(() => verifyPassword(body.password, user ? user.password : dummy));
         if (!user || !verified) return json(res, 401, { error: 'Incorrect username or password.' });
-        loginAttempts.delete(key); newStaffSession(res, user, ctx.token);
+        loginAttempts.delete(key); newStaffSession(res, user, ctx);
         return json(res, 200, { ok: true });
       }
       if (url.pathname === '/api/logout') {
-        if (ctx.actor.role === 'volunteer') assistance.pause(ctx.actor.id);
-        sessions.delete(ctx.token); cookie(res, 'riverside_session', '', 0);
+        if (ctx.actor.role === 'volunteer') assistance.pause(ctx.actor.id, ctx.token);
+        sessions.delete(ctx.token); cookie(res, ctx.sessionCookie, '', 0);
         return json(res, 200, { ok: true });
       }
       if (url.pathname === '/api/accounts') {

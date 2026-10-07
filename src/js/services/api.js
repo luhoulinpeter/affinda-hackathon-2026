@@ -10,9 +10,11 @@ window.RiversideAPI = (() => {
   let refreshVersion = 0;
   const clone = value => JSON.parse(JSON.stringify(value));
   async function request(url, body) {
+    const tabId = await window.RiversideTab.ready;
     const response = await fetch(url, {
       credentials: "same-origin", cache: "no-store",
-      ...(body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": session?.csrf || "" }, body: JSON.stringify(body) })
+      headers: { 'X-Riverside-Tab': tabId, ...(body === undefined ? {} : { "Content-Type": "application/json", "X-CSRF-Token": session?.csrf || "" }) },
+      ...(body === undefined ? {} : { method: "POST", body: JSON.stringify(body) })
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Request failed.");
@@ -27,7 +29,7 @@ window.RiversideAPI = (() => {
     session = nextSession;
     state = nextState;
     subscribers.forEach(callback => callback());
-    connectEvents();
+    await connectEvents();
   }
   async function submitReport(input) {
     const result = await request("/api/reports", input);
@@ -57,9 +59,12 @@ window.RiversideAPI = (() => {
   // Establish the guest cookie before opening a parallel stream; otherwise two
   // first requests can set different guest IDs and orphan the first report.
   let events = null;
-  function connectEvents() {
+  async function connectEvents() {
     if (events || typeof EventSource === "undefined") return;
-    events = new EventSource('/api/events');
+    const tabId = await window.RiversideTab.ready;
+    if (events) return;
+    // Only the non-secret selector goes in the URL, never a session credential.
+    events = new EventSource(`/api/events?tab=${encodeURIComponent(tabId)}`);
     events.addEventListener('state', () => {
       if (!identityChanging) refresh().catch(() => {});
     });

@@ -91,15 +91,19 @@ function createAssistance({ workflow, volunteers, hasAccount, sessionAlive = () 
   function setPresence(actor, body, token) {
     if (actor.role !== 'volunteer') fail('Volunteer access required.', 403);
     if (typeof body.available !== 'boolean') fail('Choose whether you are available.');
-    if (!body.available) { presence.set(actor.id, { state: 'paused', sessionToken: token }); tick(); return; }
+    const existing = presence.get(actor.id);
+    if (existing?.state !== 'paused' && fresh(existing) && existing.sessionToken !== token) fail('Location sharing is already active for this volunteer in another tab or device. Pause it there first.', 409);
+    if (!body.available) { pause(actor.id, token); return; }
     let p;
     try { p = position(body.position, now()); }
-    catch (error) { pause(actor.id); throw error; }
+    catch (error) { pause(actor.id, token); throw error; }
     const busy = state().incidents.some(i => active(i) && i.assignee === actor.id);
     presence.set(actor.id, { state: busy ? 'busy' : 'available', position: p, sessionToken: token });
     tick();
   }
-  function pause(id) { if (presence.has(id)) { presence.set(id, { state: 'paused' }); tick(); } }
+  function pause(id, token) {
+    if (presence.has(id) && (token === undefined || presence.get(id).sessionToken === token)) { presence.set(id, { state: 'paused' }); tick(); }
+  }
   function respond(actor, incidentId, offerId, decision) {
     tick();
     if (actor.role !== 'volunteer') fail('Volunteer access required.', 403);

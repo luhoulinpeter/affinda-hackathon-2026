@@ -3,18 +3,17 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { randomBytes } = require('node:crypto');
+const { randomBytes, randomUUID } = require('node:crypto');
 const { createApp } = require('../server/index.cjs');
 
-function client(base) {
-  const jar = new Map();
+function client(base, { jar = new Map(), tabId = randomUUID() } = {}) {
   let csrf = '';
   return {
-    jar,
+    jar, tabId,
     async request(route, body, headers = {}) {
       const response = await fetch(base + route, {
         // A fresh connection also verifies login after an actual server restart.
-        headers: { Connection: 'close', Cookie: [...jar].map(([key, value]) => `${key}=${value}`).join('; '),
+        headers: { Connection: 'close', 'X-Riverside-Tab': tabId, Cookie: [...jar].map(([key, value]) => `${key}=${value}`).join('; '),
           ...(body === undefined ? {} : { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }), ...headers },
         ...(body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) })
       });
@@ -28,6 +27,67 @@ function client(base) {
     }
   };
 }
+
+test('shared-cookie tabs keep independent roles, logout, CSRF, GPS ownership and expiry', async t => {
+  const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'riverside-tabs-'));
+  let time=Date.now();
+  const server=createApp({dataDir,aiEnv:{},now:()=>time});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const base=`http://127.0.0.1:${server.address().port}`;
+  t.after(async()=>{await server.whenAIIdle();await new Promise(resolve=>server.close(resolve));fs.rmSync(dataDir,{recursive:true,force:true})});
+  const jar=new Map(),mo=client(base,{jar}),vol=client(base,{jar}),guest=client(base,{jar}),secondVol=client(base,{jar});
+  const moPassword=randomBytes(12).toString('hex'),volPassword=randomBytes(12).toString('hex');
+  await mo.request('/api/session');
+  assert.equal((await mo.request('/api/setup',{username:'mo',password:moPassword})).status,201);
+  const moSession=(await mo.request('/api/session')).result;
+  assert.equal((await mo.request('/api/accounts',{username:'priya',password:volPassword,volunteerId:'vol-priya'})).status,201);
+  await vol.request('/api/session');
+  assert.equal((await vol.request('/api/login',{username:'priya',password:volPassword})).status,200);
+  const volSession=(await vol.request('/api/session')).result;
+  const guestSession=(await guest.request('/api/session')).result;
+  assert.equal((await mo.request('/api/session')).result.user.role,'mo');
+  assert.equal(volSession.user.role,'volunteer');assert.equal(guestSession.user,null);
+  assert.equal((await client(base,{jar,tabId:mo.tabId}).request('/api/session')).result.user.role,'mo','refresh keeps this tab signed in');
+  assert.equal((await guest.request('/api/accounts',{username:'forged',password:'x',volunteerId:'vol-alex'},{'X-CSRF-Token':moSession.csrf})).status,403);
+  const guestReport=await guest.request('/api/reports',{zone:'zone-a',text:'Shared-browser event-goer report'});
+  const volReport=await vol.request('/api/reports',{zone:'zone-b',text:'Volunteer-only report'});
+  assert.equal(guestReport.status,201);assert.equal(volReport.status,201);
+  assert.equal((await guest.request('/api/state')).result.reports.length,1);
+  assert.equal((await vol.request('/api/state')).result.reports.length,1);
+  assert.equal((await mo.request('/api/state')).result.reports.length,2);
+  // Knowing a tab selector alone cannot authenticate a different browser.
+  const copiedCredential=jar.get(`riverside_session_${mo.tabId}`);
+  const foreign=client(base,{tabId:mo.tabId});foreign.jar.set(`riverside_session_${mo.tabId}`,copiedCredential);
+  assert.equal((await foreign.request('/api/session')).result.user,null);
+  assert.equal((await guest.request('/api/session',undefined,{'X-Riverside-Tab':'bad'})).status,400);
+  assert.equal((await guest.request('/api/session',undefined,{'X-Riverside-Tab':''})).status,400);
+  // A second sign-in as the same volunteer cannot steal or pause GPS ownership.
+  await secondVol.request('/api/session');await secondVol.request('/api/login',{username:'priya',password:volPassword});await secondVol.request('/api/session');
+  const position={latitude:0,longitude:0,accuracy:5,capturedAt:time};
+  assert.equal((await vol.request('/api/presence',{available:true,position})).status,200);
+  assert.equal((await secondVol.request('/api/presence',{available:true,position})).status,409);
+  assert.equal((await secondVol.request('/api/presence',{available:false})).status,409);
+  await secondVol.request('/api/logout',{});
+  assert.equal((await mo.request('/api/state')).result.presence.find(p=>p.id==='vol-priya').state,'available');
+  assert.equal((await vol.request('/api/session')).result.user.role,'volunteer');
+  // A second tab switching from volunteer to Mo must not pause the first tab.
+  await secondVol.request('/api/session');await secondVol.request('/api/login',{username:'priya',password:volPassword});await secondVol.request('/api/session');
+  await secondVol.request('/api/login',{username:'mo',password:moPassword});await secondVol.request('/api/session');
+  assert.equal((await mo.request('/api/state')).result.presence.find(p=>p.id==='vol-priya').state,'available');
+  const logout=await mo.request('/api/logout',{});
+  assert.ok(logout.response.headers.getSetCookie().every(c=>c.startsWith(`riverside_session_${mo.tabId}=`)));
+  assert.equal((await mo.request('/api/session')).result.user,null);
+  assert.equal((await vol.request('/api/session')).result.user.role,'volunteer');
+  assert.equal((await secondVol.request('/api/session')).result.user.role,'mo');
+  assert.equal((await guest.request('/api/state')).result.reports[0].id,'R-1');
+  await vol.request('/api/logout',{});
+  assert.equal((await secondVol.request('/api/state')).result.presence.find(p=>p.id==='vol-priya').state,'paused');
+  // Replay an expired real credential, and verify it cannot restore the session.
+  time+=8*60*60*1000+1;
+  assert.equal((await secondVol.request('/api/session')).result.user,null);
+  assert.equal((await guest.request('/api/state')).result.reports.length,1);
+  assert.notEqual(moSession.csrf,volSession.csrf);
+});
 
 test('real accounts enforce guest, volunteer and Mo access over HTTP and survive restart', async t => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'riverside-auth-test-'));
@@ -121,10 +181,12 @@ test('real accounts enforce guest, volunteer and Mo access over HTTP and survive
   assert.equal(moReport.status, 201);
   assert.equal((await mo.request('/api/state')).result.reports.find(item => item.text === 'Fictional issue submitted by Mo').reporter.role, 'mo');
   await server.whenAIIdle();
-  const stolen = mo.jar.get('riverside_session');
+  const sessionCookie = `riverside_session_${mo.tabId}`;
+  const stolen = mo.jar.get(sessionCookie);
+  assert.ok(stolen, 'Capture the actual tab session credential for the revocation check');
   assert.equal((await mo.request('/api/logout', {})).status, 200);
   await mo.request('/api/session');
-  mo.jar.set('riverside_session', stolen);
+  mo.jar.set(sessionCookie, stolen);
   assert.equal((await mo.request('/api/session')).result.user, null);
 
   await new Promise(resolve => server.close(resolve));
@@ -244,7 +306,7 @@ test('event stream signals changes without sending data, and only Mo can reset t
   const guest = client(base), mo = client(base);
   await guest.request('/api/session');
 
-  const stream = await fetch(`${base}/api/events`);
+  const stream = await fetch(`${base}/api/events?tab=${guest.tabId}`, { headers: { Cookie: [...guest.jar].map(([k,v])=>`${k}=${v}`).join('; ') } });
   assert.equal(stream.status, 200);
   assert.match(stream.headers.get('content-type'), /^text\/event-stream/);
   const reader = stream.body.getReader();
@@ -290,10 +352,11 @@ test('deployed mode accepts only its public host, disables browser setup and use
   t.after(async () => { await new Promise(resolve => server.close(resolve)); fs.rmSync(dataDir, { recursive: true, force: true }); });
   // Simulates the host's HTTPS proxy forwarding to this server with the public Host header.
   const cookies = new Map();
+  const tabId = randomUUID();
   let csrf = '';
   function send(route, body, { host = 'riverside.test', origin = 'https://riverside.test' } = {}) {
     return new Promise((resolve, reject) => {
-      const headers = { Host: host, Cookie: [...cookies].map(([key, value]) => `${key}=${value}`).join('; ') };
+      const headers = { Host: host, 'X-Riverside-Tab': tabId, Cookie: [...cookies].map(([key, value]) => `${key}=${value}`).join('; ') };
       if (body !== undefined) Object.assign(headers, { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf, Origin: origin });
       const req = http.request({ port, path: route, method: body === undefined ? 'GET' : 'POST', headers }, res => {
         let text = '';

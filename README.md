@@ -25,6 +25,8 @@ Opening `index.html` directly is no longer supported: real accounts and permissi
 
 The server stores reports and password hashes in `.riverside/store.json`, excluded from Git and unavailable through the web server. Reports/accounts survive restarts. Staff sessions last up to eight hours and require sign-in again after a restart. Public report ownership uses a signed cookie lasting up to seven days; clearing that cookie loses access to the original reporter's history.
 
+Staff sign-in is independent per tab: open Mo, a volunteer and an event-goer in three tabs of the same browser. Refresh keeps that tab's sign-in; signing out does not change the others. Guest report history remains shared within the browser profile. Only one tab/device may actively share location for the same volunteer account. See [tab-session behaviour and verification](docs/TAB-SESSIONS.md).
+
 Browsers receive live change signals and reload their own permitted records; six-second polling remains as a fallback. Mo can clear fictional reports with `RiversideAPI.resetDemo()` in the browser console. Accounts, unique ID allocation and provider credit allowances survive reset.
 
 ## Three-person file ownership

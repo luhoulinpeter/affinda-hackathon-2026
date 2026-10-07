@@ -136,7 +136,7 @@
     const setup = api.getSession().setupRequired;
     $("#signin-form").reset(); $("#signin-feedback").textContent = "";
     $("#signin-title").textContent = setup ? "Create the first Mo account" : "Staff sign in";
-    $("#signin-description").textContent = setup ? "Local first-run setup: choose a username and password. Both can be any non-empty length. Mo can then create volunteer accounts. Do not reuse a password from another service." : "Your account determines whether you see the Volunteer or Mo workspace.";
+    $("#signin-description").textContent = setup ? "Local first-run setup: choose a username and password. Both can be any non-empty length. Mo can then create volunteer accounts. Do not reuse a password from another service." : "Sign-in applies to this tab only. Your account determines whether you see the Volunteer or Mo workspace.";
     $("#confirm-password-field").hidden = !setup;
     $("#confirm-password").required = setup;
     $("#signin-password").autocomplete = setup ? "new-password" : "current-password";

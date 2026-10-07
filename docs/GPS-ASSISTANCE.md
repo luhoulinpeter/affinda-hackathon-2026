@@ -37,6 +37,7 @@ The button shows **Getting location…** while waiting and **Location sharing ac
 - Offer expiry does not escalate or resolve incidents. Existing urgent flags and danger/crowd-pressure rules remain independent of AI and matching.
 - Browser uploads are throttled to at most one per 10 seconds. Hidden pages pause tracking and pending offers; returning requires opting in again. Closed/disconnected pages become stale within 60 seconds. No push notifications are implemented.
 - Presence and current volunteer coordinates live only in memory. Restart clears them and withdraws pending offers. Accepted assignments remain recorded for human follow-up, with responders unavailable until they opt in again.
+- Staff sign-in is independent per tab. A volunteer's active location sharing has one owning session; a second session cannot steal/pause it, and signing out of a non-owning tab does not stop it. See [tab sessions](TAB-SESSIONS.md).
 - Request destinations are stored only while assistance is active. Cancellation or explicit incident resolution removes precise destination coordinates. Offer history contains states, IDs, times and approximate distance, never historical GPS tracks. Disabled/unavailable requests remain active until human action.
 - Mo sees active positions; the offered/assigned volunteer sees that request's destination; other volunteers cannot. Requesters see assistance status and the accepted name, not volunteer GPS or competing offers. Structured GPS never enters AI prompts.
 

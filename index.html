@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="src/css/app.css">
   <!-- Run node server/index.cjs, then open the local server URL. -->
   <script defer src="data/fixtures.js"></script>
+  <script defer src="src/js/services/tab-session.js"></script>
   <script defer src="src/js/services/api.js"></script>
   <script defer src="src/js/ui/assistance.js"></script>
   <script defer src="src/js/ui/app.js"></script>
@@ -112,7 +113,7 @@
   </main>
   <dialog id="signin-dialog" aria-labelledby="signin-title">
     <div class="dialog-heading"><h2 id="signin-title">Staff sign in</h2><button id="close-signin" type="button" class="secondary" aria-label="Close sign-in">Close</button></div>
-    <p id="signin-description" class="field-note">Your account determines whether you see the Volunteer or Mo workspace.</p>
+    <p id="signin-description" class="field-note">Sign-in applies to this tab only. Your account determines whether you see the Volunteer or Mo workspace.</p>
     <form id="signin-form">
       <label for="signin-username">Username</label><input id="signin-username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
       <label for="signin-password">Password</label><input id="signin-password" type="password" autocomplete="current-password" required>

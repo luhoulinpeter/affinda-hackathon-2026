@@ -8,14 +8,16 @@ test('live updates wait for the guest cookie and retain report ownership', async
   let cookie = null, nextGuest = 0, streamCount = 0, onState;
   const records = [];
   const session = () => ({ guest: { id: cookie, role: 'public' }, csrf: cookie });
-  const context = { window: {}, EventSource: class {
-    constructor() {
+  const context = { window: { RiversideTab: { ready: Promise.resolve('11111111-1111-4111-8111-111111111111') } }, EventSource: class {
+    constructor(url) {
+      assert.equal(url, '/api/events?tab=11111111-1111-4111-8111-111111111111');
       streamCount++;
       // A stream started before /session can overwrite the initial identity.
       if (!cookie) cookie = `guest-${++nextGuest}`;
     }
     addEventListener(event, callback) { assert.equal(event, 'state'); onState = callback; }
   }, fetch: async (route, options) => {
+    assert.equal(options.headers['X-Riverside-Tab'],'11111111-1111-4111-8111-111111111111');
     if (route === '/api/session') {
       const requestGuest = cookie || `guest-${++nextGuest}`;
       await Promise.resolve();
@@ -46,7 +48,7 @@ test('live updates wait for the guest cookie and retain report ownership', async
 
 test('a confirmed report receipt survives a failed follow-up state fetch', async () => {
   let submitted=false;
-  const context={window:{},fetch:async(route)=>{
+  const context={window:{RiversideTab:{ready:Promise.resolve('11111111-1111-4111-8111-111111111111')}},fetch:async(route)=>{
     if(route==='/api/session')return {ok:true,json:async()=>({guest:{id:'guest-test',role:'public'},csrf:'test'})};
     if(route==='/api/state'){if(submitted)throw Error('Disconnected');return {ok:true,json:async()=>({reports:[],incidents:[]})}}
     if(route==='/api/reports'){submitted=true;return {ok:true,json:async()=>({id:'I-1'})}}
