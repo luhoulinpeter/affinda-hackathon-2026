@@ -32,6 +32,25 @@ test('Jev requests fixed choices on original text and validates returned labels'
   await assert.rejects(bad.screen('x', []), /Invalid Jev/);
 });
 
+test('Jev bounded existing-credit approval requires recharge off, checked funds and at most twenty calls', async () => {
+  const approved = { ...proof(), creditOnlyConfirmed: false, providerHardStopVerified: false, existingCreditUseApproved: true, autoRechargeOffVerified: true, availableCreditsUSD: 5, maxCalls: 20 };
+  for (const patch of [{}, { existingCreditUseApproved: false }, { autoRechargeOffVerified: false }, { availableCreditsUSD: 0 }, { availableCreditsUSD: '5' }, { maxCalls: 21 }]) {
+    let calls = 0;
+    const providers = createProviders({ env, verification: { jev: { ...approved, ...patch } }, reserveCall: () => true, fetchImpl: async () => {
+      calls++; return jsonResponse({ answers: { intent: choice('information') } });
+    } });
+    if (Object.keys(patch).length) { await assert.rejects(providers.screen('Status?', [])); assert.equal(calls, 0); }
+    else { assert.deepEqual(await providers.screen('Status?', []), { intent: 'information' }); assert.equal(calls, 1); }
+  }
+});
+
+test('provider status exposes remaining calls and disables an exhausted allowance', () => {
+  const providers = createProviders({ env, verification: { jev: proof(), openrouter: openrouterProof() }, remainingCalls: name => name === 'jev' ? 3 : 0 });
+  assert.equal(providers.status().jev.remainingCalls, 3); assert.equal(providers.status().jev.enabled, true);
+  assert.equal(providers.status().luna.remainingCalls, 0); assert.equal(providers.status().luna.enabled, false);
+  assert.match(providers.status().luna.reason, /exhausted/);
+});
+
 test('OpenRouter pins a free model, enforces zero-price routing and strict JSON without tools', async () => {
   let captured, reserved;
   const providers = createProviders({ env, verification: { openrouter: openrouterProof() }, reserveCall: name => { reserved = name; return true; }, fetchImpl: async (url, options) => {

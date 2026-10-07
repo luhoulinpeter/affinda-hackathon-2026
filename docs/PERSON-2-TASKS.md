@@ -65,7 +65,7 @@ Updated 7 October 2026 with main's Jev/OpenRouter integration and Armaan's serve
 13. ~~Grouping, Split and Merge~~: set aside by the team.
 14. **Cluster alert.** Rule-based, e.g. N open reports in one zone within M minutes → a zone alert for Mo. **The team decides N and M.**
 15. **Zone summary.** Per-zone open, unacknowledged, urgent, resolved counts and coverage vs minimum, always derived from stored state (supports the team's zone map).
-16. **Server-side AI calls: implemented, live access unverified.** Independent Jev/OpenRouter jobs use timeouts and persisted credit allowances. See `docs/AI-SETUP.md`; do not enable calls without setup checks and explicit bounded live-test approval; free OpenRouter inference uses quota too.
+16. **Server-side AI calls: implemented, live access unverified.** Independent Jev/OpenRouter jobs use timeouts and persisted credit allowances. See `docs/AI-SETUP.md`; do not enable calls without setup checks and the latest bounded live-use authorisation; free OpenRouter inference uses quota too.
 16b. **Role-scoped Q&A: implemented.** Public users see their own records and approved public guide entries; staff receive permitted records and staff guidance. All three roles confirm report drafts explicitly. The fictional guide awaits approval.
 
 ### P2: if time allows

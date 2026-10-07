@@ -28,7 +28,9 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
   save();
   let verification = {};
   try { verification = JSON.parse(fs.readFileSync(path.join(dataDir, 'ai-credit-verification.json'), 'utf8')); } catch { /* Missing controls keep live calls disabled. */ }
-  const providers = aiProviders || createProviders({ env: aiEnv, verification, fetchImpl: aiFetch, reserveCall(name, proof) {
+  const providers = aiProviders || createProviders({ env: aiEnv, verification, fetchImpl: aiFetch,
+    remainingCalls: (name, proof) => Math.max(0, proof.maxCalls - (db.aiUsage?.[`${name}:${proof.id}`] || 0)),
+    reserveCall(name, proof) {
     db.aiUsage ||= {};
     const key = `${name}:${proof.id}`;
     if ((db.aiUsage[key] || 0) >= proof.maxCalls) return false;
