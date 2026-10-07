@@ -66,3 +66,7 @@ Approved public guide entries are shared; staff guidance is withheld from event-
 Armaan's duplicate-grouping/Split/Merge revision is set aside. It is not a prerequisite for the original plan.
 
 Reset preserves accounts, the persisted report/incident sequence and provider credit allowances. Old incident IDs are never reused after reset or restart. Pending analysis and Q&A from the previous reset generation are discarded. Workflow persistence includes `sequence`; role-filtered record access is unchanged.
+
+## GPS assistance extension — 7 October 2026
+
+The role-filtered state and report submission contracts now include optional GPS assistance and volunteer offers. See [the current API and lifecycle contract](GPS-ASSISTANCE.md#api-additions). Existing reports have no assistance request by default. Station lookup is separate from report creation; model input never includes structured GPS.

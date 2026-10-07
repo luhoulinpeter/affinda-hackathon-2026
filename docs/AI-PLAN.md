@@ -36,3 +36,7 @@ The default is NVIDIA Nemotron 3 Super (free), with reasoning disabled and short
 - Person 3: adapters, prompts, validators, guide draft and evaluation examples.
 
 Automatic volunteer assignment/eligibility, voice, maps and actual hosting remain later tasks. Before claiming live integration, record read-only billing checks and follow the latest bounded live-use authorisation in AI-SETUP.md. Keep the guide inactive until the team approves its fictional facts and staff instructions.
+
+## Implemented GPS assistance extension
+
+The later approved [GPS assistance workflow](GPS-ASSISTANCE.md) adds deterministic nearest-volunteer offers after explicit submission, separate from Jev/OpenRouter. Jev adds `first_aid_information` screening; configured station lookup bypasses the LLM and uses its own Mo approval. Existing general guide approval and AI budget controls are unchanged. Earlier statements that all assignment is deferred are superseded for this slice; real phone GPS and hosting remain unverified.

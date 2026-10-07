@@ -170,3 +170,15 @@ test('session invalidation during screening or answer suppresses results', async
     screen: async () => ({ intent: 'information' }), answer: async () => { current = false; return { answer: 'Open.', unknown: false, sources: ['I-1'] }; }
   } }), /Session changed/);
 });
+
+test('first-aid location intent uses station lookup without an LLM call or changing incidents', async () => {
+  const before = JSON.stringify(state);
+  let captured;
+  const providers = createProviders({ env, verification: { jev: proof() }, reserveCall: () => true, fetchImpl: async (url, options) => {
+    captured = JSON.parse(options.body); return jsonResponse({ answers: { intent: choice('first_aid_information') } });
+  } });
+  const result = await answerQuestion({ body: { question: 'Where is first aid?', position: { latitude: 12, longitude: 34 } }, actor: { role:'public' }, getState: () => state, providers, findFirstAid: () => ({ outcome:'first_aid', answer:'Configured fictional station.', sources:[{id:'first-aid-1',title:'Test station',text:'Fictional'}], stations:[] }) });
+  assert.equal(result.outcome,'first_aid'); assert.equal(JSON.stringify(state),before);
+  assert.ok(!captured.state.includes('latitude')); assert.ok(!captured.state.includes('longitude'));
+  assert.match(captured.questions.intent.instructions,/new injury remains safety or unclear/);
+});

@@ -29,7 +29,13 @@ window.RiversideAPI = (() => {
     subscribers.forEach(callback => callback());
     connectEvents();
   }
-  async function submitReport(input) { const result = await request("/api/reports", input); await refresh(); return result; }
+  async function submitReport(input) {
+    const result = await request("/api/reports", input);
+    // A received report stays submitted even if the following state fetch fails.
+    // SSE/polling will recover the view; never tell the user it was not submitted.
+    try { await refresh(); } catch { /* Keep the confirmed server receipt. */ }
+    return result;
+  }
   async function act(id, action) { await request(`/api/incidents/${encodeURIComponent(id)}/action`, { action }); await refresh(); }
   async function authenticate(username, password) {
     refreshVersion++;
@@ -59,6 +65,12 @@ window.RiversideAPI = (() => {
     });
   }
   return { refresh, submitReport, act, authenticate, logout, createAccount, resetDemo,
+    async setPresence(input) { const result = await request('/api/presence', input); await refresh(); return result; },
+    async respondOffer(id, offerId, decision) { await request(`/api/incidents/${encodeURIComponent(id)}/offers/${encodeURIComponent(offerId)}`, { decision }); await refresh(); },
+    async assistanceAction(id, action) { await request(`/api/incidents/${encodeURIComponent(id)}/assistance`, { action }); await refresh(); },
+    getStations: () => request('/api/stations'),
+    saveStations: input => request('/api/stations', input),
+    findFirstAid: input => request('/api/first-aid', input),
     ask: input => request('/api/qa', input),
     getIdentityVersion: () => identityVersion, isIdentityChanging: () => identityChanging,
     onIdentityChange(callback) { identitySubscribers.add(callback); return () => identitySubscribers.delete(callback); },

@@ -49,6 +49,7 @@
       category: "unclassified", brief: "Awaiting human review",
       status: "open", attention: report.immediateConcern || /\bcrowd pressure\b|\bimmediate danger\b/i.test(report.text) ? "urgent" : "review",
       assignee: null, acknowledgedBy: null, resolvedBy: null, resolvedAt: null,
+      ...(input.assistance ? { assistance: clone(input.assistance) } : {}),
       analysis: { jev: { state: "pending" }, luna: { state: "pending" } }, history: []
     };
     history(incident, reporter, "reported");
@@ -127,6 +128,12 @@
   }
 
   return {
+    updateAssistance(id, update) {
+      const incident = incidents.find(item => item.id === id);
+      if (!incident) throw new Error('Incident not found.');
+      update(incident);
+      notify();
+    },
     getState, submitReport, act, reset, whenIdle: () => Promise.all([...jobs]),
     subscribe(callback) { subscribers.add(callback); return () => subscribers.delete(callback); }
   };

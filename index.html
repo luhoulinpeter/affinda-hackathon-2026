@@ -9,6 +9,7 @@
   <!-- Run node server/index.cjs, then open the local server URL. -->
   <script defer src="data/fixtures.js"></script>
   <script defer src="src/js/services/api.js"></script>
+  <script defer src="src/js/ui/assistance.js"></script>
   <script defer src="src/js/ui/app.js"></script>
   <script defer src="src/js/ui/qa.js"></script>
 </head>
@@ -19,7 +20,7 @@
   </header>
   <main>
     <div class="page-heading"><div><p id="page-eyebrow" class="eyebrow">Riverside festival</p><h1 id="page-title">Get help. Report an issue.</h1><p id="page-description">Tell the safety team what you saw and where it happened.</p></div></div>
-    <aside class="notice"><strong>Prototype · fictional data.</strong> Reports are stored on this server. No live dispatch or emergency service is connected. <span id="ai-status">Checking AI availability…</span></aside>
+    <aside class="notice"><strong>Prototype · fictional data.</strong> Assistance offers reach volunteers using this app; no emergency service is connected. Keep the app open to receive offers. <span id="ai-status">Checking AI availability…</span></aside>
     <p id="feedback" class="feedback" role="status" aria-live="polite">Connecting to the server…</p>
 
     <section id="mo-view" aria-label="Mo’s operations view" hidden>
@@ -46,6 +47,20 @@
           <p id="account-feedback" class="feedback" role="status"></p>
         </form>
       </details>
+      <section class="panel" aria-labelledby="presence-title"><h2 id="presence-title">Volunteer availability</h2><div id="mo-presence"></div></section>
+      <details class="panel"><summary><strong>Fictional first-aid stations</strong></summary>
+        <p class="field-note">Enter coordinates supplied by your team. These are demo locations, not real first-aid facilities. Enabling them approves this station information for public lookup.</p>
+        <form id="stations-form"><div id="station-fields"></div><button id="station-add" type="button" class="secondary">Add station</button>
+          <label class="checkbox-label"><input id="stations-enabled" type="checkbox"> Enable these fictional demo stations</label>
+          <button type="submit" class="primary">Save station configuration</button><p id="station-feedback" class="feedback" role="status"></p>
+        </form>
+      </details>
+    </section>
+
+    <section id="volunteer-assistance" class="panel" hidden aria-labelledby="volunteer-help-title">
+      <h2 id="volunteer-help-title">Volunteer assistance</h2><p class="field-note">General helpers · attendance does not imply medical qualifications. Keep this page open to receive offers.</p>
+      <div class="form-actions"><button id="go-available" type="button" class="primary">Go available</button><button id="pause-volunteer" type="button" class="secondary">Pause</button></div>
+      <p id="presence-feedback" class="feedback" role="status"></p><div id="volunteer-offers" aria-live="polite"></div>
     </section>
 
     <section id="reporting-view" aria-label="Event-goer reporting view" hidden>
@@ -69,6 +84,8 @@
       <div class="panel-heading"><h2 id="qa-title">Ask Riverside</h2><button id="qa-clear" type="button" class="secondary">Clear chat</button></div>
       <p class="field-note">Ask about event information or reports you can access. Answers are AI-generated; check the sources. For immediate help, follow the event’s established emergency procedure.</p>
       <p id="qa-availability" class="field-note"></p>
+      <div class="form-actions"><button id="find-first-aid" type="button" class="secondary">Find first aid</button><button id="request-volunteer" type="button" class="secondary">Request a volunteer</button></div>
+      <p id="help-feedback" class="feedback" role="status"></p><div id="first-aid-results" aria-live="polite"></div>
       <div id="qa-messages" class="qa-messages" aria-live="polite" aria-relevant="additions"></div>
       <form id="qa-form">
         <label for="qa-question">Your question</label>
@@ -84,6 +101,8 @@
           <label for="qa-draft-category">Issue type</label><select id="qa-draft-category" required></select>
           <label for="qa-draft-text">What did you see?</label><textarea id="qa-draft-text" rows="4" maxlength="2000" required></textarea>
           <label class="checkbox-label"><input id="qa-draft-urgent" type="checkbox"> Flag immediate concern for Mo</label>
+          <label class="checkbox-label"><input id="qa-draft-assistance" type="checkbox"> Request a volunteer to come</label>
+          <p class="field-note">Requesting attendance shares your current GPS destination with Mo and the offered volunteer. You must confirm below. GPS must be fresh and accurate to 100 metres or better. An offer does not mean someone is on their way.</p>
           <div class="form-actions"><button id="qa-draft-submit" class="primary" type="submit">Confirm and submit report</button><button id="qa-draft-cancel" class="secondary" type="button">Discard draft</button></div>
         </form>
       </section>

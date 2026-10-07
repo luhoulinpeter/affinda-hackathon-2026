@@ -8,7 +8,8 @@ function buildSources(actor, state, guide = defaultGuide) {
   sources.push({ id: 'permitted-overview', title: 'Current permitted incident counts', text: `Scope: ${actor.role === 'mo' ? 'All incidents' : 'Only records permitted for this user'}. Open: ${counts.open}. Urgent and open: ${counts.urgentOpen}. At most 30 incident details are included.` });
   // Bounded inputs. Never pass full internal history, model outputs, accounts or credentials.
   for (const incident of state.incidents.slice(-30).reverse()) {
-    sources.push({ id: incident.id, title: `Current status ${incident.id}`, text: `Incident ${incident.id}\nZone: ${zoneName(incident.zone)}\nStatus: ${incident.status}\nAttention: ${incident.attention}\nSource reports: ${incident.reportIds.join(', ')}` });
+    const assistance = incident.assistance ? `\nAssistance status: ${incident.assistance.state}\nAccepted responder: ${incident.assignee ? require('../../data/fixtures.js').volunteers.find(v => v.id === incident.assignee)?.name || 'Unknown' : 'None'}\nAcceptance is not proof of arrival.` : '\nNo volunteer attendance was requested.';
+    sources.push({ id: incident.id, title: `Current status ${incident.id}`, text: `Incident ${incident.id}\nZone: ${zoneName(incident.zone)}\nStatus: ${incident.status}\nAttention: ${incident.attention}\nSource reports: ${incident.reportIds.join(', ')}${assistance}` });
     for (const report of state.reports.filter(item => incident.reportIds.includes(item.id))) {
       sources.push({ id: report.id, title: `Original report ${report.id}`, text: `Reported zone: ${zoneName(report.zone)}\nReporter-selected category: ${report.category}\nImmediate concern flag: ${report.immediateConcern === true ? 'Yes' : 'No'}\nReported at: ${report.time}\nOriginal unverified report text:\n${report.text}` });
     }
@@ -27,12 +28,13 @@ function validateInput(body) {
   return { question: body.question.trim(), history: history.map(item => ({ question: item.question, answer: item.answer })) };
 }
 const handoff = (question, unavailable = false) => ({ outcome: unavailable ? 'unavailable' : 'report_draft', answer: unavailable ? 'Safety screening is unavailable. If this describes an issue, prepare a report below. It has not been submitted. Use the established event emergency procedure for immediate help.' : 'This may describe a safety issue. Check the draft, select a zone and submit it for human review. It has not been submitted. Use the established event emergency procedure for immediate help.', sources: [], draft: { text: question, category: 'other', immediateConcern: false } });
-async function answerQuestion({ body, actor, getState, providers, guide = defaultGuide, isCurrent = () => true }) {
+async function answerQuestion({ body, actor, getState, providers, guide = defaultGuide, isCurrent = () => true, findFirstAid }) {
   const { question, history } = validateInput(body);
   let screen;
   try { screen = v.screening(await providers.screen(question, history)); }
   catch { return handoff(question, true); }
   if (!isCurrent()) throw Object.assign(new Error('Session changed. Refresh and try again.'), { status: 403 });
+  if (screen.intent === 'first_aid_information') return findFirstAid ? findFirstAid() : { outcome: 'unknown', answer: 'First-aid station information is unavailable.', sources: [] };
   if (screen.intent !== 'information') return handoff(question);
   const sources = buildSources(actor, getState(), guide);
   try {

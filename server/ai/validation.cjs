@@ -14,7 +14,7 @@ function classification(value, categories) {
 }
 function screening(value) {
   object(value, ['intent']);
-  if (!['information', 'safety', 'unclear'].includes(value.intent)) invalid();
+  if (!['information', 'first_aid_information', 'safety', 'unclear'].includes(value.intent)) invalid();
   return { intent: value.intent };
 }
 function summary(value) { object(value, ['summary']); return { summary: text(value.summary, 1200) }; }

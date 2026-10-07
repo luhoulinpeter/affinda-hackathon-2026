@@ -7,10 +7,12 @@ const data = require('../data/fixtures.js');
 const { createProviders } = require('../src/js/services/analysis.js');
 const { answerQuestion } = require('./ai/qa.cjs');
 const createIncidents = require('../src/js/domain/incidents.js');
+const { createAssistance, position } = require('./assistance.cjs');
+const { validateStations, firstAid } = require('./stations.cjs');
 const root = path.resolve(__dirname, '..');
 
 // A public origin enables HTTPS deployment and disables browser first-account setup.
-function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = null, secureCookies = false, aiProviders, guide, aiEnv = process.env, aiFetch } = {}) {
+function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = null, secureCookies = false, aiProviders, guide, aiEnv = process.env, aiFetch, now = Date.now } = {}) {
   let deployed = null;
   if (publicOrigin !== null) {
     try { deployed = new URL(publicOrigin); } catch { throw new Error('PUBLIC_ORIGIN must be an HTTPS origin.'); }
@@ -49,6 +51,11 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
   const heartbeat = setInterval(() => broadcast(': keep-alive\n\n'), 20000);
   heartbeat.unref();
   const sessions = new Map();
+  const assistance = createAssistance({ workflow, volunteers: data.volunteers, now,
+    hasAccount: id => db.users.some(u => u.role === 'volunteer' && u.actorId === id),
+    sessionAlive: token => sessions.has(token) && sessions.get(token).expires > Date.now() });
+  const assistanceTimer = setInterval(() => assistance.tick(), 1000);
+  assistanceTimer.unref();
   const loginAttempts = new Map();
   const dummy = { salt: randomBytes(16).toString('hex'), hash: randomBytes(64).toString('hex') };
   let passwordJobs = 0;
@@ -63,6 +70,8 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
     res.setHeader('Set-Cookie', [...cookies, `${name}=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${seconds}${secureCookies ? '; Secure' : ''}`]);
   }
   function newStaffSession(res, user, oldToken) {
+    const previousUser = db.users.find(u => u.username === sessions.get(oldToken)?.username);
+    if (previousUser?.role === 'volunteer') assistance.pause(previousUser.actorId);
     if (oldToken) sessions.delete(oldToken);
     const token = randomBytes(32).toString('hex');
     sessions.set(token, { username: user.username, csrf: randomBytes(32).toString('hex'), expires: Date.now() + 8 * 60 * 60 * 1000 });
@@ -87,19 +96,28 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
     };
   }
   function stateFor(actor) {
+    const availability = assistance.snapshot(actor);
     const state = workflow.getState();
-    if (actor.role === 'mo') return state;
+    if (actor.role === 'mo') return { ...state, ...availability };
     const own = state.reports.filter(item => item.reporter.id === actor.id && item.reporter.role === actor.role);
-    const incidents = state.incidents.filter(item => item.assignee === actor.id || own.some(report => item.reportIds.includes(report.id)));
+    const incidents = state.incidents.filter(item => item.assignee === actor.id || own.some(report => item.reportIds.includes(report.id)) ||
+      (actor.role === 'volunteer' && item.assistance?.offers.some(o => o.volunteerId === actor.id && o.status === 'pending')));
+    for (const incident of incidents) if (incident.assistance) {
+      const a = incident.assistance;
+      const recipient = actor.role === 'volunteer' && (incident.assignee === actor.id || a.offers.some(o => o.volunteerId === actor.id && o.status === 'pending'));
+      if (!recipient) delete a.destination;
+      a.offers = actor.role === 'volunteer' ? a.offers.filter(o => o.volunteerId === actor.id) : [];
+      a.events = a.events.filter(e => e.actorId === actor.id || e.volunteerId === actor.id || (!e.volunteerId && e.actorId === 'system'));
+    }
     const reports = actor.role === 'volunteer' ? state.reports.filter(report => incidents.some(item => item.reportIds.includes(report.id))) : own;
     if (actor.role === 'public') {
-      return { reports, incidents: incidents.map(item => ({
+      return { ...availability, reports, incidents: incidents.map(item => ({
         id: item.id, reportIds: item.reportIds.filter(id => own.some(report => report.id === id)),
         zone: item.zone, status: item.status, attention: item.attention,
-        assignee: item.assignee, resolvedBy: item.resolvedBy, resolvedAt: item.resolvedAt
+        assignee: item.assignee, resolvedBy: item.resolvedBy, resolvedAt: item.resolvedAt, assistance: item.assistance
       })) };
     }
-    return { reports, incidents };
+    return { ...availability, reports, incidents };
   }
   async function readBody(req) {
     if (!(req.headers['content-type'] || '').startsWith('application/json')) throw Object.assign(new Error('Send JSON data.'), { status: 415 });
@@ -124,7 +142,8 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
     ['/data/fixtures.js', ['data/fixtures.js', 'text/javascript']],
     ['/src/js/services/api.js', ['src/js/services/api.js', 'text/javascript']],
     ['/src/js/ui/app.js', ['src/js/ui/app.js', 'text/javascript']],
-    ['/src/js/ui/qa.js', ['src/js/ui/qa.js', 'text/javascript']]
+    ['/src/js/ui/qa.js', ['src/js/ui/qa.js', 'text/javascript']],
+    ['/src/js/ui/assistance.js', ['src/js/ui/assistance.js', 'text/javascript']]
   ]);
   const server = http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -148,6 +167,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       const ctx = context(req, res);
       if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: ctx.user ? publicUser(ctx.user) : null, guest: ctx.guest, csrf: ctx.csrf, setupRequired: !deployed && db.users.length === 0, ai: providers.status(), guideApproved: (guide || require('../data/event-guide.json')).approved === true });
       if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, stateFor(ctx.actor));
+      if (req.method === 'GET' && url.pathname === '/api/stations') return json(res, 200, ctx.actor.role === 'mo' ? db.helpStations || { enabled: false, stations: [] } : { enabled: db.helpStations?.enabled === true, stations: db.helpStations?.enabled ? db.helpStations.stations : [] });
       if (req.method === 'GET' && url.pathname === '/api/events') {
         res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
         res.write('retry: 3000\n\n');
@@ -158,6 +178,22 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       if (req.method !== 'POST') return json(res, 404, { error: 'Not found.' });
       if (!equal(req.headers['x-csrf-token'], ctx.csrf)) return json(res, 403, { error: 'Session changed. Refresh and try again.' });
       const body = await readBody(req);
+      if (url.pathname === '/api/stations') {
+        requireMo(ctx); db.helpStations = validateStations(body); save(); broadcast('event: state\ndata: {}\n\n');
+        return json(res, 200, db.helpStations);
+      }
+      if (url.pathname === '/api/first-aid') return json(res, 200, firstAid(db.helpStations, body.position, now()));
+      if (url.pathname === '/api/presence') {
+        assistance.setPresence(ctx.actor, body, ctx.token); broadcast('event: state\ndata: {}\n\n');
+        return json(res, 200, assistance.snapshot(ctx.actor));
+      }
+      const offerRoute = url.pathname.match(/^\/api\/incidents\/(I-\d+)\/offers\/([a-f0-9-]+)$/);
+      if (offerRoute) { assistance.respond(ctx.actor, offerRoute[1], offerRoute[2], body.decision); return json(res, 200, { ok: true }); }
+      const assistanceRoute = url.pathname.match(/^\/api\/incidents\/(I-\d+)\/assistance$/);
+      if (assistanceRoute) {
+        if (!stateFor(ctx.actor).incidents.some(i => i.id === assistanceRoute[1])) return json(res, 404, { error: 'Incident not found.' });
+        assistance.action(ctx.actor, assistanceRoute[1], body.action); return json(res, 200, { ok: true });
+      }
       if (url.pathname === '/api/qa') {
         const actorKey = `${ctx.actor.role}:${ctx.actor.id}`;
         if (qaActive.has(actorKey) || qaActive.size >= 4) return json(res, 429, { error: 'Questions are busy. Please try again shortly.' });
@@ -165,7 +201,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         const isCurrent = () => version === resetVersion && (!ctx.user || (sessions.get(ctx.token)?.username === ctx.user.username && sessions.get(ctx.token)?.expires > Date.now()));
         qaActive.add(actorKey);
         try {
-          const result = await answerQuestion({ body, actor: ctx.actor, getState: () => stateFor(ctx.actor), providers, guide, isCurrent });
+          const result = await answerQuestion({ body, actor: ctx.actor, getState: () => stateFor(ctx.actor), providers, guide, isCurrent, findFirstAid: () => firstAid(db.helpStations, body.position, now()) });
           if (!isCurrent()) return json(res, 403, { error: 'Session changed. Refresh and try again.' });
           return json(res, 200, result);
         } finally { qaActive.delete(actorKey); }
@@ -195,6 +231,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         return json(res, 200, { ok: true });
       }
       if (url.pathname === '/api/logout') {
+        if (ctx.actor.role === 'volunteer') assistance.pause(ctx.actor.id);
         sessions.delete(ctx.token); cookie(res, 'riverside_session', '', 0);
         return json(res, 200, { ok: true });
       }
@@ -212,13 +249,25 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       if (url.pathname === '/api/reset') {
         // Demo only: Mo clears reports and incidents. Accounts are kept.
         requireMo(ctx);
+        for (const incident of workflow.getState().incidents) if (incident.assistance && !['completed', 'cancelled'].includes(incident.assistance.state)) assistance.action(ctx.actor, incident.id, 'withdraw');
+        data.volunteers.forEach(v => assistance.pause(v.id));
         resetVersion++;
         workflow.reset();
         return json(res, 200, { ok: true });
       }
       if (url.pathname === '/api/reports') {
+        let request;
+        if (body.requestAssistance === true) {
+          if (typeof body.requestId !== 'string' || !/^[a-zA-Z0-9_-]{8,100}$/.test(body.requestId)) return json(res, 400, { error: 'An assistance request reference is required.' });
+          const state = workflow.getState();
+          const existing = state.incidents.find(i => i.assistance?.requestId === body.requestId && state.reports.some(r => i.reportIds.includes(r.id) && r.reporter.id === ctx.actor.id && r.reporter.role === ctx.actor.role));
+          if (existing) return json(res, 200, { id: existing.id });
+          request = { requestId: body.requestId, destination: position(body.position, now()), state: 'looking', offers: [], events: [] };
+        }
         const incident = await workflow.submitReport({ text: body.text, zone: body.zone, category: body.category, immediateConcern: body.immediateConcern,
+          assistance: request,
           ...(ctx.actor.role === 'volunteer' ? { volunteerId: ctx.actor.id } : { reporter: ctx.actor }) });
+        assistance.tick();
         return json(res, 201, { id: incident.id });
       }
       const match = url.pathname.match(/^\/api\/incidents\/(I-\d+)\/action$/);
@@ -227,6 +276,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         if (!visible) return json(res, 404, { error: 'Incident not found.' });
         try { workflow.act(match[1], body.action, ctx.actor); }
         catch (error) { return json(res, 403, { error: error.message }); }
+        assistance.tick();
         return json(res, 200, { ok: true });
       }
       return json(res, 404, { error: 'Not found.' });
@@ -244,7 +294,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
   };
   // Open event streams would otherwise stop close() from finishing.
   const close = server.close.bind(server);
-  server.close = callback => { clearInterval(heartbeat); streams.forEach(stream => stream.end()); streams.clear(); return close(callback); };
+  server.close = callback => { clearInterval(heartbeat); clearInterval(assistanceTimer); streams.forEach(stream => stream.end()); streams.clear(); return close(callback); };
   server.requestTimeout = 15000;
   server.headersTimeout = 10000;
   server.whenAIIdle = workflow.whenIdle;

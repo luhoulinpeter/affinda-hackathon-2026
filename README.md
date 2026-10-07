@@ -48,3 +48,7 @@ Run `npm test` (equivalent to `node --test tests/*.test.cjs`). AI tests use simu
 ## Team workflow
 
 Start each task branch from the latest `main`, commit small working steps, and have a teammate review each pull request. Keep [PROJECT.md](PROJECT.md) updated with decisions, checked behaviour and the main AI tools used. Never commit credentials or real personal data. Provider keys belong in server environment variables.
+
+### GPS assistance
+
+Use **Request a volunteer** in Ask Riverside, confirm an editable report and share GPS. Signed-in volunteers opt in with **Go available**. Mo sees offered/accepted responders and configures team-provided fictional first-aid stations. See [the setup and behaviour guide](docs/GPS-ASSISTANCE.md). No stations or volunteer passwords are seeded; real phone GPS needs HTTPS and permission.

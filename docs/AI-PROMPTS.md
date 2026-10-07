@@ -43,7 +43,7 @@ Choices and their exact descriptions:
 The shared policy is followed by one space and:
 
 ```text
-Classify the current message, using history only to understand follow-ups. information: informational question without a possible new safety incident; safety: describing a possible new safety incident; unclear: cannot rule out a possible new safety incident. Asking the status of an existing report alone is information.
+Classify the current message, using history only to understand follow-ups. information: informational question without a possible new safety incident; safety: describing a possible new safety incident; unclear: cannot rule out a possible new safety incident. Asking the status of an existing report alone is information. first_aid_information: asking only where a first-aid station is, without describing a new injury or safety incident. A message describing a new injury remains safety or unclear even when it also asks for directions.
 ```
 
 Input in `state`: `{ "question": <current message>, "history": <bounded conversation history> }`.
@@ -53,12 +53,13 @@ Choices and their exact descriptions:
 ```json
 {
   "information": "Information only",
+  "first_aid_information": "First-aid station location question only",
   "safety": "Possible new incident",
   "unclear": "Unclear safety concern"
 }
 ```
 
-Safety or unclear results prepare an editable report draft instead of calling OpenRouter for an informational answer. A screening failure also offers the reporting route. Neither submits a report automatically.
+The first_aid_information result uses configured station data directly, without OpenRouter. Structured GPS is never sent to either provider. Safety or unclear results prepare an editable report draft instead of calling OpenRouter for an informational answer. A screening failure also offers the reporting route. Neither submits a report automatically.
 
 ## OpenRouter — report summary
 
@@ -100,7 +101,7 @@ Required structured output: an object with only `answer` (string), `sources` (ar
 - The server validates both providers' responses before using them, including allowed classifications and permitted citation IDs.
 - Access filtering happens on the server before sources reach the model. Prompt instructions are an additional measure, not the access control.
 - The last four exchanges are kept in page memory; identity changes clear the conversation. Unapproved guide content is excluded.
-- AI cannot remove a human urgent flag, assign volunteers or resolve incidents. Those rules are enforced outside the prompts.
+- AI cannot remove a human urgent flag, assign volunteers or resolve incidents. Confirmed assistance requests use deterministic nearest-volunteer offers on the server, independently of AI. Those rules are enforced outside the prompts.
 
 ## Staff sign-in on a fresh local installation
 

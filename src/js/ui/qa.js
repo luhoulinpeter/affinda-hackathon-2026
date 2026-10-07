@@ -7,6 +7,7 @@
   let generation = 0;
   let asking = false;
   let submitting = false;
+  let draftRequestId = null;
   $('#qa-draft-zone').append(new Option('Select a zone', ''));
   data.zones.forEach(zone => $('#qa-draft-zone').append(new Option(zone.name, zone.id)));
   data.categories.forEach(item => $('#qa-draft-category').append(new Option(item.name, item.id)));
@@ -20,7 +21,7 @@
       return `${name === 'jev' ? 'Jev' : 'OpenRouter'}: ${provider?.enabled ? 'live calls enabled' : provider?.reason || 'unavailable'}${allowance}`;
     }).join(' · ');
     $('#ai-status').textContent = status;
-    $('#qa-availability').textContent = `${status}. ${session.guideApproved ? 'Fictional event guide approved.' : 'Fictional event guide awaiting team approval; site facts are unavailable.'} Only your permitted records are used.`;
+    $('#qa-availability').textContent = `${status}. ${session.guideApproved ? 'Fictional event guide approved.' : 'General event guide awaiting team approval. First-aid stations have separate Mo approval.'} Only your permitted records are used.`;
     $('#qa-send').disabled = asking || submitting || api.isIdentityChanging();
     $('#qa-draft-submit').disabled = submitting || api.isIdentityChanging();
   }
@@ -28,6 +29,7 @@
     generation++; exchanges = []; asking = false; submitting = false;
     $('#qa-messages').replaceChildren(); $('#qa-form').reset();
     $('#qa-draft-form').reset(); $('#qa-draft').hidden = true;
+    draftRequestId = null;
     $('#qa-feedback').textContent = ''; availability();
   }
   function renderMessages() {
@@ -59,8 +61,10 @@
       if (version !== generation || identity !== api.getIdentityVersion()) return;
       exchanges = [...exchanges, { question, answer: result.answer, sources: result.sources }].slice(-4);
       renderMessages(); $('#qa-question').value = '';
+      if (result.outcome === 'first_aid') window.RiversideAssistance.showStations(result);
       $('#qa-feedback').textContent = result.outcome === 'unknown' ? 'Some information is unknown. Check the answer and sources.' : '';
       if (result.draft) {
+        draftRequestId = crypto.randomUUID();
         $('#qa-draft-form').reset(); $('#qa-draft-text').value = result.draft.text;
         $('#qa-draft-category').value = result.draft.category;
         $('#qa-draft-urgent').checked = result.draft.immediateConcern;
@@ -72,16 +76,32 @@
       api.refresh().catch(() => {});
     } finally { if (version === generation) { asking = false; availability(); } }
   });
+  $('#request-volunteer').addEventListener('click', () => {
+    if (submitting || api.isIdentityChanging()) return;
+    const text = !$('#qa-draft').hidden ? $('#qa-draft-text').value : $('#qa-question').value || exchanges.at(-1)?.question || '';
+    if ($('#qa-draft').hidden) { $('#qa-draft-form').reset(); draftRequestId = crypto.randomUUID(); }
+    $('#qa-draft-text').value = text; $('#qa-draft-assistance').checked = true;
+    $('#qa-draft').hidden = false; $('#qa-draft-title').textContent = 'Assistance request draft · Not submitted yet';
+    $('#qa-draft-text').focus();
+  });
   $('#qa-draft-form').addEventListener('submit', async event => {
     event.preventDefault();
     if (submitting || api.isIdentityChanging()) return;
     const version = generation; const identity = api.getIdentityVersion();
     submitting = true; availability(); $('#qa-feedback').textContent = 'Submitting report…';
     try {
-      const result = await api.submitReport({ zone: $('#qa-draft-zone').value, category: $('#qa-draft-category').value, text: $('#qa-draft-text').value, immediateConcern: $('#qa-draft-urgent').checked });
+      const input = { zone: $('#qa-draft-zone').value, category: $('#qa-draft-category').value, text: $('#qa-draft-text').value, immediateConcern: $('#qa-draft-urgent').checked };
+      if ($('#qa-draft-assistance').checked) {
+        $('#qa-feedback').textContent = 'Getting GPS destination. Nothing has been submitted yet…';
+        input.position = await window.RiversideAssistance.gps();
+        if (version !== generation || identity !== api.getIdentityVersion()) return;
+        input.requestAssistance = true; input.requestId = draftRequestId ||= crypto.randomUUID();
+      }
+      const result = await api.submitReport(input);
       if (version !== generation || identity !== api.getIdentityVersion()) return;
       $('#qa-draft').hidden = true; $('#qa-draft-form').reset();
-      $('#qa-feedback').textContent = `Report received as ${result.id}. It is available to Mo for human review. No responder has been dispatched.`;
+      $('#qa-feedback').textContent = input.requestAssistance ? `Report received as ${result.id}. Check its assistance status for offers, acceptance and arrival; submission does not guarantee a response.` : `Report received as ${result.id}. It is available to Mo for human review. No responder has been dispatched.`;
+      draftRequestId = null;
     } catch (error) {
       if (version === generation && identity === api.getIdentityVersion()) $('#qa-feedback').textContent = error.message;
     } finally { if (version === generation) { submitting = false; availability(); } }

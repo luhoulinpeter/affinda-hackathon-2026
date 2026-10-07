@@ -138,3 +138,14 @@ dialog form > .primary { width: 100%; min-height: 48px; }
   blockquote { padding: 12px; margin: 14px 0; }
   main > footer { margin-top: 18px; }
 }
+
+/* Assistance is distinct from human incident resolution. */
+.assistance-status { margin-block: 1rem; padding: 1rem; background: #edf5f3; border: 1px solid #c8dbd6; border-radius: 12px; overflow-wrap: anywhere; }
+.assistance-status h3 { margin-top: 0; }
+.offer-card, .station-result { border: 1px solid var(--border, #d6dfdb); border-radius: 12px; padding: 1rem; margin-top: 1rem; overflow-wrap: anywhere; }
+.offer-card { border-left: 4px solid #397c69; }
+.station-row { margin-block: 1rem; padding: 1rem; border: 1px solid #c8dbd6; border-radius: 10px; min-width: 0; }
+.coordinate-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+#volunteer-assistance, #mo-view > .panel { margin-block: 1rem; }
+#first-aid-results:empty { display: none; }
+@media (max-width: 480px) { .coordinate-fields { grid-template-columns: 1fr; } }

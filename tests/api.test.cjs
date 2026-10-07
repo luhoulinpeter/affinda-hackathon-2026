@@ -43,3 +43,16 @@ test('live updates wait for the guest cookie and retain report ownership', async
   assert.equal(api.getSession().guest.id, owner);
   assert.equal(api.getState().reports[0].owner, owner);
 });
+
+test('a confirmed report receipt survives a failed follow-up state fetch', async () => {
+  let submitted=false;
+  const context={window:{},fetch:async(route)=>{
+    if(route==='/api/session')return {ok:true,json:async()=>({guest:{id:'guest-test',role:'public'},csrf:'test'})};
+    if(route==='/api/state'){if(submitted)throw Error('Disconnected');return {ok:true,json:async()=>({reports:[],incidents:[]})}}
+    if(route==='/api/reports'){submitted=true;return {ok:true,json:async()=>({id:'I-1'})}}
+    throw Error('Unexpected request');
+  }};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/js/services/api.js'),'utf8'),context);
+  const api=context.window.RiversideAPI;await api.refresh();
+  assert.equal((await api.submitReport({text:'Fictional report'})).id,'I-1');
+});

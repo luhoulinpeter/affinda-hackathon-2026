@@ -1,5 +1,7 @@
 # Riverside incident response: MVP draft
 
+**Latest approved change, 7 October:** the [implemented GPS assistance flow](GPS-ASSISTANCE.md) supersedes this draft’s Jev volunteer selection, skill/coverage eligibility and no-offer-timeout proposals. Confirmed requests use the nearest available general helper, a 60-second offer expiry/reoffer and open-app notifications. Incident resolution still requires explicit human confirmation.
+
 **Status:** Updated 7 October 2026. The team chose this original direction and set Armaan's revision aside. A limited text-report starter with public reporting and real local staff accounts has been built and checked; AI adapters and Q&A are implemented with simulated-provider checks; live AI access, assignment, voice and maps remain unverified or planned. See PROJECT.md for current verification and remaining decisions.
 
 ## One-sentence product

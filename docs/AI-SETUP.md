@@ -80,3 +80,7 @@ Q&A always screens through Jev before using OpenRouter. If Jev is disabled or fa
 Run `npm test`: transports are injected simulations, never live APIs. Each provider has a ten-second timeout, at most two concurrent calls and a 65,536-byte response limit. Unknown facts, invalid citations, provider refusal, truncation, malformed JSON and rate limits fail safely; no automatic retry is made. Record measured live results separately from simulated tests; a couple of examples do not establish reliability.
 
 The existing `analysis.luna` and `session.ai.luna` fields remain the language-model slots for compatibility with saved records and existing clients. They now contain OpenRouter results/status; UI labels say OpenRouter or AI summary. New request allowances are recorded under `openrouter`, not `luna`, so old Luna proofs cannot enable the new provider. This is a transport replacement, with no changes to human workflow or source permissions.
+
+## GPS assistance and first-aid lookup
+
+[GPS assistance](GPS-ASSISTANCE.md) is independent of provider availability. Button-based station lookup makes no AI call; station-only Jev screening bypasses OpenRouter. Configured fictional stations have their own explicit Mo approval; the general guide still needs team approval. Matching is deterministic on the server and never sends structured GPS to either provider.
