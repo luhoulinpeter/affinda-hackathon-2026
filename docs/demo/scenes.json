@@ -1,0 +1,122 @@
+[
+  {
+    "file": "01-attendee-report.png",
+    "seconds": 5,
+    "title": "Attendee · Create an incident",
+    "caption": "The attendee describes a fictional ankle injury and keeps “Use my location”. The recording sandbox supplies fictional GPS.",
+    "start": 0,
+    "end": 5
+  },
+  {
+    "file": "02-attendee-sent.png",
+    "seconds": 4,
+    "title": "Attendee · Report received",
+    "caption": "I-1 is saved. “Send report only” does not automatically request a volunteer; Mo can offer the incident manually.",
+    "start": 5,
+    "end": 9
+  },
+  {
+    "file": "03-mo-new-map-pin.png",
+    "seconds": 5,
+    "title": "Mo · New incident on the map",
+    "caption": "The same incident appears as an orange pin beside Priya’s blue volunteer pin. Mo opens I-1 from the map.",
+    "start": 9,
+    "end": 14
+  },
+  {
+    "file": "04-mo-choose-priya.png",
+    "seconds": 5,
+    "title": "Mo · Offer to Priya",
+    "caption": "Mo reviews the original report, chooses available Priya and sends an offer.",
+    "start": 14,
+    "end": 19
+  },
+  {
+    "file": "05-priya-incoming-offer.png",
+    "seconds": 5,
+    "title": "Volunteer · Incoming offer",
+    "caption": "Priya receives the incident details and destination. She has Accept and Decline controls.",
+    "start": 19,
+    "end": 24
+  },
+  {
+    "file": "06-priya-accepted.png",
+    "seconds": 4,
+    "title": "Volunteer · Accept the assignment",
+    "caption": "Priya accepts. The server assigns I-1 to her and marks her busy. Arrival still needs confirmation.",
+    "start": 24,
+    "end": 28
+  },
+  {
+    "file": "07-priya-grey-path.png",
+    "seconds": 5,
+    "title": "Volunteer · Grey dotted connection",
+    "caption": "The volunteer’s field map draws a decorative dotted curve between the starting ping and attendee.",
+    "start": 28,
+    "end": 33
+  },
+  {
+    "file": "09-mo-movement.png",
+    "seconds": 4,
+    "title": "Mo · Start fictional movement",
+    "caption": "Mo starts the existing 90-second movement demo. This is simulated movement, not real phone GPS.",
+    "start": 33,
+    "end": 37
+  },
+  {
+    "file": "10-priya-progress-early.png",
+    "seconds": 3,
+    "title": "Volunteer · Journey begins",
+    "caption": "Priya’s simulated moving pin advances. The grey dotted path starts gaining white fill.",
+    "start": 37,
+    "end": 40
+  },
+  {
+    "file": "12-priya-progress-middle.png",
+    "seconds": 3,
+    "title": "Volunteer · White progress advances",
+    "caption": "White centres extend along the same dotted curve as the simulated volunteer approaches.",
+    "start": 40,
+    "end": 43
+  },
+  {
+    "file": "15-priya-progress-later.png",
+    "seconds": 3,
+    "title": "Volunteer · Approaching the destination",
+    "caption": "The replay skips time between captured frames of the real app’s 90-second simulation.",
+    "start": 43,
+    "end": 46
+  },
+  {
+    "file": "16-priya-progress-complete.png",
+    "seconds": 4,
+    "title": "Volunteer · Full white progress",
+    "caption": "The backend reaches 100% and the dotted connection is filled white. The incident remains open.",
+    "start": 46,
+    "end": 50
+  },
+  {
+    "file": "17-mo-progress-complete.png",
+    "seconds": 4,
+    "title": "Mo · Same journey visible",
+    "caption": "Mo sees the incident, volunteer and completed decorative progress in the operations map.",
+    "start": 50,
+    "end": 54
+  },
+  {
+    "file": "18-attendee-progress-complete.png",
+    "seconds": 6,
+    "title": "Attendee · Private responder tracking",
+    "caption": "The attendee sees the frozen volunteer starting ping and white progress, without the volunteer’s moving pin.",
+    "start": 54,
+    "end": 60
+  },
+  {
+    "file": "19-priya-human-arrival.png",
+    "seconds": 4,
+    "title": "Volunteer · Human confirmation remains",
+    "caption": "At 100%, Priya still has “Mark arrived”. Movement never automatically confirms arrival or resolves the incident.",
+    "start": 60,
+    "end": 64
+  }
+]

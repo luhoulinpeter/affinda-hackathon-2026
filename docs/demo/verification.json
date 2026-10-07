@@ -1,0 +1,17 @@
+{
+  "checkedAt": "2026-10-07T22:03:45.612Z",
+  "incident": "I-1",
+  "reportCount": 1,
+  "assignee": "vol-priya",
+  "finalProgress": 1,
+  "statusAt100Percent": "open",
+  "assistanceAt100Percent": "accepted",
+  "moAndVolunteerProgressMatch": true,
+  "destinationPreserved": true,
+  "unrelatedGuestIncidents": 0,
+  "unrelatedGuestVolunteers": 0,
+  "liveAiCalls": 0,
+  "gps": "fictional fixture",
+  "movement": "existing 90-second app simulator",
+  "recording": "Edited replay of actual browser screenshots; not a continuous screen capture"
+}

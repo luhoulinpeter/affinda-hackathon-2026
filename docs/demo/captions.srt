@@ -1,0 +1,74 @@
+1
+00:00:00,000 --> 00:00:05,000
+Attendee · Create an incident
+The attendee describes a fictional ankle injury and keeps “Use my location”. The recording sandbox supplies fictional GPS.
+
+2
+00:00:05,000 --> 00:00:09,000
+Attendee · Report received
+I-1 is saved. “Send report only” does not automatically request a volunteer; Mo can offer the incident manually.
+
+3
+00:00:09,000 --> 00:00:14,000
+Mo · New incident on the map
+The same incident appears as an orange pin beside Priya’s blue volunteer pin. Mo opens I-1 from the map.
+
+4
+00:00:14,000 --> 00:00:19,000
+Mo · Offer to Priya
+Mo reviews the original report, chooses available Priya and sends an offer.
+
+5
+00:00:19,000 --> 00:00:24,000
+Volunteer · Incoming offer
+Priya receives the incident details and destination. She has Accept and Decline controls.
+
+6
+00:00:24,000 --> 00:00:28,000
+Volunteer · Accept the assignment
+Priya accepts. The server assigns I-1 to her and marks her busy. Arrival still needs confirmation.
+
+7
+00:00:28,000 --> 00:00:33,000
+Volunteer · Grey dotted connection
+The volunteer’s field map draws a decorative dotted curve between the starting ping and attendee.
+
+8
+00:00:33,000 --> 00:00:37,000
+Mo · Start fictional movement
+Mo starts the existing 90-second movement demo. This is simulated movement, not real phone GPS.
+
+9
+00:00:37,000 --> 00:00:40,000
+Volunteer · Journey begins
+Priya’s simulated moving pin advances. The grey dotted path starts gaining white fill.
+
+10
+00:00:40,000 --> 00:00:43,000
+Volunteer · White progress advances
+White centres extend along the same dotted curve as the simulated volunteer approaches.
+
+11
+00:00:43,000 --> 00:00:46,000
+Volunteer · Approaching the destination
+The replay skips time between captured frames of the real app’s 90-second simulation.
+
+12
+00:00:46,000 --> 00:00:50,000
+Volunteer · Full white progress
+The backend reaches 100% and the dotted connection is filled white. The incident remains open.
+
+13
+00:00:50,000 --> 00:00:54,000
+Mo · Same journey visible
+Mo sees the incident, volunteer and completed decorative progress in the operations map.
+
+14
+00:00:54,000 --> 00:01:00,000
+Attendee · Private responder tracking
+The attendee sees the frozen volunteer starting ping and white progress, without the volunteer’s moving pin.
+
+15
+00:01:00,000 --> 00:01:04,000
+Volunteer · Human confirmation remains
+At 100%, Priya still has “Mark arrived”. Movement never automatically confirms arrival or resolves the incident.
