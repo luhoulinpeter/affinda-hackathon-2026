@@ -40,3 +40,19 @@ The local app at `http://127.0.0.1:8765/` is left enabled for the user, with a p
 The fictional guide remains unapproved. Public site facts are therefore unavailable; questions about your permitted incident records can be answered. Use fictional reports only. Site-guide approval is still a team action, not implied by enabling AI.
 
 Automated suite after the session-control changes: **33/33 passed**, with injected simulated providers. See [AI setup](AI-SETUP.md) for configuration and approval records. The live screenshot is a local temporary artifact, not a deployment. Runtime keys, verification and database remain ignored by Git.
+
+## Approved morning checks — 8 October 2026
+
+The user explicitly renewed the eight-hour AI testing window at 2026-10-07T21:16:22.472Z, expiring 2026-10-08T05:16:22.473Z (**4:16pm Melbourne today**). Original verification IDs, maximum allowances and spent counts were retained; the private record preserves the original credit-control evidence date separately from the new user approval. The original checked Jev balance is historical, not a new balance reading. Automatic checks have a separate persisted maximum of five calls per provider for this window, including failures.
+
+Actual requests: **4 Jev and 3 free OpenRouter**, with no automatic retries, paid fallback, purchases or recharge. Original app allowance remaining afterward: **7 Jev / 9 OpenRouter**; these are call counts, not dollar balances. Jev charges/token counts were not collected. Fictional adapter checks did not create reports or accounts in the app. The real server was stopped while reserving original ledger counts to avoid conflicting store writers, then restarted.
+
+| Check | Observed result | Measured time |
+|---|---|---|
+| Ordinary obstruction classification | hazard / routine / ordinary, before and after prompt clarification | 363ms / 308ms |
+| Harassment report explicitly requesting privacy | Initially incorrectly ordinary; after clarifying privacy/anonymity and harassment criteria, sensitive | 242ms / 345ms |
+| Ordinary summary | Preserved the obstruction, absence of injury and stated absence of immediate danger | 778ms |
+| Private summary | Preserved requested privacy; no fabricated incident details | 898ms |
+| Volunteer ranking | Returned both supplied IDs, nearby/same-zone first | 411ms |
+
+An initial ranking harness used invalid zone ID A and was rejected locally before any provider request; corrected to the actual fixture ID zone-a. The private reporter checkbox remains authoritative independently of model output. The prompt correction passed **25/25 focused simulated provider/sensitivity tests** and the live example above. A corrected example does not establish general sensitivity accuracy; human review and explicit privacy controls remain necessary. The first summary still phrases an unverified report as a fact; that known quality limitation remains. Physical-phone HTTPS/GPS and broader model reliability remain unverified. The fictional general guide remains unapproved.
