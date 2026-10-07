@@ -27,6 +27,7 @@ window.RiversideAPI = (() => {
     session = nextSession;
     state = nextState;
     subscribers.forEach(callback => callback());
+    connectEvents();
   }
   async function submitReport(input) { const result = await request("/api/reports", input); await refresh(); return result; }
   async function act(id, action) { await request(`/api/incidents/${encodeURIComponent(id)}/action`, { action }); await refresh(); }
@@ -42,7 +43,22 @@ window.RiversideAPI = (() => {
     finally { identityChanging = false; subscribers.forEach(callback => callback()); }
   }
   async function createAccount(input) { await request("/api/accounts", input); }
-  return { refresh, submitReport, act, authenticate, logout, createAccount,
+  async function resetDemo() {
+    await request('/api/reset', {});
+    invalidateIdentity();
+    await refresh();
+  }
+  // Establish the guest cookie before opening a parallel stream; otherwise two
+  // first requests can set different guest IDs and orphan the first report.
+  let events = null;
+  function connectEvents() {
+    if (events || typeof EventSource === "undefined") return;
+    events = new EventSource('/api/events');
+    events.addEventListener('state', () => {
+      if (!identityChanging) refresh().catch(() => {});
+    });
+  }
+  return { refresh, submitReport, act, authenticate, logout, createAccount, resetDemo,
     ask: input => request('/api/qa', input),
     getIdentityVersion: () => identityVersion, isIdentityChanging: () => identityChanging,
     onIdentityChange(callback) { identitySubscribers.add(callback); return () => identitySubscribers.delete(callback); },

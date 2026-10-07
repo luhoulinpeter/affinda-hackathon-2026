@@ -154,12 +154,144 @@ test('verified provider call allowance persists over restart and prevents excess
   assert.equal((await guest.request('/api/reports', { zone: 'zone-a', text: 'First fictional spill' })).status, 201);
   await server.whenAIIdle();
   assert.equal(JSON.parse(fs.readFileSync(path.join(dataDir, 'store.json'), 'utf8')).workflow.incidents[0].analysis.jev.state, 'complete');
+  const mo = client(`http://127.0.0.1:${port}`); await mo.request('/api/session');
+  assert.equal((await mo.request('/api/setup', { username: 'credit-mo', password: 'fictional-password-123' })).status, 201);
+  await mo.request('/api/session');
+  assert.equal((await mo.request('/api/reset', {})).status, 200);
+  assert.equal((await mo.request('/api/state')).result.reports.length, 0);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dataDir, 'store.json'), 'utf8')).aiUsage['jev:simulated-credit-test'], 1);
   await new Promise(resolve => server.close(resolve));
   server = createApp(options); await new Promise(resolve => server.listen(port, '127.0.0.1', resolve));
   await guest.request('/api/session');
   assert.equal((await guest.request('/api/reports', { zone: 'zone-b', text: 'Another fictional spill' })).status, 201);
   await server.whenAIIdle();
   const incident = (await guest.request('/api/state')).result.incidents.at(-1);
+  assert.equal(incident.id, 'I-2'); // Counter survived a reset with no reports, then restart.
+  assert.equal((await guest.request('/api/incidents/I-1/action', { action: 'resolve' })).status, 404);
   assert.equal(calls, 1); // The second attempted call never reaches the simulated transport.
   assert.equal(JSON.parse(fs.readFileSync(path.join(dataDir, 'store.json'), 'utf8')).workflow.incidents.at(-1).analysis.jev.state, 'failed'); assert.equal(incident.status, 'open');
+});
+
+test('event stream signals changes without sending data, and only Mo can reset the demo', async t => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'riverside-events-test-'));
+  const server = createApp({ dataDir });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); fs.rmSync(dataDir, { recursive: true, force: true }); });
+  const guest = client(base), mo = client(base);
+  await guest.request('/api/session');
+
+  const stream = await fetch(`${base}/api/events`);
+  assert.equal(stream.status, 200);
+  assert.match(stream.headers.get('content-type'), /^text\/event-stream/);
+  const reader = stream.body.getReader();
+  const decoder = new TextDecoder();
+  async function readUntil(pattern) {
+    let text = '';
+    while (!pattern.test(text)) {
+      const { value, done } = await reader.read();
+      if (done) throw new Error(`Stream ended before ${pattern}`);
+      text += decoder.decode(value);
+    }
+    return text;
+  }
+  await readUntil(/retry: 3000/);
+  const report = await guest.request('/api/reports', { zone: 'zone-b', category: 'hazard', text: 'Fictional spill' });
+  assert.equal(report.status, 201);
+  const event = await readUntil(/event: state\ndata: \{\}\n\n/);
+  assert.ok(!event.includes('Fictional spill'));
+
+  assert.equal((await guest.request('/api/reset', {})).status, 403);
+  assert.equal((await guest.request('/api/state')).result.reports.length, 1);
+  await mo.request('/api/session');
+  assert.equal((await mo.request('/api/setup', { username: 'test-mo', password: randomBytes(24).toString('hex') })).status, 201);
+  assert.equal((await mo.request('/api/session')).result.user.role, 'mo');
+  assert.equal((await mo.request('/api/reset', {})).status, 200);
+  await readUntil(/event: state/);
+  assert.equal((await mo.request('/api/state')).result.incidents.length, 0);
+  assert.equal((await mo.request('/api/session')).result.user.role, 'mo');
+  const next = await guest.request('/api/reports', { zone: 'zone-a', category: 'other', text: 'Fictional report after reset' });
+  assert.notEqual(next.result.id, report.result.id);
+  assert.equal((await mo.request(`/api/incidents/${report.result.id}/action`, { action: 'resolve' })).status, 404);
+  assert.equal((await mo.request('/api/state')).result.incidents[0].status, 'open');
+  await reader.cancel();
+});
+
+test('deployed mode accepts only its public host, disables browser setup and uses Secure cookies', async t => {
+  const http = require('node:http');
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'riverside-deploy-test-'));
+  const server = createApp({ dataDir, publicOrigin: 'https://riverside.test' });
+  await server.ensureMo('deploy-mo', 'correct-horse-battery');
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); fs.rmSync(dataDir, { recursive: true, force: true }); });
+  // Simulates the host's HTTPS proxy forwarding to this server with the public Host header.
+  const cookies = new Map();
+  let csrf = '';
+  function send(route, body, { host = 'riverside.test', origin = 'https://riverside.test' } = {}) {
+    return new Promise((resolve, reject) => {
+      const headers = { Host: host, Cookie: [...cookies].map(([key, value]) => `${key}=${value}`).join('; ') };
+      if (body !== undefined) Object.assign(headers, { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf, Origin: origin });
+      const req = http.request({ port, path: route, method: body === undefined ? 'GET' : 'POST', headers }, res => {
+        let text = '';
+        res.on('data', chunk => { text += chunk; });
+        res.on('end', () => {
+          for (const cookie of res.headers['set-cookie'] || []) { const [key, value] = cookie.split(';')[0].split('='); if (value) cookies.set(key, value); }
+          const result = JSON.parse(text);
+          if (result.csrf) csrf = result.csrf;
+          resolve({ status: res.statusCode, result, setCookie: res.headers['set-cookie'] || [] });
+        });
+      });
+      req.on('error', reject);
+      req.end(body === undefined ? undefined : JSON.stringify(body));
+    });
+  }
+  assert.equal((await send('/api/session', undefined, { host: 'evil.test' })).status, 403);
+  const session = await send('/api/session');
+  assert.equal(session.status, 200);
+  assert.equal(session.result.setupRequired, false);
+  assert.ok(session.setCookie.length && session.setCookie.every(cookie => cookie.includes('; Secure')));
+  assert.equal((await send('/api/setup', { username: 'intruder', password: 'x'.repeat(20) })).status, 403);
+  assert.equal((await send('/api/login', { username: 'deploy-mo', password: 'wrong-password-123' }, { origin: 'http://riverside.test' })).status, 403);
+  assert.equal((await send('/api/login', { username: 'deploy-mo', password: 'correct-horse-battery' })).status, 200);
+  assert.equal((await send('/api/session')).result.user.role, 'mo');
+  await server.ensureMo('deploy-mo', 'a-new-password-456');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dataDir, 'store.json'), 'utf8')).users.filter(user => user.role === 'mo').length, 1);
+});
+
+
+test('deployment rejects insecure or non-origin addresses before creating storage', () => {
+  const dataDir = path.join(os.tmpdir(), `riverside-invalid-${randomBytes(8).toString('hex')}`);
+  for (const publicOrigin of ['http://riverside.test', 'not-a-url', 'https://user:password@riverside.test', 'https://riverside.test/path', 'https://riverside.test?query=1', 'https://riverside.test#fragment']) {
+    assert.throws(() => createApp({ dataDir, publicOrigin }), /PUBLIC_ORIGIN must be an HTTPS origin/);
+    assert.equal(fs.existsSync(dataDir), false);
+  }
+});
+
+test('reset invalidates a pending Q&A response built from cleared incident sources', { timeout: 5000 }, async t => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'riverside-qa-reset-'));
+  let releaseAnswer, started;
+  const answering = new Promise(resolve => { started = resolve; });
+  const aiProviders = {
+    status: () => ({}), classify: async () => ({ category: 'other', urgency: 'routine' }),
+    summarise: async () => ({ summary: 'Fictional report' }), screen: async () => ({ intent: 'information' }),
+    answer: () => { started(); return new Promise(resolve => { releaseAnswer = resolve; }); }
+  };
+  const server = createApp({ dataDir, aiProviders });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(async () => { releaseAnswer?.({ answer: 'Obsolete queue', sources: ['permitted-overview'], unknown: false }); await server.whenAIIdle(); await new Promise(resolve => server.close(resolve)); fs.rmSync(dataDir, { recursive: true, force: true }); });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const mo = client(base), guest = client(base);
+  await mo.request('/api/session'); await guest.request('/api/session');
+  await mo.request('/api/setup', { username: 'reset-mo', password: 'fictional-password-123' });
+  await mo.request('/api/session');
+  await guest.request('/api/reports', { zone: 'zone-a', text: 'Fictional old report' });
+  const pending = guest.request('/api/qa', { question: 'What is the report status?' });
+  await answering;
+  assert.equal((await mo.request('/api/reset', {})).status, 200);
+  releaseAnswer({ answer: 'Obsolete queue', sources: ['permitted-overview'], unknown: false });
+  const response = await pending;
+  assert.equal(response.status, 403);
+  assert.equal(JSON.stringify(response.result).includes('Obsolete queue'), false);
+  assert.equal((await guest.request('/api/state')).result.reports.length, 0);
 });

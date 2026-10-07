@@ -18,6 +18,8 @@ State-changing requests send JSON and the `X-CSRF-Token` from the session respon
 | `POST /api/qa` | Accept `{ question, history: [{ question, answer }] }` (at most four prior exchanges); derive identity from the session; return `{ outcome, answer, sources, draft? }` |
 | `POST /api/reports` | Accept `{ zone, category, text, immediateConcern }`; derive public/Volunteer/Mo reporter from session; persist and return `{ id }` before background analysis finishes |
 | `POST /api/incidents/:id/action` | Apply `{ action }` as the current actor; never accept a client-selected actor |
+| `GET /api/events` | Server-Sent Events stream. Sends `event: state` with empty data whenever reports/incidents change; clients then re-fetch `/api/state`, so no data bypasses role scoping. `api.js` subscribes automatically |
+| `POST /api/reset` | Demo only, Mo only: clear all reports and incidents and restart IDs at `I-1`. Accounts are kept. From the browser console while signed in as Mo: `RiversideAPI.resetDemo()` |
 
 Errors return a non-success HTTP status and `{ error }`. The browser refreshes session/state after mutations and every six seconds while visible. Forms keep their input during background refresh; identity changes clear unsent report text. A server outage is shown as an error.
 
@@ -60,3 +62,5 @@ Approved public guide entries are shared; staff guidance is withheld from event-
 - Hosting, HTTPS, administrator provisioning and persistent deployment storage.
 
 Armaan's duplicate-grouping/Split/Merge revision is set aside. It is not a prerequisite for the original plan.
+
+Reset preserves accounts, the persisted report/incident sequence and provider credit allowances. Old incident IDs are never reused after reset or restart. Pending analysis and Q&A from the previous reset generation are discarded. Workflow persistence includes `sequence`; role-filtered record access is unchanged.

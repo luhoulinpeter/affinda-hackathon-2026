@@ -7,7 +7,8 @@
   const incidents = JSON.parse(JSON.stringify(initial.incidents || []));
   const subscribers = new Set();
   const jobs = new Set();
-  let sequence = reports.reduce((max, report) => Math.max(max, Number(report.id.slice(2)) || 0), 0);
+  let sequence = [...reports, ...incidents].reduce((max, item) => Math.max(max, Number(item.id.slice(2)) || 0), Number.isSafeInteger(initial.sequence) && initial.sequence >= 0 ? initial.sequence : 0);
+  let generation = 0;
   const clone = value => JSON.parse(JSON.stringify(value));
   const now = () => new Date().toISOString();
   const notify = () => { persist(getState()); subscribers.forEach(callback => callback()); };
@@ -23,7 +24,7 @@
   }
 
   function getState() {
-    return clone({ reports, incidents });
+    return clone({ reports, incidents, sequence });
   }
 
   async function submitReport(input) {
@@ -57,10 +58,13 @@
     notify();
 
     // Independent jobs start after persistence; callers get a reference without waiting.
+    const reportGeneration = generation;
     for (const provider of ['jev', 'luna']) {
       const job = Promise.resolve().then(async () => {
+        if (reportGeneration !== generation) return;
         try {
           const suggestion = await (provider === 'jev' ? getAI().classify(clone(report)) : getAI().summarise(clone(report)));
+          if (reportGeneration !== generation) return;
           const keys = Object.keys(suggestion || {});
           if (provider === 'jev') {
             if (keys.length !== 2 || !keys.includes('category') || !keys.includes('urgency') || !data.categories.some(item => item.id === suggestion.category) || !['routine', 'urgent', 'unclear'].includes(suggestion.urgency)) throw new Error('Invalid classification');
@@ -72,6 +76,7 @@
           }
           incident.analysis[provider] = { state: 'complete', suggestion: clone(suggestion) };
         } catch {
+          if (reportGeneration !== generation) return;
           incident.analysis[provider] = { state: 'failed', reason: 'Analysis unavailable; original report retained for Mo' };
         }
         notify();
@@ -113,8 +118,16 @@
     return clone(incident);
   }
 
+  // Retain the saved counter so stale actions cannot target later reports, even after restart.
+  function reset() {
+    generation++;
+    reports.length = 0;
+    incidents.length = 0;
+    notify();
+  }
+
   return {
-    getState, submitReport, act, whenIdle: () => Promise.all([...jobs]),
+    getState, submitReport, act, reset, whenIdle: () => Promise.all([...jobs]),
     subscribe(callback) { subscribers.add(callback); return () => subscribers.delete(callback); }
   };
 });

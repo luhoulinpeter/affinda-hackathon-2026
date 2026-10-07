@@ -13,7 +13,7 @@ Node.js is required; no package installation is needed.
 5. In Mo's workspace, expand **Volunteer accounts** to create a username/password for someone on the fictional volunteer roster.
 6. Sign out, then sign in with that volunteer account. The Volunteer workspace opens automatically; there is no role chooser.
 
-Opening `index.html` directly is no longer supported: real accounts and permissions require the running server. This replaces the earlier static Python preview. The server listens only on this computer; public hosting and physical-phone access are not set up.
+Opening `index.html` directly is no longer supported: real accounts and permissions require the running server. This replaces the earlier static Python preview. By default the server listens only on this computer. HTTPS deployment configuration is available in [server instructions](server/README.md); actual hosting and physical-phone access remain unverified.
 
 ## Try the workflow
 
@@ -24,6 +24,8 @@ Opening `index.html` directly is no longer supported: real accounts and permissi
 - Volunteer accounts see their own reports and, when assignment is implemented, assigned incidents. They cannot read Mo's full queue or create accounts.
 
 The server stores reports and password hashes in `.riverside/store.json`, excluded from Git and unavailable through the web server. Reports/accounts survive restarts. Staff sessions last up to eight hours and require sign-in again after a restart. Public report ownership uses a signed cookie lasting up to seven days; clearing that cookie loses access to the original reporter's history.
+
+Browsers receive live change signals and reload their own permitted records; six-second polling remains as a fallback. Mo can clear fictional reports with `RiversideAPI.resetDemo()` in the browser console. Accounts, unique ID allocation and provider credit allowances survive reset.
 
 ## Three-person file ownership
 
@@ -41,7 +43,7 @@ The team chose to keep the current stack. Voice, automatic assignment, coverage 
 
 ## Verification
 
-Run `node --test tests/*.test.cjs`. AI tests use simulated responses, never real API calls. The server test creates isolated temporary accounts and data, checks role restrictions and server restart, and removes its own test directory. No test account is created in your app database.
+Run `npm test` (equivalent to `node --test tests/*.test.cjs`). AI tests use simulated responses, never real API calls. The server test creates isolated temporary accounts and data, checks role restrictions and server restart, and removes its own test directory. No test account is created in your app database.
 
 ## Team workflow
 

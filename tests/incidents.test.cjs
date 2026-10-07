@@ -93,3 +93,40 @@ test('restart marks interrupted results failed without replaying paid requests',
   assert.equal(service.getState().incidents[0].analysis.jev.state, 'failed');
   assert.equal(service.getState().incidents[0].analysis.luna.state, 'complete');
 });
+
+
+test('reset keeps IDs unique after restart and rejects stale actions', async () => {
+  const { service } = setup();
+  const old = await service.submitReport(report());
+  await service.whenIdle();
+  service.reset();
+  const restored = setup({}, service.getState()).service;
+  const fresh = await restored.submitReport(report({ text: 'Different fictional issue' }));
+  assert.notEqual(fresh.id, old.id);
+  assert.throws(() => restored.act(old.id, 'resolve', mo), /not found/);
+  assert.equal(restored.getState().incidents[0].status, 'open');
+  await restored.whenIdle();
+});
+
+test('reset during pending analysis discards late results without altering new reports', async () => {
+  let releaseJev, releaseLuna, persisted;
+  let classifications = 0, summaries = 0;
+  const providers = {
+    classify: () => ++classifications === 1 ? new Promise(resolve => { releaseJev = resolve; }) : Promise.resolve({ category: 'other', urgency: 'routine' }),
+    summarise: () => ++summaries === 1 ? new Promise(resolve => { releaseLuna = resolve; }) : Promise.resolve({ summary: 'New report summary' })
+  };
+  const service = createIncidents(data, () => providers, {}, state => { persisted = state; });
+  const old = await service.submitReport(report());
+  service.reset();
+  const fresh = await service.submitReport(report({ text: 'New fictional report' }));
+  releaseJev({ category: 'crowding', urgency: 'urgent' });
+  releaseLuna({ summary: 'Deleted report summary' });
+  await service.whenIdle();
+  assert.notEqual(fresh.id, old.id);
+  assert.equal(persisted.reports.length, 1);
+  assert.equal(persisted.incidents.length, 1);
+  assert.equal(persisted.incidents[0].category, 'other');
+  assert.equal(persisted.incidents[0].attention, 'review');
+  assert.equal(persisted.incidents[0].brief, 'New report summary');
+  assert.equal(JSON.stringify(persisted).includes('Deleted report summary'), false);
+});

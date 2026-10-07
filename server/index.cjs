@@ -9,7 +9,14 @@ const { answerQuestion } = require('./ai/qa.cjs');
 const createIncidents = require('../src/js/domain/incidents.js');
 const root = path.resolve(__dirname, '..');
 
-function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = false, aiProviders, guide, aiEnv = process.env, aiFetch } = {}) {
+// A public origin enables HTTPS deployment and disables browser first-account setup.
+function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = null, secureCookies = false, aiProviders, guide, aiEnv = process.env, aiFetch } = {}) {
+  let deployed = null;
+  if (publicOrigin !== null) {
+    try { deployed = new URL(publicOrigin); } catch { throw new Error('PUBLIC_ORIGIN must be an HTTPS origin.'); }
+    if (deployed.protocol !== 'https:' || deployed.username || deployed.password || deployed.pathname !== '/' || deployed.search || deployed.hash) throw new Error('PUBLIC_ORIGIN must be an HTTPS origin without credentials, a path, query or fragment.');
+    secureCookies = true;
+  }
   fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const dbFile = path.join(dataDir, 'store.json');
   const db = fs.existsSync(dbFile) ? JSON.parse(fs.readFileSync(dbFile, 'utf8')) : { users: [], workflow: {}, cookieSecret: randomBytes(32).toString('hex') };
@@ -32,6 +39,13 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
   const workflow = createIncidents(data, () => providers, db.workflow, state => { db.workflow = state; save(); });
   db.workflow = workflow.getState(); save();
   const qaActive = new Set();
+  let resetVersion = 0;
+  // Live updates: send only a "changed" signal; each client re-fetches its own role-scoped /api/state.
+  const streams = new Set();
+  const broadcast = message => streams.forEach(stream => stream.write(message));
+  workflow.subscribe(() => broadcast('event: state\ndata: {}\n\n'));
+  const heartbeat = setInterval(() => broadcast(': keep-alive\n\n'), 20000);
+  heartbeat.unref();
   const sessions = new Map();
   const loginAttempts = new Map();
   const dummy = { salt: randomBytes(16).toString('hex'), hash: randomBytes(64).toString('hex') };
@@ -117,9 +131,9 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     try {
       const address = server.address();
-      const allowedHosts = [`127.0.0.1:${address.port}`, `localhost:${address.port}`];
+      const allowedHosts = deployed ? [deployed.host] : [`127.0.0.1:${address.port}`, `localhost:${address.port}`];
       if (!allowedHosts.includes(req.headers.host)) return json(res, 403, { error: 'Invalid host.' });
-      const origin = `http://${req.headers.host}`;
+      const origin = deployed && req.headers.host === deployed.host ? deployed.origin : `http://${req.headers.host}`;
       if (req.headers.origin && req.headers.origin !== origin) return json(res, 403, { error: 'Cross-origin request denied.' });
       const url = new URL(req.url, origin);
       if (!url.pathname.startsWith('/api/')) {
@@ -130,15 +144,23 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
         return;
       }
       const ctx = context(req, res);
-      if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: ctx.user ? publicUser(ctx.user) : null, guest: ctx.guest, csrf: ctx.csrf, setupRequired: db.users.length === 0, ai: providers.status(), guideApproved: (guide || require('../data/event-guide.json')).approved === true });
+      if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: ctx.user ? publicUser(ctx.user) : null, guest: ctx.guest, csrf: ctx.csrf, setupRequired: !deployed && db.users.length === 0, ai: providers.status(), guideApproved: (guide || require('../data/event-guide.json')).approved === true });
       if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, stateFor(ctx.actor));
+      if (req.method === 'GET' && url.pathname === '/api/events') {
+        res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+        res.write('retry: 3000\n\n');
+        streams.add(res);
+        req.on('close', () => streams.delete(res));
+        return;
+      }
       if (req.method !== 'POST') return json(res, 404, { error: 'Not found.' });
       if (!equal(req.headers['x-csrf-token'], ctx.csrf)) return json(res, 403, { error: 'Session changed. Refresh and try again.' });
       const body = await readBody(req);
       if (url.pathname === '/api/qa') {
         const actorKey = `${ctx.actor.role}:${ctx.actor.id}`;
         if (qaActive.has(actorKey) || qaActive.size >= 4) return json(res, 429, { error: 'Questions are busy. Please try again shortly.' });
-        const isCurrent = () => !ctx.user || (sessions.get(ctx.token)?.username === ctx.user.username && sessions.get(ctx.token)?.expires > Date.now());
+        const version = resetVersion;
+        const isCurrent = () => version === resetVersion && (!ctx.user || (sessions.get(ctx.token)?.username === ctx.user.username && sessions.get(ctx.token)?.expires > Date.now()));
         qaActive.add(actorKey);
         try {
           const result = await answerQuestion({ body, actor: ctx.actor, getState: () => stateFor(ctx.actor), providers, guide, isCurrent });
@@ -147,6 +169,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
         } finally { qaActive.delete(actorKey); }
       }
       if (url.pathname === '/api/setup') {
+        if (deployed) return json(res, 403, { error: 'Setup is disabled on the deployed server. Mo is configured by the operator.' });
         if (db.users.length) return json(res, 409, { error: 'Initial setup is already complete.' });
         validCredentials(body.username, body.password);
         const password = await passwordJob(() => hashPassword(body.password));
@@ -184,6 +207,13 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
         db.users.push({ username: body.username, actorId: volunteer.id, role: 'volunteer', password }); save();
         return json(res, 201, { ok: true });
       }
+      if (url.pathname === '/api/reset') {
+        // Demo only: Mo clears reports and incidents. Accounts are kept.
+        requireMo(ctx);
+        resetVersion++;
+        workflow.reset();
+        return json(res, 200, { ok: true });
+      }
       if (url.pathname === '/api/reports') {
         const incident = await workflow.submitReport({ text: body.text, zone: body.zone, category: body.category, immediateConcern: body.immediateConcern,
           ...(ctx.actor.role === 'volunteer' ? { volunteerId: ctx.actor.id } : { reporter: ctx.actor }) });
@@ -203,6 +233,16 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
       json(res, error.status || (known ? 400 : 500), { error: known ? error.message : 'The server could not complete the request.' });
     }
   });
+  // Deployed mode: create or update the Mo account from operator-supplied credentials.
+  server.ensureMo = async (username, password) => {
+    validCredentials(username, password);
+    const user = { username, actorId: 'mo', role: 'mo', password: await hashPassword(password) };
+    db.users = [...db.users.filter(item => item.role !== 'mo' && item.username !== username), user];
+    save();
+  };
+  // Open event streams would otherwise stop close() from finishing.
+  const close = server.close.bind(server);
+  server.close = callback => { clearInterval(heartbeat); streams.forEach(stream => stream.end()); streams.clear(); return close(callback); };
   server.requestTimeout = 15000;
   server.headersTimeout = 10000;
   server.whenAIIdle = workflow.whenIdle;
@@ -211,8 +251,17 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
 
 if (require.main === module) {
   const port = Number(process.env.PORT || 8765);
-  const server = createApp({ dataDir: process.env.RIVERSIDE_DATA_DIR || undefined });
-  server.listen(port, '127.0.0.1', () => console.log(`Riverside: http://127.0.0.1:${port} (local server)`));
+  const publicOrigin = process.env.PUBLIC_ORIGIN || null;
+  const server = createApp({ dataDir: process.env.RIVERSIDE_DATA_DIR || undefined, publicOrigin });
   server.on('error', error => { console.error(`Cannot start Riverside: ${error.code || error.message}`); process.exitCode = 1; });
+  (async () => {
+    if (publicOrigin) {
+      if (!process.env.MO_USERNAME || !process.env.MO_PASSWORD) throw new Error('Deployed mode needs MO_USERNAME and MO_PASSWORD environment variables.');
+      await server.ensureMo(process.env.MO_USERNAME, process.env.MO_PASSWORD);
+    }
+    // Deployed: listen on all interfaces so the host's proxy can reach us. Local: this computer only.
+    const host = publicOrigin ? '0.0.0.0' : '127.0.0.1';
+    server.listen(port, host, () => console.log(publicOrigin ? `Riverside: ${publicOrigin} (deployed, port ${port})` : `Riverside: http://127.0.0.1:${port} (local server)`));
+  })().catch(error => { console.error(`Cannot start Riverside: ${error.message}`); process.exit(1); });
 }
 module.exports = { createApp };
