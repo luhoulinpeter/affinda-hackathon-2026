@@ -1,12 +1,26 @@
 # Affinda Hackathon team workspace
 
-This repository holds the team's project notes and the folder structure for its planned browser app. Track 3 is confirmed; product details are still being refined. Read [PROJECT.md](PROJECT.md) for current decisions and deadlines, and [AGENTS.md](AGENTS.md) for AI coding guidance.
+This repository holds the team's project notes and a small browser prototype. Track 3 is confirmed; product details are still being refined. Read [PROJECT.md](PROJECT.md) for current decisions and deadlines, and [AGENTS.md](AGENTS.md) for AI coding guidance.
+
+## Try the starter
+
+1. Double-click `index.html`. No install or server is required for this local starter.
+2. Select **Volunteer view**, click **Use example text**, then **Send report**. You should receive an incident reference and see the report under **Your reports**.
+3. Select **Mo's view** and open the incident. Click **Acknowledge**: the open count should stay the same.
+4. Click **Mark escalated**: it should still be open. Click **Confirm resolved**: the resolved count should increase, with Mo and the confirmation time in the record.
+5. Submit another report with **Flag immediate concern for Mo** checked. It should appear ahead of ordinary open reports.
+
+All people and examples are fictional. State lives in one tab and resets on refresh. The identity selector is a demo, not authentication. There is no connected AI, voice service, automatic assignment, server or deployment.
+
+For the three-person work split, see [roles.md](roles.md). The implemented interface and next integration agreements are in [docs/STARTER-CONTRACT.md](docs/STARTER-CONTRACT.md).
 
 ## Folder structure
 
 ```text
 src/
-  js/        Browser JavaScript: interface behaviour and app logic
+  js/ui/     Person 1: browser views
+  js/domain/ Person 2: incident state and actions
+  js/services/ Person 3: analysis adapter (currently a labelled stub)
   css/       Styles and layout
 assets/      Images, icons and map artwork shown in the app
 data/        Fictional sample incidents, volunteers and zones
@@ -18,15 +32,19 @@ guides/      Original hackathon guides for working with AI
 
 Keep `README.md`, `PROJECT.md`, `AGENTS.md`, `CLAUDE.md` and the starter-pack files at the top level so teammates and AI tools can find them. The [incident MVP draft](docs/INCIDENT-MVP-DRAFT.md) lives in `docs/`; it contains proposals as well as confirmed decisions.
 
-No runnable app, framework, packages or server have been added yet. Empty code folders contain `.gitkeep` files so Git includes them when teammates clone the repository; remove those placeholders when adding real files.
+The local app uses HTML, CSS and JavaScript without packages. The `server/` folder remains reserved for private API calls and shared storage.
 
 ## First implementation
 
-Start with an `index.html` at the top level, linking styles from `src/css/` and scripts from `src/js/`. That first page should open by double-click without installs. Keep browser code separate from server code, and choose a framework only when the team needs one.
+`index.html` links styles from `src/css/` and classic scripts from `src/js/`. The text journey is implemented; extend it in small working steps.
 
-Use `assets/` for files displayed by the browser and `data/` for fictional examples. If the first version loads sample data, check that it works when opening `index.html` directly; browser requests for local JSON files can require a server.
+Use `assets/` for displayed files and `data/` for fictional examples. Fixtures are a classic JavaScript file so no local JSON fetch is needed. Keep this double-click path until a server is ready.
 
-Private Jev or transcription API calls belong in `server/` once a server is implemented. See [server/README.md](server/README.md). There is no app to run or test yet.
+Private Jev or transcription API calls belong in `server/` once a server is implemented. See [server/README.md](server/README.md). Never add a provider key to the browser adapter.
+
+## Check the workflow rules
+
+With Node.js already installed, run `node --test tests/incidents.test.cjs`. These checks cover explicit human resolution, role restrictions, retained reports when analysis fails, concurrent reports and invalid input. Also click through the steps above; automated rule checks do not verify the browser interface or phone behaviour.
 
 ## Collaborating
 

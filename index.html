@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Riverside · Incident response starter</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23173c36'/%3E%3Ctext x='8' y='24' fill='white' font-size='24'%3ER%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="src/css/app.css">
+  <!-- Classic scripts keep this starter usable by double-click, without a server. -->
+  <script defer src="data/fixtures.js"></script>
+  <script defer src="src/js/services/analysis.js"></script>
+  <script defer src="src/js/domain/incidents.js"></script>
+  <script defer src="src/js/ui/app.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand"><span class="brand-icon" aria-hidden="true">R</span><div><strong>Riverside</strong><span>Incident response · team starter</span></div></div>
+    <span class="demo-label">Fictional demo</span>
+  </header>
+  <main>
+    <div class="page-heading"><div><p class="eyebrow">Ground control</p><h1>A shared starting point.</h1><p>Report an issue. Review it. Record a human decision.</p></div></div>
+    <aside class="notice"><strong>Local prototype · AI is not connected.</strong> Reports stay in this tab and reset on refresh. Each report creates a separate incident for Mo to review. No live dispatch or emergency service is connected.</aside>
+    <nav class="view-switch" aria-label="Demo role">
+      <button type="button" data-view="mo" aria-pressed="true">Mo’s view</button>
+      <button type="button" data-view="volunteer" aria-pressed="false">Volunteer view</button>
+    </nav>
+    <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+
+    <section id="mo-view" aria-label="Mo’s operations view">
+      <div class="stats" aria-label="Incident counts">
+        <div><span>Open incidents</span><strong id="open-count">0</strong></div>
+        <div><span>Open · immediate concern</span><strong id="urgent-count">0</strong></div>
+        <div><span>Confirmed resolved</span><strong id="resolved-count">0</strong></div>
+      </div>
+      <div class="operations-grid">
+        <section class="panel"><div class="panel-heading"><h2>Incident queue</h2><span class="muted">Urgent first</span></div><div id="incident-list" class="incident-list"></div></section>
+        <section id="incident-detail" class="panel detail-panel" aria-label="Selected incident"></section>
+      </div>
+    </section>
+
+    <section id="volunteer-view" aria-label="Volunteer reporting view" hidden>
+      <div class="operations-grid">
+        <section class="panel">
+          <div class="panel-heading"><h2>Send a report</h2><span class="muted">Text first</span></div>
+          <form id="report-form">
+            <label for="volunteer">Demo volunteer</label><select id="volunteer" name="volunteerId" required></select>
+            <p class="field-note">This selector simulates identity; it is not a sign-in.</p>
+            <label for="zone">Incident zone</label><select id="zone" name="zone" required></select>
+            <label for="report-text">What did you see?</label>
+            <textarea id="report-text" name="text" rows="5" maxlength="2000" required placeholder="Describe the issue and where it is. Use fictional examples."></textarea>
+            <label class="checkbox-label"><input id="immediate-concern" type="checkbox" name="immediateConcern"> Flag immediate concern for Mo</label>
+            <div class="form-actions"><button class="primary" type="submit">Send report</button><button id="example-report" type="button" class="secondary">Use example text</button></div>
+            <p class="field-note">Submitting a report does not guarantee a response. Follow the event’s established emergency procedure for immediate help.</p>
+          </form>
+        </section>
+        <section class="panel"><div class="panel-heading"><h2>Your reports</h2><span class="muted">Current demo volunteer</span></div><div id="volunteer-reports"></div></section>
+      </div>
+    </section>
+    <footer>Text workflow starter · fictional zones and people · human confirmation required to resolve</footer>
+    <noscript>This prototype needs JavaScript enabled in your browser.</noscript>
+  </main>
+</body>
+</html>

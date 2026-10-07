@@ -1,9 +1,9 @@
 # PROJECT.md: <TODO: team name>
 
-*Project memory: share with each new chat and update after each session. Event facts below come from [HACKATHON.md](HACKATHON.md) and official pages checked on 7 October 2026; official announcements take precedence. Product details below are the team's current direction, not a tested build.*
+*Project memory: share with each new chat and update after each session. Event facts below come from [HACKATHON.md](HACKATHON.md) and official pages checked on 7 October 2026; official announcements take precedence. Product details below are the team's current direction. The limited text starter has been checked; the full proposed product has not been implemented.*
 
 ## Team
-- Names and roles: <TODO: list each team member and their role>.
+- Names and roles: <TODO: assign names to the three-person work split in [roles.md](roles.md)>.
 - All members have coded before and have an undergraduate computer science background.
 - All members have GitHub accounts. Each member has a ChatGPT or Claude Pro subscription; which person uses which tool is not recorded.
 - Event requirement: 3–4 people; each person on one team only; every member needs a ticket.
@@ -23,6 +23,7 @@
 - 7 October 2026: The team raised a public map of volunteer/staff locations, incident uploads, a heatmap, redistribution suggestions, and web-app voice messages as possibilities. Whether to show individual live locations or replace radios remains undecided; the [MVP draft](docs/INCIDENT-MVP-DRAFT.md) uses fixed public help points and zone-level staff information until live-location accuracy can be established.
 - 7 October 2026: The team confirmed Track 3 and TypeSafe AI's Jev as the intended decision model, while leaving room to compare alternatives if needed. The MVP will run in a browser; exact target browsers remain to be tested.
 - 7 October 2026: The team decided Mo, the assigned volunteer or the original reporter may confirm resolution. Every incident stays open until one of them explicitly confirms; no timeout automatically escalates or closes it.
+- 7 October 2026: After reviewing the Armaan branch and discussing a three-person split, the team requested a starting point on main. Added a local text-report workflow with separate interface, incident-domain and analysis-adapter files. This does not settle whether all of Armaan's proposed scope changes are accepted; the original direction above and Armaan's revision still need reconciliation.
 
 ## Registration and track checklist — Wednesday 7 October 2026, 5:00pm
 
@@ -37,15 +38,17 @@ HACKATHON.md states: "both forms close **Wed 7 Oct, 5:00pm**. Use the same team 
 ## Event requirements
 - All work must happen between Opening Night and the submission deadline; no pre-existing projects.
 - The Fieldday case is fictional: use fictional sample data, not real personal data.
-- Disclose the main AI tools used; keep a record here: <TODO>. Every member should be able to explain the product.
+- Disclose the main AI tools used; current record: Codex for the starter implementation, role review and verification; other team tools: <TODO>. Every member should be able to explain the product.
 - If choosing Ground Control: "Every decision about people's safety stays with a person."
 - Submit on Devpost by **Thursday 8 October 2026, 5:00pm**: one submission per team with every member added; project name, tagline and track; working prototype link or clear trial steps; public demo video up to five minutes with commentary; short description covering the problem, audience, product, AI use, ideas considered and choice, and tools used.
 - A draft is not a submission; late submissions are not accepted. Submission links must stay public and unchanged until judging finishes.
 
 ## Status
 - Checked: the official Track 3 page, judging rubric, Hacker Hub and Devpost requirements were read live; TypeSafe AI's Jev quick start was read; the [incident MVP draft](docs/INCIDENT-MVP-DRAFT.md) has been written and reviewed for consistency with the team's latest direction.
-- Not yet checked: registration/track form completion, Jev account or API access, a transcription service, exact browser and microphone support, live location data, and app behaviour. The repository currently contains project notes and a folder scaffold; no app prototype or integration has been implemented or tested.
-- Next step: confirm the registration and track checklist, then choose the first incident type, eligible volunteer skill and Mo escalation triggers. Build and test one browser text report → automatic offer → volunteer response → explicit human resolution confirmation or escalation flow before adding voice and the map.
+- Starter checked on 7 October: seven Node.js workflow tests passed. Browser automation through a local HTTP preview verified typed submission, shared state between the two demo views, acknowledgement and escalation remaining open, explicit Mo resolution, urgent ordering, escaped report text and a 390px-wide layout. Direct file opening and physical phones have not yet been tested.
+- Implemented: `index.html`, fictional volunteers/zones, a local in-memory incident service, Mo's queue/detail view, volunteer reporting and original-reporter resolution controls, explicit human action history and an honestly labelled analysis stub. Reports reset on refresh and are not shared across tabs or devices. See [roles.md](roles.md) and [the starter contract](docs/STARTER-CONTRACT.md).
+- Not implemented or verified: registration/track form completion, real server/storage/authentication, automatic assignment and volunteer offers, eligibility/coverage checks, real Jev/model calls, grouping and Split/Merge, audio/transcription, spoken alerts, public reporting/map and deployment. Model/service access remains unverified.
+- Next step: teammates try the starter, assign names to roles, and reconcile the current direction with Armaan's revision. Agree the missing contracts and safety/eligibility rules, then implement a shared server behind the text workflow before adding real AI and voice.
 
 ## Traps
 - The original generic classifier and the earlier rostering proposal are superseded as current build directions; keep them as ideas considered, not current requirements.
@@ -53,6 +56,7 @@ HACKATHON.md states: "both forms close **Wed 7 Oct, 5:00pm**. Use the same team 
 - A paid chat subscription does not by itself establish Jev or transcription API access or credits. Verify access before depending on either integration; keep API keys out of shared code.
 - Every safety report must reach a person: a safety volunteer for assessment or Mo when no eligible volunteer is available. Direct assignment must not hide urgent or unclear reports from Mo.
 - A volunteer's proposed resolution and an escalation are still open states. Only an explicit confirmation by Mo, the assigned volunteer or the original reporter closes an incident; no timeout does so.
+- The starter's role selector is a demonstration, not authentication. Its analysis adapter performs no model call or grouping. Do not describe it as live dispatch, shared storage or a completed safety system.
 
 ## Links
 - [Hacker Hub](https://groovy-prune-775.notion.site/Affinda-AI-Innovation-Challenge-Hacker-Hub-3f01e973de58814e8252e20bd9d81f5b)
