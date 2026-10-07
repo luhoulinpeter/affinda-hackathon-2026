@@ -1,46 +1,24 @@
-# Roles and timeline
+# Three-person starting point
 
-Work split for four people, based on [REVISED-MVP-PROPOSAL.md](REVISED-MVP-PROPOSAL.md). Replace A–D with names.
+This working split follows the team's discussion on 7 October. Replace Person 1–3 with names. The starter implements the shared text-report workflow; it does not establish that every change in Armaan's revised proposal has been accepted. Agree the remaining scope together and record it in PROJECT.md.
 
-## Start together (first hour, all four)
+| Owner | Files to start in | Responsibility | First next step |
+|---|---|---|---|
+| Person 1: interface | `index.html`, `src/css/app.css`, `src/js/ui/app.js` | Mo and volunteer views, form validation feedback, recording and transcript editing later | Try the text flow, then improve the two views without changing the service contract |
+| Person 2: application/server | `src/js/domain/incidents.js`, `data/fixtures.js`, `server/`, `tests/incidents.test.cjs` | Authoritative state, permitted actions, assignment and coverage rules, incident history | Add the server API behind the existing interface; agree roster eligibility rules before implementing offers |
+| Person 3: AI/services | `src/js/services/analysis.js`, new service-specific files in `server/`, AI evaluation tests | Model adapter, transcription adapter, audio storage connection, grouping evaluation and deployment setup | Verify service access, then agree validated results with Person 2 before replacing the stub |
 
-- Agree the shared data shapes below so everyone can build at the same time against made-up data.
-- Write the fixtures: 3 zones, a roster of about 12 people, and the 20 test messages with their correct grouping.
-- Someone submits the **registration and track forms before 5pm Wednesday 7 October**.
+Person 2 owns the server entry point and shared configuration. Person 3 adds provider adapters in separate files. Keep API keys on the server, never in browser scripts. Person 1 owns shared HTML and CSS; coordinate changes rather than editing the same files simultaneously.
 
-```
-Report:   { id, volunteerId, zone, text, audioUrl?, time }
-Incident: { id, reportIds[], zone, category, urgency, brief,
-            status: open|assigned|escalated|resolved,
-            assignee?, resolvedBy?, history[] }
-AI:       analyse(report, openIncidents) →
-            { zone, category, urgency, linkTo: incidentId|null, brief }
-API:      POST /reports · GET /incidents · POST /incidents/:id/action
-```
+## Work together first
 
-## Roles
+1. Read [the implemented contract](docs/STARTER-CONTRACT.md). Agree future offer states, grouping corrections, roster rules and voice endpoints before building them separately.
+2. Everyone opens `index.html` and tries report → Mo review → acknowledgement → escalation → explicit human resolution. The demo is one tab; it does not sync devices.
+3. Create a task branch from the latest `main`, for example `codex/mo-view`, `codex/incident-api` or `codex/ai-adapter`. Commit small working steps and open a pull request for a teammate to review.
+4. Merge a working text slice first, then real AI, then voice. Test the combined app after each merge; do not wait for a single large checkpoint merge.
 
-| Person | Owns | Done when |
-|---|---|---|
-| **A: Mo's view** <TODO: name> | One-incident card, big action buttons, Split/Merge, the "zone drops below minimum" warning, spoken brief through the earpiece (browser text-to-speech), and the full list one tap away | Mo can handle the 2pm scenario using only the card and their ears |
-| **B: Volunteer view, voice and submission** <TODO: name> | Report screen, voice recording → transcript → edit → send, incoming offers (accept/decline/arrived/resolve/escalate), testing on real phones. Also leads the Devpost write-up and the record of which AI tools were used | A voice note sent from a teammate's phone appears in Mo's view |
-| **C: Server and rules** <TODO: name> | Small server that holds API keys, incident store, routing (urgent → Mo, routine → eligible volunteer, unclear → Mo), roster eligibility and coverage checks, resolution rules (no auto-close), deployment to a public link | The whole flow works with a fake AI function; prototype link is live |
-| **D: AI and evidence** <TODO: name> | Jev setup (check access first) or a fallback model, the extract, link and brief prompts, plugging into `analyse()`, the 20-message accuracy script, and the demo video script | Real calls group new messages, and there is an accuracy number for the pitch |
+Everyone tests on their own phone once a server preview is available. Person 1 collects submission text and AI-tool disclosures; Person 2 supplies run/reset instructions; Person 3 prepares the demo recording with the others. Record the main AI tools in PROJECT.md as work progresses.
 
-## Timeline
+## Not yet implemented
 
-| When | Milestone |
-|---|---|
-| Wed 5pm | Forms submitted, team name chosen, data shapes agreed |
-| Wed night | **Checkpoint 1:** end-to-end with typed text and the fake AI. Everyone merges to `main` |
-| Thu 10am | **Checkpoint 2:** real AI and voice plugged in, deployed link works |
-| Thu 12pm | **Feature freeze.** Only fixes from here |
-| Thu 12–2pm | Everyone tests edge cases: duplicate reports, wrong zone, nobody eligible, decline, AI failure. D runs the accuracy test |
-| Thu 2–3:30pm | Record the demo video (A drives Mo's view, B the volunteer view). B finalises the Devpost text |
-| Thu 4pm | **Submit** (one hour of buffer before the 5pm close) |
-
-## Tips
-
-- C builds with a fake `analyse()` that returns made-up output, so A and B aren't blocked waiting on D.
-- Each person works on their own branch and merges at each checkpoint.
-- Everyone needs to be able to explain the whole product, because judges ask anyone.
+Server or shared storage, real sign-in, automatic assignment, volunteer offers/acceptance/arrival, skills or coverage checks, real AI, grouping, Split/Merge, audio/transcription, spoken alerts and deployment. These are handover tasks, not working features. The team still owns which proposed features to keep.
