@@ -1,24 +1,26 @@
 # PROJECT.md: <TODO: team name>
 
-*Project memory: share with each new chat and update after each session. Event facts below come from [HACKATHON.md](HACKATHON.md), summarised as of 6 October 2026; official pages and announcements take precedence.*
+*Project memory: share with each new chat and update after each session. Event facts below come from [HACKATHON.md](HACKATHON.md) and official pages checked on 7 October 2026; official announcements take precedence. Product details below are the team's current direction, not a tested build.*
 
 ## Team
 - Names and roles: <TODO: list each team member and their role>.
 - All members have coded before and have an undergraduate computer science background.
-- All members have GitHub accounts. Most have a Claude or ChatGPT subscription; exact plans are not recorded.
+- All members have GitHub accounts. Each member has a ChatGPT or Claude Pro subscription; which person uses which tool is not recorded.
 - Event requirement: 3–4 people; each person on one team only; every member needs a ticket.
 
 ## What we're building
 - Official challenge: "Build an AI-powered product that helps Fieldday successfully deliver Riverside at a scale they've never operated before."
 - Project name and tagline: <TODO: team to decide>.
-- Track: tentatively Track 3, Ground Control (Crew & Safety Operations); the team has not confirmed its selection.
-- Specific user, situation and problem: <TODO: team to decide>.
-- Product, features and scope: tentative idea is a classifier that determines which issues need workers and which could be solved directly with AI. Exact scope is <TODO: team to decide>.
-- What AI will do and what people will decide: <TODO: team to define, especially for safety-related or uncertain issues>.
+- Track: leaning toward Track 3, Ground Control (Crew & Safety Operations); formal selection has not been confirmed in this file.
+- Users and problem: festival-goers and volunteers report on-site issues. Safety volunteers need assignments they can assess and escalate; Mo, the safety lead, needs to see urgent, stalled and mounting issues without approving every routine field assessment.
+- Current MVP direction: a public/volunteer incident form; direct assignment offer to an eligible safety volunteer; volunteer acknowledgement, arrival, resolution or escalation; Mo's alert queue and a zone map showing report counts and unresolved work. The team is also considering volunteer voice reports, worker redistribution suggestions and a public help map.
+- Proposed AI role: assuming “Jev” means TypeSafe AI's Jev, it suggests a report category and chooses from volunteers already checked for skills, availability, other assignments and zone coverage. An eligible volunteer can be offered an assessment without Mo's prior approval. The volunteer makes the first on-site safety judgement; Mo handles urgent, unclear, unacknowledged, repeated or escalated situations. AI cannot close a safety report by itself.
 
 ## Decisions
-- 6 October 2026: Recorded Track 3 and the issue-classifier concept as tentative interests, not final product decisions.
-- <TODO: record each team decision, date, alternatives considered and reason>.
+- 6 October 2026: Recorded Track 3 and an issue-classifier concept as tentative interests, not final product decisions.
+- 7 October 2026: The team moved away from a rostering-focused proposal toward incident intake, volunteer assignment and escalation. Reason: route incoming reports to people who can act and let Mo focus on larger or accumulating problems.
+- 7 October 2026: The team proposed Jev sending assignment offers directly to eligible safety volunteers. Volunteers would assess and escalate when needed; Mo would not approve every small assignment. This is the current design direction, not a verified safety workflow.
+- 7 October 2026: The team raised a public map of volunteer/staff locations, incident uploads, a heatmap, redistribution suggestions, and web-app voice messages as possibilities. Whether to show individual live locations or replace radios remains undecided; the [MVP draft](INCIDENT-MVP-DRAFT.md) uses fixed public help points and zone-level staff information until live-location accuracy can be established.
 
 ## Registration and track checklist — Wednesday 7 October 2026, 5:00pm
 
@@ -39,18 +41,20 @@ HACKATHON.md states: "both forms close **Wed 7 Oct, 5:00pm**. Use the same team 
 - A draft is not a submission; late submissions are not accepted. Submission links must stay public and unchanged until judging finishes.
 
 ## Status
-- Working (actually checked): <TODO: record only verified results>.
-- Not working yet / unverified: no prototype, classifier, repository, or integration has been built or tested in this session.
-- Next step: complete the registration and track checklist; then choose the specific user and situation, issue intake, and representative cases for both proposed categories.
+- Checked: the official Track 3 page, judging rubric, Hacker Hub and Devpost requirements were read live; TypeSafe AI's Jev quick start was read; the [incident MVP draft](INCIDENT-MVP-DRAFT.md) has been written and reviewed for consistency with the team's latest direction.
+- Not yet checked: registration/track form completion, Jev account or API access, a transcription service, target-phone microphone support, live location data, and the team repository contents. No app prototype or integration in this folder has been tested.
+- Next step: confirm the registration and track checklist, then choose the first incident type, eligible volunteer skill and Mo escalation triggers. Build and test one text report → automatic offer → volunteer response → human resolution/escalation flow before adding voice and the map.
 
 ## Traps
-- Treat the track and classifier concept as tentative until the team confirms them.
-- A chat subscription does not by itself establish API access or credits; verify this if the product will call a model.
-- <TODO: record problems encountered and verified fixes>.
+- The original generic classifier and the earlier rostering proposal are superseded as current build directions; keep them as ideas considered, not current requirements.
+- The team has not confirmed a final track, live individual-location design, or replacing radios. Do not silently treat the MVP draft's implementation choices as team decisions.
+- A paid chat subscription does not by itself establish Jev or transcription API access or credits. Verify access before depending on either integration; keep API keys out of shared code.
+- Every safety report must reach a person: a safety volunteer for assessment or Mo when no eligible volunteer is available. Direct assignment must not hide urgent or unclear reports from Mo.
 
 ## Links
 - [Hacker Hub](https://groovy-prune-775.notion.site/Affinda-AI-Innovation-Challenge-Hacker-Hub-3f01e973de58814e8252e20bd9d81f5b)
 - [Devpost submissions and rules](https://affinda-challenge.devpost.com/)
 - [Discord announcements and questions](https://discord.gg/DZgMfVRfr)
 - Team repository: https://github.com/luhoulinpeter/affinda-hackathon-2026 (private; teammates need invitations).
+- Current [incident response MVP draft](INCIDENT-MVP-DRAFT.md).
 - Prototype / demo video: <TODO>.
