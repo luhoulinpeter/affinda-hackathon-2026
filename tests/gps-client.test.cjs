@@ -17,7 +17,7 @@ function browserFixture(options = {}) {
   const context={window,document,navigator:{geolocation},Date:Clock,setInterval:(cb,ms)=>{const id=timers.size+1;timers.set(id,{cb,ms});return id},clearInterval:id=>timers.delete(id)};
   vm.runInNewContext(fs.readFileSync('src/js/ui/assistance.js','utf8'),context);
   subscribers.forEach(cb=>cb());
-  return {calls,document,documentEvents,timers,get,advance:n=>{time+=n},watch:()=>watching?.(coords()),click:id=>get(id).listeners.get('click')(),setDelayed:()=>{delayed=true},resolveGps:()=>pending(coords()),changeIdentity:()=>{identity++;identityListeners.forEach(cb=>cb())}};
+  return {assistance:window.RiversideAssistance,calls,document,documentEvents,timers,get,advance:n=>{time+=n},watch:()=>watching?.(coords()),click:id=>get(id).listeners.get('click')(),setDelayed:()=>{delayed=true},resolveGps:()=>pending(coords()),changeIdentity:()=>{identity++;identityListeners.forEach(cb=>cb())}};
 }
 const flush=async()=>{for(let i=0;i<10;i++)await Promise.resolve()};
 test('GPS uploads are throttled and tab switching preserves the sharing session',async()=>{
@@ -60,4 +60,15 @@ test('the ten-minute sharing session ends even if uploads were successful and th
   t.advance(10001);t.document.hidden=false;t.documentEvents.get('visibilitychange')();await flush();
   assert.equal(t.get('#go-available').disabled,false);assert.match(t.get('#presence-feedback').textContent,/10-minute sharing session ended/);
   const count=t.calls.length;t.watch();await flush();assert.equal(t.calls.length,count);
+});
+
+test('first-aid lookup retains feedback and map guidance without reintroducing station cards',()=>{
+  const t=browserFixture();
+  t.get('#first-aid-results').append({textContent:'Old station card'});
+  t.assistance.showStations({answer:'Fictional demo stations are marked on the map.',stations:[{id:'first-aid-1',name:'Demo North First Aid',latitude:0,longitude:0}]});
+  assert.equal(t.get('#first-aid-results').children.length,0);
+  assert.match(t.get('#help-feedback').textContent,/marked on the map.*Tap a first-aid pin/);
+  t.assistance.showStations({answer:'Station information unavailable.',stations:[]});
+  assert.equal(t.get('#help-feedback').textContent,'Station information unavailable.');
+  assert.equal(t.get('#first-aid-results').children.length,0);
 });

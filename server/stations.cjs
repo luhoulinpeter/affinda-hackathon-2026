@@ -17,7 +17,7 @@ function firstAid(config, suppliedPosition, now = Date.now()) {
   const nearest = origin ? stations[0] : null;
   return {
     outcome: 'first_aid',
-    answer: nearest ? `Fictional demo only: ${nearest.name} is the nearest configured test station, approximately ${nearest.distanceMetres} metres in a straight line. ${nearest.description} This is not a real first-aid facility or walking route.` : 'Fictional demo stations are listed below. A fresh, accurate GPS position is needed to identify the nearest. These are not real first-aid facilities.',
+    answer: nearest ? `Fictional demo only: ${nearest.name} is the nearest configured test station, approximately ${nearest.distanceMetres} metres in a straight line. ${nearest.description} This is not a real first-aid facility or walking route.` : 'Fictional demo stations are marked on the map. A fresh, accurate GPS position is needed to identify the nearest. These are not real first-aid facilities.',
     sources: stations.map(s => ({ id: s.id, title: `${s.name} · fictional demo station`, text: s.description })), stations
   };
 }

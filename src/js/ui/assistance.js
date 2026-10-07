@@ -138,15 +138,8 @@ window.RiversideAssistance = (() => {
     countdown();
   }
   function showStations(result) {
-    $('#help-feedback').textContent = result.answer;
+    $('#help-feedback').textContent = result.answer + (result.stations?.length ? ' Tap a first-aid pin on the map for details.' : '');
     $('#first-aid-results').replaceChildren();
-    for (const station of result.stations || []) {
-      const article = document.createElement('article'); article.className = 'station-result';
-      const title = document.createElement('h3'); title.textContent = `${station.name} · fictional demo`;
-      const detail = document.createElement('p'); detail.textContent = station.description;
-      const coords = document.createElement('p'); coords.className = 'field-note'; coords.textContent = `${station.latitude.toFixed(5)}, ${station.longitude.toFixed(5)}${Number.isFinite(station.distanceMetres) ? ` · approximately ${station.distanceMetres} m straight-line distance` : ''} · Source: ${station.id}`;
-      article.append(title, detail, coords); $('#first-aid-results').append(article);
-    }
   }
   $('#find-first-aid').addEventListener('click', async () => {
     const version = ++helpVersion, identity = api.getIdentityVersion();
