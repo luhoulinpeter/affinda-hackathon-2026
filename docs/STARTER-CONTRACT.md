@@ -4,7 +4,7 @@ The browser loads fixtures, `src/js/services/api.js`, then `src/js/ui/app.js`. T
 
 ## Sessions and entry
 
-`GET /api/session` returns `{ user, guest, csrf, setupRequired }`. `user` is null for event-goers or `{ username, id, role, name }` for signed-in staff. The interface follows this role automatically. Event-goers do not sign in.
+`GET /api/session` returns `{ user, guest, csrf, setupRequired, ai, guideApproved }`. `user` is null for event-goers or `{ username, id, role, name }` for signed-in staff. The interface follows this role automatically. Event-goers do not sign in.
 
 State-changing requests send JSON and the `X-CSRF-Token` from the session response. Cookies are HttpOnly. Request-body actor IDs/roles are ignored: the server derives identity from its verified cookie/session.
 
@@ -15,7 +15,8 @@ State-changing requests send JSON and the `X-CSRF-Token` from the session respon
 | `POST /api/logout` | Invalidate the staff session and restore public access |
 | `POST /api/accounts` | Mo only: create a volunteer account using `{ username, password, volunteerId }` |
 | `GET /api/state` | Return only reports/incidents permitted for the current actor |
-| `POST /api/reports` | Accept `{ zone, category, text, immediateConcern }`; derive reporter from session; return `{ id }` |
+| `POST /api/qa` | Accept `{ question, history: [{ question, answer }] }` (at most four prior exchanges); derive identity from the session; return `{ outcome, answer, sources, draft? }` |
+| `POST /api/reports` | Accept `{ zone, category, text, immediateConcern }`; derive public/Volunteer/Mo reporter from session; persist and return `{ id }` before background analysis finishes |
 | `POST /api/incidents/:id/action` | Apply `{ action }` as the current actor; never accept a client-selected actor |
 
 Errors return a non-success HTTP status and `{ error }`. The browser refreshes session/state after mutations and every six seconds while visible. Forms keep their input during background refresh; identity changes clear unsent report text. A server outage is shown as an error.
@@ -24,7 +25,7 @@ Errors return a non-success HTTP status and `{ error }`. The browser refreshes s
 
 ```text
 Report:
-  id, reporter: { id, role: public | volunteer },
+  id, reporter: { id, role: public | volunteer | mo },
   volunteerId: string | null (compatibility field), category,
   zone, text, immediateConcern, time
 
@@ -32,21 +33,28 @@ Incident:
   id, reportIds[], zone, category, brief,
   status: open | escalated | resolved, attention: review | urgent,
   assignee: null (not yet implemented), acknowledgedBy,
-  resolvedBy: null | { id, role }, resolvedAt, analysis, history[]
+  resolvedBy: null | { id, role }, resolvedAt,
+  analysis: { jev: { state, suggestion? }, luna: { state, suggestion? } }, history[]
 ```
 
 Mo receives all records. Volunteers receive their own reports and assigned incidents. Event-goers receive only their own source reports and a reduced incident status record, without internal history or other reporters' sources. Guest history depends on the signed browser cookie, not a guessable report reference.
 
 Only Mo may acknowledge. Mo, the assigned volunteer or the original reporter may explicitly resolve. Public reporters cannot escalate or acknowledge. Volunteers may escalate their own/assigned incidents. Acknowledgement and escalation leave the incident open. There is no automatic closure or timeout.
 
-The original report is saved before analysis. The current adapter is explicitly a stub, performs no model call and cannot resolve or assign. Each report currently creates a separate incident. Analysis failure retains it for Mo. Real model outputs still need server-side validation before integration.
+The original report and its reporter-selected category are saved before independent Jev/Luna calls. Each result is pending, complete or failed. Valid Jev suggestions update the incident category and can promote attention to urgent; Luna supplies a labelled summary. Neither can change location, assignment, human history or resolution. Provider failure retains the original report for Mo; each report remains a separate incident. Restart marks interrupted analysis failed without replaying requests. Older stub records remain readable and appear as unavailable analysis.
+
+## Q&A
+
+`outcome` is `answer`, `unknown`, `report_draft` or `unavailable`. Sources contain `{ id, title, text }`, restricted before any provider call. Safety/unclear screening returns a draft `{ text, category, immediateConcern }` made from the original question; submission still uses `/api/reports` with user-selected zone and explicit confirmation. Failed screening also offers a reporting draft, explicitly labelled unavailable and not submitted. Informational answers require valid permitted citation IDs unless unknown. Model responses are plain text, never executable HTML.
+
+Approved public guide entries are shared; staff guidance is withheld from event-goers. Incident details are bounded to the latest 30 permitted incidents and 16,000 source characters, with a count overview and explicit truncation notice. Accounts, credentials, internal history and previous model analysis are not Q&A sources. History is untrusted page-only context, not evidence; logout/identity changes clear it and discard pending answers. Staff sessions are rechecked after provider waits. Failed providers never block reporting. See [AI-SETUP.md](AI-SETUP.md) for credit gates and limitations.
 
 ## Remaining contracts from the original plan
 
-- Separate Jev and LLM integrations: interpretation/classification responsibilities, Q&A request/response, permission-scoped context, authoritative sources, uncertainty and urgent-question handoff. See [AI-PLAN.md](AI-PLAN.md). No Q&A API exists yet.
+- Real Jev/Luna access, verified credit-only controls, team approval of the fictional guide and real-call evaluation. The code and Q&A API exist; live providers have not been verified.
 - Offer, accept/decline, arrival and proposed-resolution actions, distinct from final incident resolution.
 - Roster skills, availability, current assignments and minimum zone coverage; eligibility checked on the server before an offer.
-- Validated model category and candidate selection, urgent/unclear signals and fallback when a provider fails.
+- Validated volunteer candidate selection once eligibility/coverage and offers exist; no assignment is performed by the current adapters.
 - Zone counts, cluster-alert rules and a map based on stored reports; the team defines thresholds and coverage rules.
 - Audio upload, transcription, editable transcript and original-audio retrieval; text stays usable if voice fails.
 - Hosting, HTTPS, administrator provisioning and persistent deployment storage.

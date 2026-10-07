@@ -3,6 +3,10 @@ window.RiversideAPI = (() => {
   let session = null;
   let state = { reports: [], incidents: [] };
   const subscribers = new Set();
+  const identitySubscribers = new Set();
+  let identityVersion = 0;
+  let identityChanging = false;
+  const invalidateIdentity = () => { identityVersion++; identitySubscribers.forEach(callback => callback()); };
   let refreshVersion = 0;
   const clone = value => JSON.parse(JSON.stringify(value));
   async function request(url, body) {
@@ -19,6 +23,7 @@ window.RiversideAPI = (() => {
     const nextSession = await request("/api/session");
     const nextState = await request("/api/state");
     if (version !== refreshVersion) return;
+    if (session && session.csrf !== nextSession.csrf) invalidateIdentity();
     session = nextSession;
     state = nextState;
     subscribers.forEach(callback => callback());
@@ -27,12 +32,20 @@ window.RiversideAPI = (() => {
   async function act(id, action) { await request(`/api/incidents/${encodeURIComponent(id)}/action`, { action }); await refresh(); }
   async function authenticate(username, password) {
     refreshVersion++;
-    await request(session.setupRequired ? "/api/setup" : "/api/login", { username, password });
-    await refresh();
+    identityChanging = true; invalidateIdentity();
+    try { await request(session.setupRequired ? "/api/setup" : "/api/login", { username, password }); await refresh(); }
+    finally { identityChanging = false; subscribers.forEach(callback => callback()); }
   }
-  async function logout() { refreshVersion++; await request("/api/logout", {}); await refresh(); }
+  async function logout() {
+    refreshVersion++; identityChanging = true; invalidateIdentity();
+    try { await request("/api/logout", {}); await refresh(); }
+    finally { identityChanging = false; subscribers.forEach(callback => callback()); }
+  }
   async function createAccount(input) { await request("/api/accounts", input); }
   return { refresh, submitReport, act, authenticate, logout, createAccount,
+    ask: input => request('/api/qa', input),
+    getIdentityVersion: () => identityVersion, isIdentityChanging: () => identityChanging,
+    onIdentityChange(callback) { identitySubscribers.add(callback); return () => identitySubscribers.delete(callback); },
     getState: () => clone(state), getSession: () => session && clone(session),
     subscribe(callback) { subscribers.add(callback); return () => subscribers.delete(callback); }
   };

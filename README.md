@@ -31,17 +31,17 @@ See [roles.md](roles.md) and [the API contract](docs/STARTER-CONTRACT.md).
 
 | Area | Files |
 |---|---|
-| Person 1: public and staff interface | `index.html`, `src/css/app.css`, `src/js/ui/app.js` |
+| Person 1: public and staff interface | `index.html`, `src/css/app.css`, `src/js/ui/app.js`, `src/js/ui/qa.js` |
 | Person 2: server, permissions and workflow | `server/index.cjs`, `server/auth.cjs`, `src/js/services/api.js`, `src/js/domain/incidents.js`, `data/fixtures.js` |
-| Person 3: Jev, LLM and voice integration | `src/js/services/analysis.js` (server-side stub), future separate provider modules under `server/` |
+| Person 3: Jev, LLM and voice integration | `src/js/services/analysis.js`, `server/ai/`, `data/event-guide.json` |
 
-AI, voice, automatic assignment, coverage checks, maps and public deployment are not implemented. Text reporting and real local staff accounts are implemented. The layout adapts below 720px and preserves large action buttons and a collapsible incident queue.
+Report analysis and Q&A are implemented with separate server-side Jev and OpenAI Luna adapters. All three views have a question panel, permission-filtered sources and confirmed report drafts; Mo can submit a draft too. Live calls are disabled by default. Provider access/free-credit controls are unverified and the fictional event guide awaits team approval. Follow [AI setup](docs/AI-SETUP.md) before enabling either provider; no paid usage is authorised.
 
-The [AI plan](docs/AI-PLAN.md) includes **Jev plus a separate LLM** for interpreting information and answering less urgent questions, with speech transcription as an additional integration if voice is included. Providers/access, Q&A audiences and knowledge sources remain undecided. Next.js and Supabase are under discussion; the current implementation remains the Node.js/browser starter described here.
+The team chose to keep the current stack. Voice, automatic assignment, coverage checks, maps and public deployment remain later tasks. The layout adapts below 720px, with large action buttons and a collapsible incident queue. See [the settled AI plan](docs/AI-PLAN.md).
 
 ## Verification
 
-Run `node --test tests/incidents.test.cjs tests/server.test.cjs`. The server test creates isolated temporary accounts and data, checks role restrictions and server restart, and removes its own test directory. No test account is created in your app database.
+Run `node --test tests/*.test.cjs`. AI tests use simulated responses, never real API calls. The server test creates isolated temporary accounts and data, checks role restrictions and server restart, and removes its own test directory. No test account is created in your app database.
 
 ## Team workflow
 

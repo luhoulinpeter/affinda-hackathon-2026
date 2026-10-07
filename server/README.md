@@ -22,4 +22,8 @@ The password-storage implementation follows [Node's crypto API](https://nodejs.o
 
 One server process owns the JSON store, written atomically with private file permissions. Reports and accounts survive restarts; staff sessions are in memory. This is a prototype store, not a multi-process database.
 
-Person 2 owns this entry point, account handling, the browser API adapter and workflow validation. Person 3 can replace the analysis stub with provider code running on this server. API keys belong in server environment variables, never browser code. Add required variable names without values to `.env.example` when needed.
+Person 2 owns this entry point, account handling, the browser API adapter and workflow validation. Person 3 owns the implemented provider adapters under `server/ai/`; calls remain disabled until verified credit-only controls are configured. API keys belong in server environment variables, never browser code. Add required variable names without values to `.env.example` when needed.
+
+## AI configuration
+
+See [AI-SETUP.md](../docs/AI-SETUP.md). The server does not automatically load `.env`; use `node --env-file=.env server/index.cjs` with Node 20.6+ if using a local environment file. The API never returns keys. Provider flags alone cannot enable calls: current credit-only verification is required, and attempted calls consume a persisted allowance. Guide approval and provider enablement are separate. No real requests were made during implementation.

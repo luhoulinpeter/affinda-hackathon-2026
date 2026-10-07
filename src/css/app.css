@@ -81,6 +81,18 @@ textarea { resize: vertical; min-height: 130px; }
 .own-report > p { overflow-wrap: anywhere; white-space: pre-wrap; }
 main > footer { text-align: center; color: var(--muted); font-size: 11px; margin-top: 32px; padding: 12px; }
 .accounts-panel { margin-top: 20px; }
+.qa-panel { margin-top: 24px; }
+.qa-messages { display: grid; gap: 12px; }
+.qa-exchange { background: #f4f8f5; border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
+.qa-exchange p, .analysis-note p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.qa-question { font-weight: 600; }
+.qa-source { margin: 10px 0; font-size: 13px; }
+.qa-source summary { cursor: pointer; overflow-wrap: anywhere; }
+.qa-draft { border-top: 2px solid var(--line); margin-top: 18px; padding-top: 12px; }
+#qa-form > button { margin-top: 12px; min-height: 48px; }
+#qa-question { min-height: 80px; }
+#qa-feedback { overflow-wrap: anywhere; }
+.qa-panel .panel-heading { flex-wrap: wrap; }
 .accounts-panel summary { cursor: pointer; min-height: 44px; }
 .accounts-panel form { max-width: 480px; }
 .accounts-panel form > button { margin-top: 18px; }

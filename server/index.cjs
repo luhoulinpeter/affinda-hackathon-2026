@@ -4,11 +4,12 @@ const path = require('node:path');
 const { randomBytes, randomUUID } = require('node:crypto');
 const { validCredentials, hashPassword, verifyPassword, equal, sign } = require('./auth.cjs');
 const data = require('../data/fixtures.js');
-const analysis = require('../src/js/services/analysis.js');
+const { createProviders } = require('../src/js/services/analysis.js');
+const { answerQuestion } = require('./ai/qa.cjs');
 const createIncidents = require('../src/js/domain/incidents.js');
 const root = path.resolve(__dirname, '..');
 
-function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = false } = {}) {
+function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = false, aiProviders, guide, aiEnv = process.env, aiFetch } = {}) {
   fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const dbFile = path.join(dataDir, 'store.json');
   const db = fs.existsSync(dbFile) ? JSON.parse(fs.readFileSync(dbFile, 'utf8')) : { users: [], workflow: {}, cookieSecret: randomBytes(32).toString('hex') };
@@ -18,7 +19,19 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
     fs.renameSync(temporary, dbFile);
   }
   save();
-  const workflow = createIncidents(data, () => analysis, db.workflow, state => { db.workflow = state; save(); });
+  let verification = {};
+  try { verification = JSON.parse(fs.readFileSync(path.join(dataDir, 'ai-credit-verification.json'), 'utf8')); } catch { /* Missing controls keep live calls disabled. */ }
+  const providers = aiProviders || createProviders({ env: aiEnv, verification, fetchImpl: aiFetch, reserveCall(name, proof) {
+    db.aiUsage ||= {};
+    const key = `${name}:${proof.id}`;
+    if ((db.aiUsage[key] || 0) >= proof.maxCalls) return false;
+    db.aiUsage[key] = (db.aiUsage[key] || 0) + 1;
+    save(); // Reserve before sending. Failures count; restart does not reset the allowance.
+    return true;
+  } });
+  const workflow = createIncidents(data, () => providers, db.workflow, state => { db.workflow = state; save(); });
+  db.workflow = workflow.getState(); save();
+  const qaActive = new Set();
   const sessions = new Map();
   const loginAttempts = new Map();
   const dummy = { salt: randomBytes(16).toString('hex'), hash: randomBytes(64).toString('hex') };
@@ -94,7 +107,8 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
     ['/src/css/app.css', ['src/css/app.css', 'text/css']],
     ['/data/fixtures.js', ['data/fixtures.js', 'text/javascript']],
     ['/src/js/services/api.js', ['src/js/services/api.js', 'text/javascript']],
-    ['/src/js/ui/app.js', ['src/js/ui/app.js', 'text/javascript']]
+    ['/src/js/ui/app.js', ['src/js/ui/app.js', 'text/javascript']],
+    ['/src/js/ui/qa.js', ['src/js/ui/qa.js', 'text/javascript']]
   ]);
   const server = http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -116,11 +130,22 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
         return;
       }
       const ctx = context(req, res);
-      if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: ctx.user ? publicUser(ctx.user) : null, guest: ctx.guest, csrf: ctx.csrf, setupRequired: db.users.length === 0 });
+      if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: ctx.user ? publicUser(ctx.user) : null, guest: ctx.guest, csrf: ctx.csrf, setupRequired: db.users.length === 0, ai: providers.status(), guideApproved: (guide || require('../data/event-guide.json')).approved === true });
       if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, stateFor(ctx.actor));
       if (req.method !== 'POST') return json(res, 404, { error: 'Not found.' });
       if (!equal(req.headers['x-csrf-token'], ctx.csrf)) return json(res, 403, { error: 'Session changed. Refresh and try again.' });
       const body = await readBody(req);
+      if (url.pathname === '/api/qa') {
+        const actorKey = `${ctx.actor.role}:${ctx.actor.id}`;
+        if (qaActive.has(actorKey) || qaActive.size >= 4) return json(res, 429, { error: 'Questions are busy. Please try again shortly.' });
+        const isCurrent = () => !ctx.user || (sessions.get(ctx.token)?.username === ctx.user.username && sessions.get(ctx.token)?.expires > Date.now());
+        qaActive.add(actorKey);
+        try {
+          const result = await answerQuestion({ body, actor: ctx.actor, getState: () => stateFor(ctx.actor), providers, guide, isCurrent });
+          if (!isCurrent()) return json(res, 403, { error: 'Session changed. Refresh and try again.' });
+          return json(res, 200, result);
+        } finally { qaActive.delete(actorKey); }
+      }
       if (url.pathname === '/api/setup') {
         if (db.users.length) return json(res, 409, { error: 'Initial setup is already complete.' });
         validCredentials(body.username, body.password);
@@ -160,7 +185,6 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
         return json(res, 201, { ok: true });
       }
       if (url.pathname === '/api/reports') {
-        if (ctx.actor.role === 'mo') return json(res, 403, { error: 'Use the public or volunteer reporting page.' });
         const incident = await workflow.submitReport({ text: body.text, zone: body.zone, category: body.category, immediateConcern: body.immediateConcern,
           ...(ctx.actor.role === 'volunteer' ? { volunteerId: ctx.actor.id } : { reporter: ctx.actor }) });
         return json(res, 201, { id: incident.id });
@@ -181,6 +205,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
   });
   server.requestTimeout = 15000;
   server.headersTimeout = 10000;
+  server.whenAIIdle = workflow.whenIdle;
   return server;
 }
 

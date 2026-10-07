@@ -10,6 +10,7 @@
   <script defer src="data/fixtures.js"></script>
   <script defer src="src/js/services/api.js"></script>
   <script defer src="src/js/ui/app.js"></script>
+  <script defer src="src/js/ui/qa.js"></script>
 </head>
 <body>
   <header class="site-header">
@@ -18,7 +19,7 @@
   </header>
   <main>
     <div class="page-heading"><div><p id="page-eyebrow" class="eyebrow">Riverside festival</p><h1 id="page-title">Get help. Report an issue.</h1><p id="page-description">Tell the safety team what you saw and where it happened.</p></div></div>
-    <aside class="notice"><strong>Prototype · fictional data · AI is not connected.</strong> Reports are stored on this server. No live dispatch or emergency service is connected.</aside>
+    <aside class="notice"><strong>Prototype · fictional data.</strong> Reports are stored on this server. No live dispatch or emergency service is connected. <span id="ai-status">Checking AI availability…</span></aside>
     <p id="feedback" class="feedback" role="status" aria-live="polite">Connecting to the server…</p>
 
     <section id="mo-view" aria-label="Mo’s operations view" hidden>
@@ -63,6 +64,29 @@
         </section>
         <section class="panel"><div class="panel-heading"><h2>Your reports</h2><span id="reports-note" class="muted">From this browser</span></div><div id="own-reports"></div></section>
       </div>
+    </section>
+    <section id="qa-panel" class="panel qa-panel" aria-labelledby="qa-title" hidden>
+      <div class="panel-heading"><h2 id="qa-title">Ask Riverside</h2><button id="qa-clear" type="button" class="secondary">Clear chat</button></div>
+      <p class="field-note">Ask about event information or reports you can access. Answers are AI-generated; check the sources. For immediate help, follow the event’s established emergency procedure.</p>
+      <p id="qa-availability" class="field-note"></p>
+      <div id="qa-messages" class="qa-messages" aria-live="polite" aria-relevant="additions"></div>
+      <form id="qa-form">
+        <label for="qa-question">Your question</label>
+        <textarea id="qa-question" rows="2" maxlength="2000" required placeholder="What would you like to know?"></textarea>
+        <button id="qa-send" class="primary" type="submit">Ask</button>
+      </form>
+      <p id="qa-feedback" class="feedback" role="status"></p>
+      <section id="qa-draft" class="qa-draft" aria-labelledby="qa-draft-title" hidden>
+        <h3 id="qa-draft-title">Report draft · Not submitted yet</h3>
+        <p class="field-note">Check the original message and select the incident zone. Mo receives this report only after you submit it.</p>
+        <form id="qa-draft-form">
+          <label for="qa-draft-zone">Incident zone</label><select id="qa-draft-zone" required></select>
+          <label for="qa-draft-category">Issue type</label><select id="qa-draft-category" required></select>
+          <label for="qa-draft-text">What did you see?</label><textarea id="qa-draft-text" rows="4" maxlength="2000" required></textarea>
+          <label class="checkbox-label"><input id="qa-draft-urgent" type="checkbox"> Flag immediate concern for Mo</label>
+          <div class="form-actions"><button id="qa-draft-submit" class="primary" type="submit">Confirm and submit report</button><button id="qa-draft-cancel" class="secondary" type="button">Discard draft</button></div>
+        </form>
+      </section>
     </section>
     <footer>Fictional zones and people · human confirmation required to resolve</footer>
     <noscript>This prototype needs JavaScript enabled in your browser.</noscript>
