@@ -20,6 +20,10 @@ The password-storage implementation follows [Node's crypto API](https://nodejs.o
 
 ## Storage and integration
 
+**Live updates.** Browsers connected to `GET /api/events` are told immediately when reports or incidents change, then re-fetch their own permitted state. The interface's 6-second polling remains as a fallback. Because the server only accepts `127.0.0.1`/`localhost`, live sharing currently works between browser windows on the same computer, not between phones.
+
+**Demo reset.** Signed in as Mo, run `RiversideAPI.resetDemo()` in the browser console (or `POST /api/reset`) to clear all reports and incidents before re-recording a demo. Accounts are kept. To wipe everything including accounts, stop the server and delete the `.riverside/` folder.
+
 One server process owns the JSON store, written atomically with private file permissions. Reports and accounts survive restarts; staff sessions are in memory. This is a prototype store, not a multi-process database.
 
 Person 2 owns this entry point, account handling, the browser API adapter and workflow validation. Person 3 can replace the analysis stub with provider code running on this server. API keys belong in server environment variables, never browser code. Add required variable names without values to `.env.example` when needed.

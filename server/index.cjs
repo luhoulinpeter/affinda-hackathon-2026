@@ -19,6 +19,12 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
   }
   save();
   const workflow = createIncidents(data, () => analysis, db.workflow, state => { db.workflow = state; save(); });
+  // Live updates: send only a "changed" signal; each client re-fetches its own role-scoped /api/state.
+  const streams = new Set();
+  const broadcast = message => streams.forEach(stream => stream.write(message));
+  workflow.subscribe(() => broadcast('event: state\ndata: {}\n\n'));
+  const heartbeat = setInterval(() => broadcast(': keep-alive\n\n'), 20000);
+  heartbeat.unref();
   const sessions = new Map();
   const loginAttempts = new Map();
   const dummy = { salt: randomBytes(16).toString('hex'), hash: randomBytes(64).toString('hex') };
@@ -118,6 +124,13 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
       const ctx = context(req, res);
       if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: ctx.user ? publicUser(ctx.user) : null, guest: ctx.guest, csrf: ctx.csrf, setupRequired: db.users.length === 0 });
       if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, stateFor(ctx.actor));
+      if (req.method === 'GET' && url.pathname === '/api/events') {
+        res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', Connection: 'keep-alive' });
+        res.write('retry: 3000\n\n');
+        streams.add(res);
+        req.on('close', () => streams.delete(res));
+        return;
+      }
       if (req.method !== 'POST') return json(res, 404, { error: 'Not found.' });
       if (!equal(req.headers['x-csrf-token'], ctx.csrf)) return json(res, 403, { error: 'Session changed. Refresh and try again.' });
       const body = await readBody(req);
@@ -159,6 +172,12 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
         db.users.push({ username: body.username, actorId: volunteer.id, role: 'volunteer', password }); save();
         return json(res, 201, { ok: true });
       }
+      if (url.pathname === '/api/reset') {
+        // Demo only: Mo clears reports and incidents. Accounts are kept.
+        requireMo(ctx);
+        workflow.reset();
+        return json(res, 200, { ok: true });
+      }
       if (url.pathname === '/api/reports') {
         if (ctx.actor.role === 'mo') return json(res, 403, { error: 'Use the public or volunteer reporting page.' });
         const incident = await workflow.submitReport({ text: body.text, zone: body.zone, category: body.category, immediateConcern: body.immediateConcern,
@@ -179,6 +198,9 @@ function createApp({ dataDir = path.join(root, '.riverside'), secureCookies = fa
       json(res, error.status || (known ? 400 : 500), { error: known ? error.message : 'The server could not complete the request.' });
     }
   });
+  // Open event streams would otherwise stop close() from finishing.
+  const close = server.close.bind(server);
+  server.close = callback => { clearInterval(heartbeat); streams.forEach(stream => stream.end()); streams.clear(); return close(callback); };
   server.requestTimeout = 15000;
   server.headersTimeout = 10000;
   return server;

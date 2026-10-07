@@ -95,3 +95,46 @@ test('real accounts enforce guest, volunteer and Mo access over HTTP and survive
   assert.equal((await volunteer.request('/api/login', { username: 'test-priya', password: volunteerPassword })).status, 200);
   assert.equal((await volunteer.request('/api/session')).result.user.role, 'volunteer');
 });
+
+test('event stream signals changes without sending data, and only Mo can reset the demo', async t => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'riverside-events-test-'));
+  const server = createApp({ dataDir });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); fs.rmSync(dataDir, { recursive: true, force: true }); });
+  const guest = client(base), mo = client(base);
+  await guest.request('/api/session');
+
+  const stream = await fetch(`${base}/api/events`);
+  assert.equal(stream.status, 200);
+  assert.match(stream.headers.get('content-type'), /^text\/event-stream/);
+  const reader = stream.body.getReader();
+  const decoder = new TextDecoder();
+  async function readUntil(pattern) {
+    let text = '';
+    while (!pattern.test(text)) {
+      const { value, done } = await reader.read();
+      if (done) throw new Error(`Stream ended before ${pattern}`);
+      text += decoder.decode(value);
+    }
+    return text;
+  }
+  await readUntil(/retry: 3000/);
+  const report = await guest.request('/api/reports', { zone: 'zone-b', category: 'hazard', text: 'Fictional spill' });
+  assert.equal(report.status, 201);
+  const event = await readUntil(/event: state\ndata: \{\}\n\n/);
+  assert.ok(!event.includes('Fictional spill'));
+
+  assert.equal((await guest.request('/api/reset', {})).status, 403);
+  assert.equal((await guest.request('/api/state')).result.reports.length, 1);
+  await mo.request('/api/session');
+  assert.equal((await mo.request('/api/setup', { username: 'test-mo', password: randomBytes(24).toString('hex') })).status, 201);
+  assert.equal((await mo.request('/api/session')).result.user.role, 'mo');
+  assert.equal((await mo.request('/api/reset', {})).status, 200);
+  await readUntil(/event: state/);
+  assert.equal((await mo.request('/api/state')).result.incidents.length, 0);
+  assert.equal((await mo.request('/api/session')).result.user.role, 'mo');
+  const next = await guest.request('/api/reports', { zone: 'zone-a', category: 'other', text: 'Fictional report after reset' });
+  assert.equal(next.result.id, 'I-1');
+  await reader.cancel();
+});

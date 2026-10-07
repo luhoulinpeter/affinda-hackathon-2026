@@ -94,8 +94,16 @@
     return clone(incident);
   }
 
+  // Demo only: clears reports and incidents so a demo can be re-recorded.
+  function reset() {
+    reports.length = 0;
+    incidents.length = 0;
+    sequence = 0;
+    notify();
+  }
+
   return {
-    getState, submitReport, act,
+    getState, submitReport, act, reset,
     subscribe(callback) { subscribers.add(callback); return () => subscribers.delete(callback); }
   };
 });

@@ -32,7 +32,13 @@ window.RiversideAPI = (() => {
   }
   async function logout() { refreshVersion++; await request("/api/logout", {}); await refresh(); }
   async function createAccount(input) { await request("/api/accounts", input); }
-  return { refresh, submitReport, act, authenticate, logout, createAccount,
+  // Demo only, Mo only: clears reports and incidents (accounts are kept).
+  async function resetDemo() { await request("/api/reset", {}); await refresh(); }
+  // Live updates from the server. The browser reconnects automatically; the UI's polling stays as a fallback.
+  if (typeof EventSource !== "undefined") {
+    new EventSource("/api/events").addEventListener("state", () => refresh().catch(() => {}));
+  }
+  return { refresh, submitReport, act, authenticate, logout, createAccount, resetDemo,
     getState: () => clone(state), getSession: () => session && clone(session),
     subscribe(callback) { subscribers.add(callback); return () => subscribers.delete(callback); }
   };

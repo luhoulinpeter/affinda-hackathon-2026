@@ -17,6 +17,8 @@ State-changing requests send JSON and the `X-CSRF-Token` from the session respon
 | `GET /api/state` | Return only reports/incidents permitted for the current actor |
 | `POST /api/reports` | Accept `{ zone, category, text, immediateConcern }`; derive reporter from session; return `{ id }` |
 | `POST /api/incidents/:id/action` | Apply `{ action }` as the current actor; never accept a client-selected actor |
+| `GET /api/events` | Server-Sent Events stream. Sends `event: state` with empty data whenever reports/incidents change; clients then re-fetch `/api/state`, so no data bypasses role scoping. `api.js` subscribes automatically |
+| `POST /api/reset` | Demo only, Mo only: clear all reports and incidents and restart IDs at `I-1`. Accounts are kept. From the browser console while signed in as Mo: `RiversideAPI.resetDemo()` |
 
 Errors return a non-success HTTP status and `{ error }`. The browser refreshes session/state after mutations and every six seconds while visible. Forms keep their input during background refresh; identity changes clear unsent report text. A server outage is shown as an error.
 
