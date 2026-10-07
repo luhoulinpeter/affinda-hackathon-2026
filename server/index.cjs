@@ -4,14 +4,19 @@ const path = require('node:path');
 const { randomBytes, randomUUID } = require('node:crypto');
 const { validCredentials, hashPassword, verifyPassword, equal, sign } = require('./auth.cjs');
 const data = require('../data/fixtures.js');
-const analysis = require('../src/js/services/analysis.js');
+const { createProviders } = require('../src/js/services/analysis.js');
+const { answerQuestion } = require('./ai/qa.cjs');
 const createIncidents = require('../src/js/domain/incidents.js');
 const root = path.resolve(__dirname, '..');
 
-// publicOrigin (e.g. https://riverside.example.com) switches on deployed mode: that host is accepted,
-// cookies are Secure on HTTPS, and browser first-run setup is disabled (Mo comes from ensureMo instead).
-function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = null, secureCookies = Boolean(publicOrigin && publicOrigin.startsWith('https:')) } = {}) {
-  const deployed = publicOrigin ? new URL(publicOrigin) : null;
+// A public origin enables HTTPS deployment and disables browser first-account setup.
+function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = null, secureCookies = false, aiProviders, guide, aiEnv = process.env, aiFetch } = {}) {
+  let deployed = null;
+  if (publicOrigin !== null) {
+    try { deployed = new URL(publicOrigin); } catch { throw new Error('PUBLIC_ORIGIN must be an HTTPS origin.'); }
+    if (deployed.protocol !== 'https:' || deployed.username || deployed.password || deployed.pathname !== '/' || deployed.search || deployed.hash) throw new Error('PUBLIC_ORIGIN must be an HTTPS origin without credentials, a path, query or fragment.');
+    secureCookies = true;
+  }
   fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const dbFile = path.join(dataDir, 'store.json');
   const db = fs.existsSync(dbFile) ? JSON.parse(fs.readFileSync(dbFile, 'utf8')) : { users: [], workflow: {}, cookieSecret: randomBytes(32).toString('hex') };
@@ -21,7 +26,20 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
     fs.renameSync(temporary, dbFile);
   }
   save();
-  const workflow = createIncidents(data, () => analysis, db.workflow, state => { db.workflow = state; save(); });
+  let verification = {};
+  try { verification = JSON.parse(fs.readFileSync(path.join(dataDir, 'ai-credit-verification.json'), 'utf8')); } catch { /* Missing controls keep live calls disabled. */ }
+  const providers = aiProviders || createProviders({ env: aiEnv, verification, fetchImpl: aiFetch, reserveCall(name, proof) {
+    db.aiUsage ||= {};
+    const key = `${name}:${proof.id}`;
+    if ((db.aiUsage[key] || 0) >= proof.maxCalls) return false;
+    db.aiUsage[key] = (db.aiUsage[key] || 0) + 1;
+    save(); // Reserve before sending. Failures count; restart does not reset the allowance.
+    return true;
+  } });
+  const workflow = createIncidents(data, () => providers, db.workflow, state => { db.workflow = state; save(); });
+  db.workflow = workflow.getState(); save();
+  const qaActive = new Set();
+  let resetVersion = 0;
   // Live updates: send only a "changed" signal; each client re-fetches its own role-scoped /api/state.
   const streams = new Set();
   const broadcast = message => streams.forEach(stream => stream.write(message));
@@ -103,7 +121,8 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
     ['/src/css/app.css', ['src/css/app.css', 'text/css']],
     ['/data/fixtures.js', ['data/fixtures.js', 'text/javascript']],
     ['/src/js/services/api.js', ['src/js/services/api.js', 'text/javascript']],
-    ['/src/js/ui/app.js', ['src/js/ui/app.js', 'text/javascript']]
+    ['/src/js/ui/app.js', ['src/js/ui/app.js', 'text/javascript']],
+    ['/src/js/ui/qa.js', ['src/js/ui/qa.js', 'text/javascript']]
   ]);
   const server = http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -112,7 +131,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     try {
       const address = server.address();
-      const allowedHosts = [`127.0.0.1:${address.port}`, `localhost:${address.port}`, ...(deployed ? [deployed.host] : [])];
+      const allowedHosts = deployed ? [deployed.host] : [`127.0.0.1:${address.port}`, `localhost:${address.port}`];
       if (!allowedHosts.includes(req.headers.host)) return json(res, 403, { error: 'Invalid host.' });
       const origin = deployed && req.headers.host === deployed.host ? deployed.origin : `http://${req.headers.host}`;
       if (req.headers.origin && req.headers.origin !== origin) return json(res, 403, { error: 'Cross-origin request denied.' });
@@ -125,10 +144,10 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         return;
       }
       const ctx = context(req, res);
-      if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: ctx.user ? publicUser(ctx.user) : null, guest: ctx.guest, csrf: ctx.csrf, setupRequired: !deployed && db.users.length === 0 });
+      if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: ctx.user ? publicUser(ctx.user) : null, guest: ctx.guest, csrf: ctx.csrf, setupRequired: !deployed && db.users.length === 0, ai: providers.status(), guideApproved: (guide || require('../data/event-guide.json')).approved === true });
       if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, stateFor(ctx.actor));
       if (req.method === 'GET' && url.pathname === '/api/events') {
-        res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', Connection: 'keep-alive' });
+        res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
         res.write('retry: 3000\n\n');
         streams.add(res);
         req.on('close', () => streams.delete(res));
@@ -137,6 +156,18 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       if (req.method !== 'POST') return json(res, 404, { error: 'Not found.' });
       if (!equal(req.headers['x-csrf-token'], ctx.csrf)) return json(res, 403, { error: 'Session changed. Refresh and try again.' });
       const body = await readBody(req);
+      if (url.pathname === '/api/qa') {
+        const actorKey = `${ctx.actor.role}:${ctx.actor.id}`;
+        if (qaActive.has(actorKey) || qaActive.size >= 4) return json(res, 429, { error: 'Questions are busy. Please try again shortly.' });
+        const version = resetVersion;
+        const isCurrent = () => version === resetVersion && (!ctx.user || (sessions.get(ctx.token)?.username === ctx.user.username && sessions.get(ctx.token)?.expires > Date.now()));
+        qaActive.add(actorKey);
+        try {
+          const result = await answerQuestion({ body, actor: ctx.actor, getState: () => stateFor(ctx.actor), providers, guide, isCurrent });
+          if (!isCurrent()) return json(res, 403, { error: 'Session changed. Refresh and try again.' });
+          return json(res, 200, result);
+        } finally { qaActive.delete(actorKey); }
+      }
       if (url.pathname === '/api/setup') {
         if (deployed) return json(res, 403, { error: 'Setup is disabled on the deployed server. Mo is configured by the operator.' });
         if (db.users.length) return json(res, 409, { error: 'Initial setup is already complete.' });
@@ -179,11 +210,11 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       if (url.pathname === '/api/reset') {
         // Demo only: Mo clears reports and incidents. Accounts are kept.
         requireMo(ctx);
+        resetVersion++;
         workflow.reset();
         return json(res, 200, { ok: true });
       }
       if (url.pathname === '/api/reports') {
-        if (ctx.actor.role === 'mo') return json(res, 403, { error: 'Use the public or volunteer reporting page.' });
         const incident = await workflow.submitReport({ text: body.text, zone: body.zone, category: body.category, immediateConcern: body.immediateConcern,
           ...(ctx.actor.role === 'volunteer' ? { volunteerId: ctx.actor.id } : { reporter: ctx.actor }) });
         return json(res, 201, { id: incident.id });
@@ -214,6 +245,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
   server.close = callback => { clearInterval(heartbeat); streams.forEach(stream => stream.end()); streams.clear(); return close(callback); };
   server.requestTimeout = 15000;
   server.headersTimeout = 10000;
+  server.whenAIIdle = workflow.whenIdle;
   return server;
 }
 

@@ -13,7 +13,7 @@ Node.js is required; no package installation is needed.
 5. In Mo's workspace, expand **Volunteer accounts** to create a username/password for someone on the fictional volunteer roster.
 6. Sign out, then sign in with that volunteer account. The Volunteer workspace opens automatically; there is no role chooser.
 
-Opening `index.html` directly is no longer supported: real accounts and permissions require the running server. This replaces the earlier static Python preview. The server listens only on this computer; public hosting and physical-phone access are not set up.
+Opening `index.html` directly is no longer supported: real accounts and permissions require the running server. This replaces the earlier static Python preview. By default the server listens only on this computer. HTTPS deployment configuration is available in [server instructions](server/README.md); actual hosting and physical-phone access remain unverified.
 
 ## Try the workflow
 
@@ -25,23 +25,25 @@ Opening `index.html` directly is no longer supported: real accounts and permissi
 
 The server stores reports and password hashes in `.riverside/store.json`, excluded from Git and unavailable through the web server. Reports/accounts survive restarts. Staff sessions last up to eight hours and require sign-in again after a restart. Public report ownership uses a signed cookie lasting up to seven days; clearing that cookie loses access to the original reporter's history.
 
+Browsers receive live change signals and reload their own permitted records; six-second polling remains as a fallback. Mo can clear fictional reports with `RiversideAPI.resetDemo()` in the browser console. Accounts, unique ID allocation and provider credit allowances survive reset.
+
 ## Three-person file ownership
 
 See [roles.md](roles.md) and [the API contract](docs/STARTER-CONTRACT.md).
 
 | Area | Files |
 |---|---|
-| Person 1: public and staff interface | `index.html`, `src/css/app.css`, `src/js/ui/app.js` |
+| Person 1: public and staff interface | `index.html`, `src/css/app.css`, `src/js/ui/app.js`, `src/js/ui/qa.js` |
 | Person 2: server, permissions and workflow | `server/index.cjs`, `server/auth.cjs`, `src/js/services/api.js`, `src/js/domain/incidents.js`, `data/fixtures.js` |
-| Person 3: Jev, LLM and voice integration | `src/js/services/analysis.js` (server-side stub), future separate provider modules under `server/` |
+| Person 3: Jev, LLM and voice integration | `src/js/services/analysis.js`, `server/ai/`, `data/event-guide.json` |
 
-AI, voice, automatic assignment, coverage checks, maps and public deployment are not implemented. Text reporting and real local staff accounts are implemented. The layout adapts below 720px and preserves large action buttons and a collapsible incident queue.
+Report analysis and Q&A are implemented with separate server-side Jev and OpenAI Luna adapters. All three views have a question panel, permission-filtered sources and confirmed report drafts; Mo can submit a draft too. Live calls are disabled by default. Provider access/free-credit controls are unverified and the fictional event guide awaits team approval. Follow [AI setup](docs/AI-SETUP.md) before enabling either provider; no paid usage is authorised.
 
-The [AI plan](docs/AI-PLAN.md) includes **Jev plus a separate LLM** for interpreting information and answering less urgent questions, with speech transcription as an additional integration if voice is included. Providers/access, Q&A audiences and knowledge sources remain undecided. The team kept the Node.js/browser starter with a JSON file store; no database is planned.
+The team chose to keep the current stack. Voice, automatic assignment, coverage checks, maps and public deployment remain later tasks. The layout adapts below 720px, with large action buttons and a collapsible incident queue. See [the settled AI plan](docs/AI-PLAN.md).
 
 ## Verification
 
-Run `node --test tests/incidents.test.cjs tests/server.test.cjs`. The server test creates isolated temporary accounts and data, checks role restrictions and server restart, and removes its own test directory. No test account is created in your app database.
+Run `npm test` (equivalent to `node --test tests/*.test.cjs`). AI tests use simulated responses, never real API calls. The server test creates isolated temporary accounts and data, checks role restrictions and server restart, and removes its own test directory. No test account is created in your app database.
 
 ## Team workflow
 

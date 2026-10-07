@@ -1,3 +1,5 @@
+> Historical proposal: set aside by the team. See PROJECT.md and docs/AI-PLAN.md for the current direction; merging this file does not adopt its scope.
+
 # Revised MVP proposal: one incident, not nine messages
 
 **Status:** Revision of [INCIDENT-MVP-DRAFT.md](INCIDENT-MVP-DRAFT.md) by Armaan, 7 October 2026, to close gaps against the Track 3 brief and judging criteria. Proposed for the team to accept, change or reject. Nothing has been built or tested.

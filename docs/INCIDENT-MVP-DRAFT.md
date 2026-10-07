@@ -1,6 +1,6 @@
 # Riverside incident response: MVP draft
 
-**Status:** Updated 7 October 2026. The team chose this original direction and set Armaan's revision aside. A limited text-report starter with public reporting and real local staff accounts has been built and checked; assignment, AI, voice and maps remain planned. See PROJECT.md for current verification and remaining decisions.
+**Status:** Updated 7 October 2026. The team chose this original direction and set Armaan's revision aside. A limited text-report starter with public reporting and real local staff accounts has been built and checked; AI adapters and Q&A are implemented with simulated-provider checks; live AI access, assignment, voice and maps remain unverified or planned. See PROJECT.md for current verification and remaining decisions.
 
 ## One-sentence product
 
@@ -31,7 +31,7 @@ The heatmap shows report volume and unresolved work by zone using recent fiction
 
 ## Planned AI integrations: Jev, an LLM and optional speech
 
-The team clarified on 7 October that Jev is not the only AI integration. A separate **LLM (large language model)** is planned to interpret incoming information and permitted event/incident context, and to answer less urgent questions. The provider, knowledge sources, Q&A audience and exact interpretation/classification split with Jev remain undecided. See [AI-PLAN.md](AI-PLAN.md). Neither model can confirm resolution or replace the human incident workflow; context retrieval must respect public/Volunteer/Mo permissions. These integrations have not been implemented.
+The team approved the first Jev + Luna milestone: Jev classifies original reports and screens Q&A; OpenAI Luna summarises reports and answers questions for all three views using permitted incident records and an approved fictional site/staff guide. Safety messages create drafts for explicit submission; Mo can also report through a draft. No model closes incidents. The code has been implemented and checked with simulated providers; the guide awaits approval and real API access/free-credit controls remain unverified. See [AI-PLAN.md](AI-PLAN.md) and [AI-SETUP.md](AI-SETUP.md).
 
 The team confirmed **TypeSafe AI's Jev**. Its official quick start describes fixed-choice, yes/no and score outputs from a text `state` and defined questions. It does not produce a transcript or free-form explanation. Its proposed jobs here are: suggest a report category from a small set and choose one candidate from a list of **already eligible safety volunteers**. The app's own rules determine eligibility and whether a move leaves another zone short. The Jev choice can send an assignment offer without Mo's prior approval. It does not decide the medical, crowd or other safety response, and it cannot confirm resolution. The volunteer is the first person to assess the situation; Mo takes over when the case is serious, unclear, repeatedly reported or escalated. Show Jev's choice beside the original report for later human review and correction. Another model may be used if a tested option fits this bounded job better; transcription requires a separate speech tool.
 
@@ -85,7 +85,7 @@ The first working slice can be a local web app with fictional data and clear run
 2. Verify Jev API access and compare it with alternatives only if access, latency or tested decision quality becomes a problem.
 3. Decide who monitors Mo's alert queue and what pattern of related reports counts as a growing cluster. No incident or assignment timeout is planned.
 4. Choose and test the exact desktop and phone browsers, especially for microphone access and voice transcription.
-5. Choose the LLM/provider, define which users may ask questions and which sources they can access, and agree how urgent/uncertain questions reach the human workflow.
+5. Approve the drafted fictional guide and verify Jev/Luna free-credit-only access before live evaluation. The audience and draft-confirm handoff are settled in AI-PLAN.md.
 
 **Time-sensitive event facts:** Team registration and track selection close **7 October 2026 at 5:00pm AEDT**. Devpost submission closes **8 October 2026 at 5:00pm AEDT**. The official rules require fictional data, disclosure of major AI tools and human control of safety decisions.
 

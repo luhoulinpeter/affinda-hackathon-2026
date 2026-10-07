@@ -6,24 +6,33 @@
   const reports = JSON.parse(JSON.stringify(initial.reports || []));
   const incidents = JSON.parse(JSON.stringify(initial.incidents || []));
   const subscribers = new Set();
-  let sequence = reports.reduce((max, report) => Math.max(max, Number(report.id.slice(2)) || 0), 0);
+  const jobs = new Set();
+  let sequence = [...reports, ...incidents].reduce((max, item) => Math.max(max, Number(item.id.slice(2)) || 0), Number.isSafeInteger(initial.sequence) && initial.sequence >= 0 ? initial.sequence : 0);
+  let generation = 0;
   const clone = value => JSON.parse(JSON.stringify(value));
   const now = () => new Date().toISOString();
   const notify = () => { persist(getState()); subscribers.forEach(callback => callback()); };
+  // A stopped process cannot finish old calls. Do not spend credits retrying on restart.
+  for (const incident of incidents) {
+    for (const provider of ['jev', 'luna']) {
+      if (incident.analysis?.[provider]?.state === 'pending') incident.analysis[provider] = { state: 'failed', reason: 'Analysis interrupted by server restart' };
+    }
+  }
 
   function history(incident, actor, action) {
     incident.history.push({ actorId: actor.id, actorRole: actor.role, action, time: now() });
   }
 
   function getState() {
-    return clone({ reports, incidents });
+    return clone({ reports, incidents, sequence });
   }
 
   async function submitReport(input) {
     const volunteer = data.volunteers.find(item => item.id === input.volunteerId);
     const publicReporter = input.reporter && input.reporter.role === "public" && /^guest-[a-z0-9-]+$/i.test(input.reporter.id);
-    if (!volunteer && !publicReporter) throw new Error("Choose a valid reporter.");
-    const reporter = volunteer ? { id: volunteer.id, role: "volunteer" } : { id: input.reporter.id, role: "public" };
+    const moReporter = input.reporter?.role === "mo" && input.reporter.id === "mo";
+    if (!volunteer && !publicReporter && !moReporter) throw new Error("Choose a valid reporter.");
+    const reporter = volunteer ? { id: volunteer.id, role: "volunteer" } : { id: input.reporter.id, role: input.reporter.role };
     if (!data.zones.some(item => item.id === input.zone)) throw new Error("Choose a valid zone.");
     const text = String(input.text || "").trim();
     if (!text || text.length > 2000) throw new Error("Write a report between 1 and 2,000 characters.");
@@ -38,9 +47,9 @@
     const incident = {
       id: `I-${number}`, reportIds: [report.id], zone: report.zone,
       category: "unclassified", brief: "Awaiting human review",
-      status: "open", attention: report.immediateConcern ? "urgent" : "review",
+      status: "open", attention: report.immediateConcern || /\bcrowd pressure\b|\bimmediate danger\b/i.test(report.text) ? "urgent" : "review",
       assignee: null, acknowledgedBy: null, resolvedBy: null, resolvedAt: null,
-      analysis: { state: "pending", mode: "stub" }, history: []
+      analysis: { jev: { state: "pending" }, luna: { state: "pending" } }, history: []
     };
     history(incident, reporter, "reported");
     // Save and show the source report BEFORE waiting for any external service.
@@ -48,18 +57,33 @@
     incidents.push(incident);
     notify();
 
-    try {
-      const suggestion = await getAI().analyse(clone(report), getState().incidents.filter(item => item.id !== incident.id && item.status !== "resolved"));
-      if (!suggestion || suggestion.mode !== "stub") {
-        throw new Error("Real AI results need server-side validation before integration.");
-      }
-      // Suggestions cannot close, assign, merge or downgrade an incident.
-      incident.analysis = { state: "complete", mode: "stub", suggestion: clone(suggestion) };
-    } catch (error) {
-      incident.analysis = { state: "failed", mode: "stub" };
-      history(incident, { id: "system", role: "system" }, "analysis_failed");
+    // Independent jobs start after persistence; callers get a reference without waiting.
+    const reportGeneration = generation;
+    for (const provider of ['jev', 'luna']) {
+      const job = Promise.resolve().then(async () => {
+        if (reportGeneration !== generation) return;
+        try {
+          const suggestion = await (provider === 'jev' ? getAI().classify(clone(report)) : getAI().summarise(clone(report)));
+          if (reportGeneration !== generation) return;
+          const keys = Object.keys(suggestion || {});
+          if (provider === 'jev') {
+            if (keys.length !== 2 || !keys.includes('category') || !keys.includes('urgency') || !data.categories.some(item => item.id === suggestion.category) || !['routine', 'urgent', 'unclear'].includes(suggestion.urgency)) throw new Error('Invalid classification');
+            incident.category = suggestion.category;
+            if (suggestion.urgency === 'urgent') incident.attention = 'urgent';
+          } else {
+            if (keys.length !== 1 || typeof suggestion.summary !== 'string' || !suggestion.summary.trim() || suggestion.summary.length > 1200) throw new Error('Invalid summary');
+            incident.brief = suggestion.summary.trim();
+          }
+          incident.analysis[provider] = { state: 'complete', suggestion: clone(suggestion) };
+        } catch {
+          if (reportGeneration !== generation) return;
+          incident.analysis[provider] = { state: 'failed', reason: 'Analysis unavailable; original report retained for Mo' };
+        }
+        notify();
+      });
+      jobs.add(job);
+      job.finally(() => jobs.delete(job)).catch(() => {});
     }
-    notify();
     return clone(incident);
   }
 
@@ -94,16 +118,16 @@
     return clone(incident);
   }
 
-  // Demo only: clears reports and incidents so a demo can be re-recorded.
+  // Retain the saved counter so stale actions cannot target later reports, even after restart.
   function reset() {
+    generation++;
     reports.length = 0;
     incidents.length = 0;
-    sequence = 0;
     notify();
   }
 
   return {
-    getState, submitReport, act, reset,
+    getState, submitReport, act, reset, whenIdle: () => Promise.all([...jobs]),
     subscribe(callback) { subscribers.add(callback); return () => subscribers.delete(callback); }
   };
 });
