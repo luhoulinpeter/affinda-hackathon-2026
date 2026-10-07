@@ -1,0 +1,10 @@
+{
+  "name": "riverside",
+  "private": true,
+  "description": "Riverside incident response prototype (Affinda AI Innovation Challenge). No dependencies.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server/index.cjs",
+    "test": "node --test tests/"
+  }
+}

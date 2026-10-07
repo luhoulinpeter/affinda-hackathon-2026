@@ -138,3 +138,45 @@ test('event stream signals changes without sending data, and only Mo can reset t
   assert.equal(next.result.id, 'I-1');
   await reader.cancel();
 });
+
+test('deployed mode accepts only its public host, disables browser setup and uses Secure cookies', async t => {
+  const http = require('node:http');
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'riverside-deploy-test-'));
+  const server = createApp({ dataDir, publicOrigin: 'https://riverside.test' });
+  await server.ensureMo('deploy-mo', 'correct-horse-battery');
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); fs.rmSync(dataDir, { recursive: true, force: true }); });
+  // Simulates the host's HTTPS proxy forwarding to this server with the public Host header.
+  const cookies = new Map();
+  let csrf = '';
+  function send(route, body, { host = 'riverside.test', origin = 'https://riverside.test' } = {}) {
+    return new Promise((resolve, reject) => {
+      const headers = { Host: host, Cookie: [...cookies].map(([key, value]) => `${key}=${value}`).join('; ') };
+      if (body !== undefined) Object.assign(headers, { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf, Origin: origin });
+      const req = http.request({ port, path: route, method: body === undefined ? 'GET' : 'POST', headers }, res => {
+        let text = '';
+        res.on('data', chunk => { text += chunk; });
+        res.on('end', () => {
+          for (const cookie of res.headers['set-cookie'] || []) { const [key, value] = cookie.split(';')[0].split('='); if (value) cookies.set(key, value); }
+          const result = JSON.parse(text);
+          if (result.csrf) csrf = result.csrf;
+          resolve({ status: res.statusCode, result, setCookie: res.headers['set-cookie'] || [] });
+        });
+      });
+      req.on('error', reject);
+      req.end(body === undefined ? undefined : JSON.stringify(body));
+    });
+  }
+  assert.equal((await send('/api/session', undefined, { host: 'evil.test' })).status, 403);
+  const session = await send('/api/session');
+  assert.equal(session.status, 200);
+  assert.equal(session.result.setupRequired, false);
+  assert.ok(session.setCookie.length && session.setCookie.every(cookie => cookie.includes('; Secure')));
+  assert.equal((await send('/api/setup', { username: 'intruder', password: 'x'.repeat(20) })).status, 403);
+  assert.equal((await send('/api/login', { username: 'deploy-mo', password: 'wrong-password-123' }, { origin: 'http://riverside.test' })).status, 403);
+  assert.equal((await send('/api/login', { username: 'deploy-mo', password: 'correct-horse-battery' })).status, 200);
+  assert.equal((await send('/api/session')).result.user.role, 'mo');
+  await server.ensureMo('deploy-mo', 'a-new-password-456');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dataDir, 'store.json'), 'utf8')).users.filter(user => user.role === 'mo').length, 1);
+});

@@ -18,6 +18,19 @@ The local first-run setup is intended for the laptop operator. This app has not 
 
 The password-storage implementation follows [Node's crypto API](https://nodejs.org/api/crypto.html) and [OWASP's scrypt guidance](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#scrypt).
 
+## Deploying online
+
+The server runs on any host that runs one long-running Node.js process (for example Render or Railway). Serverless hosts (Vercel, Netlify functions) will not work: they lose the in-memory sessions and the JSON file between requests.
+
+- **Start command:** `npm start` (no build step, no install needed). Node 20 or newer.
+- **Environment variables** (set in the host's dashboard, never in Git; names in `.env.example`):
+  - `PUBLIC_ORIGIN`: the site's public address, exactly, e.g. `https://riverside-xyz.onrender.com`. This switches on deployed mode.
+  - `MO_USERNAME`, `MO_PASSWORD`: Mo's account (password 12–128 characters). Created or updated on every start.
+  - `PORT`: usually set by the host automatically.
+- In deployed mode the server listens on all interfaces, accepts only the `PUBLIC_ORIGIN` host (plus localhost), marks cookies `Secure`, and **disables browser first-run setup**, so a visitor cannot claim the Mo account.
+- **Storage caveat:** `store.json` lives on the host's disk. On hosts or plans without a persistent disk, it is wiped on every restart or redeploy, and Mo's volunteer accounts must be recreated. Mo's account is recreated automatically from the environment variables.
+- Known limits: the login rate limit counts by connection address, which behind a host's proxy may be shared by all visitors; each password check uses about 128 MB of memory (at most two at once).
+
 ## Storage and integration
 
 **Live updates.** Browsers connected to `GET /api/events` are told immediately when reports or incidents change, then re-fetch their own permitted state. The interface's 6-second polling remains as a fallback. Because the server only accepts `127.0.0.1`/`localhost`, live sharing currently works between browser windows on the same computer, not between phones.
