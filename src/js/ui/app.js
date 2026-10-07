@@ -61,6 +61,8 @@
       if (role === "volunteer") $("#zone").value = data.volunteers.find(person => person.id === actorId)?.zone || data.zones[0].id;
       $("#report-text").value = "";
       $("#immediate-concern").checked = false;
+      $("#report-sensitive").checked = false;
+      $("#report-location").checked = false;
       previousActor = actorId;
     }
     // Clear the other role's rendered data as well as hiding its panel.
@@ -90,13 +92,19 @@
         $("#incident-detail").innerHTML = '<div class="empty"><h2>Ready for the first report</h2><p>Original reports, human actions and their times will appear here.</p></div>';
       } else {
         const actions = { reported: "Submitted report", acknowledge: "Acknowledged · still open", escalate: "Escalated · still open", resolve: "Explicitly confirmed resolved", analysis_failed: "Analysis failed · report retained for Mo" };
-        $("#incident-detail").innerHTML = `<div class="panel-heading"><h2>${escape(selected.id)} · Incident record</h2>${badge(selected)}</div><h3>${escape(zoneName(selected.zone))}</h3><p class="muted">${selected.acknowledgedBy ? "Acknowledged by Mo" : "Awaiting Mo’s acknowledgement"} · ${selected.assignee ? escape(actorName(selected.assignee)) : "No volunteer assigned"}</p><div class="source-reports">${state.reports.filter(report => selected.reportIds.includes(report.id)).map(report => `<blockquote><p>${escape(report.text)}</p><footer>${escape(actorName(report.reporter.id))} · ${escape(categoryName(report.category))} · ${time(report.time)} · ${escape(report.id)}</footer></blockquote>`).join("")}</div>${analysisHTML(selected)}${window.RiversideAssistance.incidentHTML(selected)}${selected.status === "resolved" ? `<p class="resolution-note">Confirmed by ${escape(actorName(selected.resolvedBy.id))} at ${time(selected.resolvedAt)}.</p>` : ""}${actionButtons(selected, "mo")}<h3 class="history-heading">Activity</h3><ol class="history">${selected.history.map(event => `<li><span>${escape(actions[event.action] || event.action)}</span><small>${escape(actorName(event.actorId))} · ${time(event.time)}</small></li>`).join("")}</ol>`;
+        $("#incident-detail").innerHTML = `<div class="panel-heading"><h2>${escape(selected.id)} · Incident record</h2>${badge(selected)}</div><h3>${escape(zoneName(selected.zone))}</h3><p class="muted">${selected.acknowledgedBy ? "Acknowledged by Mo" : "Awaiting Mo’s acknowledgement"} · ${selected.assignee ? escape(actorName(selected.assignee)) : "No volunteer assigned"}</p><div class="source-reports">${state.reports.filter(report => selected.reportIds.includes(report.id)).map(report => `<blockquote><p>${escape(report.text)}</p><footer>${escape(actorName(report.reporter.id))} · ${escape(categoryName(report.category))} · ${time(report.time)} · ${escape(report.id)}</footer></blockquote>`).join("")}</div>${analysisHTML(selected)}${window.RiversideAssistance.incidentHTML(selected)}${window.RiversideRecommendations.html(selected)}${selected.status === "resolved" ? `<p class="resolution-note">Confirmed by ${escape(actorName(selected.resolvedBy.id))} at ${time(selected.resolvedAt)}.</p>` : ""}${actionButtons(selected, "mo")}<h3 class="history-heading">Activity</h3><ol class="history">${selected.history.map(event => `<li><span>${escape(actions[event.action] || event.action)}</span><small>${escape(actorName(event.actorId))} · ${time(event.time)}</small></li>`).join("")}</ol>`;
       }
     }
     const ownReports = state.reports.filter(report => report.reporter.id === actorId && report.reporter.role === role).reverse();
     $("#own-reports").innerHTML = role === "mo" ? "" : ownReports.length ? ownReports.map(report => {
       const incident = state.incidents.find(item => item.reportIds.includes(report.id));
-      return `<article class="own-report"><div class="queue-top"><strong>${escape(report.id)} → ${escape(incident.id)}</strong>${badge(incident)}</div><p>${escape(report.text)}</p><p class="muted">${escape(zoneName(report.zone))} · ${escape(categoryName(report.category))} · ${time(report.time)}</p>${incident.status === "resolved" ? `<p class="resolution-note">Confirmed by ${incident.resolvedBy.id === actorId ? "you" : escape(actorName(incident.resolvedBy.id))} at ${time(incident.resolvedAt)}.</p>` : '<p class="field-note">Your report remains open until a person explicitly confirms resolution.</p>'}${role === "volunteer" ? analysisHTML(incident) : ""}${window.RiversideAssistance.incidentHTML(incident)}${actionButtons(incident, role)}</article>`;
+      const privacyNote = incident.sensitive
+        ? '<p class="field-note">Private report · the safety lead chooses a volunteer personally.</p>'
+        : incident.sensitivityReview === 'legacy'
+          ? '<p class="field-note">An older AI result has no privacy decision. The safety lead must review it before volunteers can choose it.</p>'
+          : ["pending", "unavailable"].includes(incident.sensitivityReview)
+            ? '<p class="field-note">Privacy review is pending. The safety lead can assign someone personally.</p>' : "";
+      return `<article class="own-report"><div class="queue-top"><strong>${escape(report.id)} → ${escape(incident.id)}</strong>${badge(incident)}</div><p>${escape(report.text)}</p><p class="muted">${escape(zoneName(report.zone))} · ${escape(categoryName(report.category))} · ${time(report.time)}</p>${incident.status === "resolved" ? `<p class="resolution-note">Confirmed by ${incident.resolvedBy.id === actorId ? "you" : escape(actorName(incident.resolvedBy.id))} at ${time(incident.resolvedAt)}.</p>` : '<p class="field-note">Your report remains open until a person explicitly confirms resolution.</p>'}${role === "volunteer" ? analysisHTML(incident) : ""}${privacyNote}${window.RiversideAssistance.incidentHTML(incident)}${actionButtons(incident, role)}</article>`;
     }).join("") : '<div class="empty"><h3>No reports yet</h3><p>Send a report to receive a reference and check its status here.</p><p>Your event-goer report history depends on this browser’s cookie. Use the same browser to return to it.</p></div>';
   }
   document.addEventListener("click", async event => {
@@ -121,16 +129,6 @@
     $("#zone").value = data.example.zone; $("#category").value = "hazard";
     $("#report-text").value = data.example.text; $("#immediate-concern").checked = false;
     $("#report-text").focus();
-  });
-  $("#report-form").addEventListener("submit", async event => {
-    event.preventDefault();
-    const button = event.target.querySelector('[type="submit"]'); button.disabled = true;
-    try {
-      const incident = await api.submitReport({ zone: $("#zone").value, category: $("#category").value, text: $("#report-text").value, immediateConcern: $("#immediate-concern").checked });
-      $("#report-text").value = ""; $("#immediate-concern").checked = false;
-      feedback(`Report received as ${incident.id}. Check its status in Your reports. No responder has been dispatched.`);
-    } catch (error) { feedback(error.message, true); }
-    finally { button.disabled = false; }
   });
   $("#signin-button").addEventListener("click", () => {
     const setup = api.getSession().setupRequired;
@@ -169,6 +167,13 @@
     finally { button.disabled = false; }
   });
   api.subscribe(render);
+  document.addEventListener('riverside-recommendation-update', render);
+  document.addEventListener('riverside-map-select', event => {
+    if (api.getSession()?.user?.role !== 'mo') return;
+    selectedId = event.detail;
+    render();
+    $('#incident-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
   api.refresh().then(() => feedback("")).catch(error => feedback(`Cannot connect. Run node server/index.cjs and open the local server URL. ${error.message}`, true));
   setInterval(() => { if (!document.hidden && !$("#signin-dialog").open) api.refresh().catch(error => feedback(error.message, true)); }, 6000);
 })();

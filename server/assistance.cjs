@@ -41,6 +41,8 @@ function createAssistance({ workflow, volunteers, hasAccount, sessionAlive = () 
       for (const o of a.offers.filter(o => o.status === 'pending')) { o.status = 'withdrawn'; o.respondedAt = iso(); }
       a.state = action === 'completed' ? 'completed' : 'cancelled';
       delete a.destination;
+      delete a.startPosition; delete a.initialDistanceMetres;
+      for (const offer of a.offers) delete offer.startPosition;
       if (action !== 'completed') incident.assignee = null;
       event(a, action, actorId);
     });
@@ -55,6 +57,8 @@ function createAssistance({ workflow, volunteers, hasAccount, sessionAlive = () 
       change(id, i => { i.assistance.state = 'unavailable'; event(i.assistance, 'manual_offer_ended', 'system'); });
       return;
     }
+    // Private or unchecked reports wait for Mo's explicit personal assignment.
+    if (incident.sensitive || ['pending', 'unavailable', 'legacy'].includes(incident.sensitivityReview)) return;
     const reporters = s.reports.filter(r => incident.reportIds.includes(r.id)).map(r => r.reporter.id);
     const attempted = new Set(a.offers.map(o => o.volunteerId));
     const candidates = volunteers.filter(v => hasAccount(v.id) && !reporters.includes(v.id) && !attempted.has(v.id) &&
@@ -75,6 +79,15 @@ function createAssistance({ workflow, volunteers, hasAccount, sessionAlive = () 
       if (!active(i)) continue;
       if (i.status === 'resolved') { end(i.id, 'completed', i.resolvedBy?.id || 'system'); continue; }
       const offer = i.assistance.offers.find(o => o.status === 'pending');
+      if (offer && i.assistance.matchingMode !== 'manual' && (i.sensitive || ['pending', 'unavailable', 'legacy'].includes(i.sensitivityReview))) {
+        change(i.id, incident => {
+          const current = incident.assistance.offers.find(o => o.id === offer.id);
+          current.status = 'withdrawn'; current.respondedAt = iso();
+          incident.assistance.state = 'looking'; event(incident.assistance, 'privacy_hold', 'system', offer.volunteerId);
+        });
+        release(offer.volunteerId);
+        continue;
+      }
       if (offer && (Date.parse(offer.expiresAt) <= now() || !eligible(presence.get(offer.volunteerId)) || presence.get(offer.volunteerId)?.state !== 'available')) {
         change(i.id, incident => {
           const current = incident.assistance.offers.find(o => o.id === offer.id);
@@ -126,6 +139,7 @@ function createAssistance({ workflow, volunteers, hasAccount, sessionAlive = () 
     if (i.assistance?.offers.some(o => o.volunteerId === volunteerId)) fail('This volunteer has already been offered this incident. Choose another volunteer.', 409);
     change(id, incident => {
       const a = incident.assistance ||= { requestId: `mo-${randomUUID()}`, offers: [], events: [] };
+      if (!a.destination && incident.location) a.destination = { ...incident.location };
       a.state = 'offered'; a.matchingMode = 'manual';
       a.offers.push({ id: randomUUID(), volunteerId, status: 'pending', offeredAt: iso(), expiresAt: new Date(now() + 60000).toISOString(), ...(a.destination ? { distanceMetres: Math.round(distance(a.destination, presence.get(volunteerId).position)) } : {}) });
       event(a, 'offered_by_mo', actor.id, volunteerId);
@@ -144,7 +158,11 @@ function createAssistance({ workflow, volunteers, hasAccount, sessionAlive = () 
       const a = incident.assistance, offer = a.offers.find(o => o.id === offerId);
       offer.status = decision === 'accept' ? 'accepted' : 'declined'; offer.respondedAt = iso();
       a.state = decision === 'accept' ? 'accepted' : 'looking';
-      if (decision === 'accept') incident.assignee = actor.id;
+      if (decision === 'accept') {
+        incident.assignee = actor.id;
+        a.startPosition = { latitude: presence.get(actor.id).position.latitude, longitude: presence.get(actor.id).position.longitude };
+        if (a.destination) a.initialDistanceMetres = distance(presence.get(actor.id).position, a.destination);
+      }
       event(a, offer.status, actor.id, actor.id);
     });
     if (decision === 'accept') presence.get(actor.id).state = 'busy';
@@ -185,6 +203,7 @@ function createAssistance({ workflow, volunteers, hasAccount, sessionAlive = () 
     });
     return { serverTime: now(), presence: actor.role === 'public' ? [] : list };
   }
-  return { tick, setPresence, pause, offer, respond, action, snapshot };
+  function markClaimed(id) { const p = presence.get(id); if (p) p.state = 'busy'; }
+  return { tick, setPresence, pause, offer, respond, action, snapshot, markClaimed };
 }
 module.exports = { createAssistance, position, distance };

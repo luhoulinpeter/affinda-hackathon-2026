@@ -2,11 +2,25 @@
 
 Implemented 7 October 2026 on the existing Node.js / plain JavaScript stack. All stations and demonstration incidents are fictional. Real-device GPS and HTTPS phone access must be verified separately from the simulated checks.
 
-## Latest update: Mo offers and ten-minute sharing
+## Latest update: map, privacy and volunteer choice
+
+The main report form has **Send report only** and **Send & request volunteer**. Only the latter requests attendance and requires GPS. Reports may optionally attach their location without requesting attendance. An AI safety draft remains unsubmitted until confirmation; the duplicate request shortcut in Q&A has been removed.
+
+Available volunteers can choose an ordinary waiting incident or wait for Mo to send an offer. Accepting immediately assigns the chosen incident; the server prevents a second assignment or simultaneous winners. Paused/busy volunteers still see permitted incoming pins/cards. Details unlock for the assigned volunteer or Mo's chosen offer recipient.
+
+The reporter can mark a report private; Jev also flags potential sensitivity in the existing classification call. Private, pending, failed and legacy privacy checks wait for Mo's review/personal assignment. Mo can approve ordinary volunteer selection or mark private with an audited reason. Ordinary urgent incidents remain visible to Mo and may be selected if eligible; urgency alone does not imply privacy.
+
+Mo sees all incident pins and can open details. Volunteers see ordinary pins and their own private assignment, with unrelated details withheld. Staff maps show fresh shared volunteer locations. An attendee sees only their own accepted responder's fixed starting ping, destination and dotted progress, never moving volunteer coordinates. Decorative curves are not walking routes. Mo's labelled fictional journey demonstration never changes real GPS, arrival or resolution.
+
+Mo can request an advisory ranking using **Suggest with AI** when eligible volunteers exist and free OpenRouter is available. The provider receives only category/urgency/zone and coarse candidate facts. It cannot send offers, invent qualifications or bypass eligibility. Changed incident/volunteer data invalidates the suggestion.
+
+Actual Google loading, all three role browser scenarios and simulated API/client regression checks are recorded in [the MVP checklist](OVERNIGHT-MVP-PLAN.md#late-evening-verification--7-october). Physical-device GPS and multi-phone HTTPS remain unverified.
+
+## Mo offers and ten-minute sharing
 
 Mo can select any unresolved incident, including an ordinary report without GPS, choose an eligible volunteer under **Offer to a volunteer**, and click **Send volunteer offer**. This sends a 60-second offer, not an immediate assignment. Only acceptance assigns the helper. A manual decline/timeout returns the incident to Mo's review; Mo can choose a different helper. Self-assignment to the reporter, missing accounts, unavailable/busy/reserved volunteers, repeated candidates and resolved incidents are rejected on the server. History records Mo's offer. No requester GPS is invented for zone-only reports.
 
-**Retry matching** applies to active requests with a confirmed requester GPS destination. Without it, Mo sees a disabled explanation and can offer manually. Retry switches to nearest matching and respects candidates already attempted. Ordinary reports remain ordinary until Mo explicitly offers them or the requester confirms an assistance request.
+**Retry matching** applies to active requests with a confirmed requester GPS destination. Without it, Mo sees a disabled explanation and can offer manually. Retry switches to nearest matching and respects candidates already attempted. Reporting alone does not request attendance; an eligible volunteer may choose an ordinary incident or accept Mo's offer.
 
 **Go available** now starts a fixed ten-minute sharing session. Tab switches no longer pause it. Updates remain limited to one per ten seconds; updates never silently extend the session. Initial/new fixes still require capture within 60 seconds and accuracy of 100 metres or better. During the ten-minute session, matching may use the last accepted position up to ten minutes old, with its age and **older position** label shown. The `fresh` flag still means within 60 seconds; `eligible` is separate. This replaces the earlier 60-second presence-expiry and hidden-page-pause rules below. Fresh location pins remain governed by the map's freshness policy.
 
@@ -19,15 +33,15 @@ Current verification: 64 automated tests pass in the isolated staged version wit
 1. Mo creates volunteer accounts under **Volunteer accounts**. Roster entries alone cannot receive offers.
 2. Each volunteer signs in on their own browser/device, opens **Volunteer assistance**, clicks **Go available**, and grants location permission. Keep the page open. An accurate GPS fix (100 metres or better) is required.
 3. The requester opens **Ask Riverside**. **Find first aid** performs station lookup without creating a report. **Request a volunteer** opens a draft; an injury message screened by Jev also opens an unsubmitted draft.
-4. Select a zone, check the original message and **Request a volunteer to come**, then confirm submission. This shares the destination with Mo and whichever volunteer receives the offer.
+4. Select a zone, check the original message and choose **Send & request volunteer** in the main report form. This shares the destination with the safety team. Private/unchecked reports wait for Mo to assign personally.
 5. The nearest eligible volunteer receives an in-app offer with a server-based countdown. Acceptance identifies the responder; **Mark arrived** records a separate human action. Resolution still requires explicit confirmation.
 6. Mo selects the incident to see the offer recipient, responder, offer history, destination and current volunteer GPS freshness. **Retry matching** ends the existing offer/assignment and tries another candidate. **Stop assistance** removes the destination and stops matching, leaving the incident open unless separately resolved.
 
-No real volunteer credentials or station coordinates are seeded. Existing reports are preserved and do not automatically request attendance. Event-goers remain guests; optional event-goer accounts are separate work.
+No real volunteer credentials are seeded. The later map milestone seeds three clearly fictional first-aid stations around the University of Melbourne when no saved station configuration exists, under the user's explicit request to invent demo locations. Existing reports and saved station settings are preserved. Event-goers remain guests; optional event-goer accounts are separate work.
 
 ## Station setup
 
-In Mo's **Fictional first-aid stations** panel, enter team-provided names, descriptions and latitude/longitude. **Enable these fictional demo stations** is explicit approval to publish this station information through the app. Save the configuration. No default coordinates are invented; disabling stations makes lookup unavailable.
+In Mo's **Fictional first-aid stations** panel, edit the seeded demo names, descriptions and latitude/longitude, or supply your own fictional placements. **Enable these fictional demo stations** controls public lookup. Save the configuration. Saved configurations are never overwritten by defaults; disabling stations makes lookup unavailable. These placements are not real first-aid facilities.
 
 Station approval is independent of the general fictional event guide, which remains unapproved. Lookup shows straight-line GPS distance, not a walking route or arrival estimate. If location is denied, stale or inaccurate, list stations without identifying a nearest one. No AI call is needed for the button-based lookup.
 

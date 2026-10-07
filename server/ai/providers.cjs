@@ -79,7 +79,8 @@ function createProviders({ env = process.env, verification = {}, reserveCall = (
     async classify(report) {
       return v.classification(await jev({ report }, {
         category: { type: 'choice', instructions: `${POLICY} Select the incident category from the original report; use other when unsure.`, criteria: Object.fromEntries(CATEGORIES.map(id => [id, id])) },
-        urgency: { type: 'choice', instructions: `${POLICY} ${URGENCY}`, criteria: { routine: 'Clearly routine', urgent: 'Immediate danger or crowd pressure', unclear: 'Safety is unclear' } }
+        urgency: { type: 'choice', instructions: `${POLICY} ${URGENCY}`, criteria: { routine: 'Clearly routine', urgent: 'Immediate danger or crowd pressure', unclear: 'Safety is unclear' } },
+        sensitivity: { type: 'choice', instructions: `${POLICY} Assess only whether the supplied report contains potentially private or identifying personal information that should be restricted to Mo. Do not infer sensitive facts from names or add facts. If uncertain, choose unclear.`, criteria: { ordinary: 'No apparent private or identifying personal information in the report', sensitive: 'The report contains potentially private or identifying personal information', unclear: 'Cannot determine from the supplied report' } }
       }), CATEGORIES);
     },
     async screen(question, history) {

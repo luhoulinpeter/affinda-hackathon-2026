@@ -6,11 +6,17 @@
   <title>Riverside · Incident response starter</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23173c36'/%3E%3Ctext x='8' y='24' fill='white' font-size='24'%3ER%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="src/css/app.css">
+  <!-- MAP_NONCE -->
   <!-- Run node server/index.cjs, then open the local server URL. -->
   <script defer src="data/fixtures.js"></script>
   <script defer src="src/js/services/tab-session.js"></script>
   <script defer src="src/js/services/api.js"></script>
+  <script defer src="src/js/domain/map.js"></script>
+  <script defer src="src/js/ui/map.js"></script>
   <script defer src="src/js/ui/assistance.js"></script>
+  <script defer src="src/js/ui/report.js"></script>
+  <script defer src="src/js/ui/recommendations.js"></script>
+  <script defer src="src/js/ui/claims.js"></script>
   <script defer src="src/js/ui/app.js"></script>
   <script defer src="src/js/ui/qa.js"></script>
 </head>
@@ -23,6 +29,16 @@
     <div class="page-heading"><div><p id="page-eyebrow" class="eyebrow">Riverside festival</p><h1 id="page-title">Get help. Report an issue.</h1><p id="page-description">Tell the safety team what you saw and where it happened.</p></div></div>
     <aside class="notice"><strong>Prototype · fictional data.</strong> Assistance offers reach volunteers using this app; no emergency service is connected. Keep the app open to receive offers. <span id="ai-status">Checking AI availability…</span></aside>
     <p id="feedback" class="feedback" role="status" aria-live="polite">Connecting to the server…</p>
+
+    <section id="map-panel" class="map-panel" aria-labelledby="map-title" hidden>
+      <div class="map-heading"><div><p class="eyebrow">Around the University of Melbourne</p><h2 id="map-title">Your help map</h2></div><button id="map-recentre" class="secondary" type="button">Centre map</button></div>
+      <p id="map-status" class="field-note" role="status">Preparing map…</p>
+      <div id="live-map" class="live-map" aria-label="Google Maps event area" hidden></div>
+      <div id="map-fallback" class="map-fallback"><strong>Google Maps is not connected yet.</strong><p>You can still report an issue and request help below.</p></div>
+      <div class="map-legend"><span><i class="legend-dot station-dot"></i>Fictional first aid</span><span id="staff-map-legend" hidden><i class="legend-dot volunteer-dot"></i>Volunteer <i class="legend-dot incident-dot"></i>Incident</span><span id="public-map-legend" hidden><i class="legend-dot volunteer-dot"></i>Volunteer start <i class="legend-dot incident-dot"></i>Your request</span></div>
+      <p id="map-summary" class="field-note"></p><div id="map-stations" class="map-stations"></div>
+      <p id="map-privacy" class="field-note">First-aid pins are fictional demo placements, not real facilities.</p>
+    </section>
 
     <section id="mo-view" aria-label="Mo’s operations view" hidden>
       <div class="stats" aria-label="Incident counts">
@@ -50,7 +66,7 @@
       </details>
       <section class="panel" aria-labelledby="presence-title"><h2 id="presence-title">Volunteer availability</h2><div id="mo-presence"></div></section>
       <details class="panel"><summary><strong>Fictional first-aid stations</strong></summary>
-        <p class="field-note">Enter coordinates supplied by your team. These are demo locations, not real first-aid facilities. Enabling them approves this station information for public lookup.</p>
+        <p class="field-note">Edit the fictional demo stations around the University of Melbourne. These are not real first-aid facilities. Enabling them approves this station information for public lookup.</p>
         <form id="stations-form"><div id="station-fields"></div><button id="station-add" type="button" class="secondary">Add station</button>
           <label class="checkbox-label"><input id="stations-enabled" type="checkbox"> Enable these fictional demo stations</label>
           <button type="submit" class="primary">Save station configuration</button><p id="station-feedback" class="feedback" role="status"></p>
@@ -59,9 +75,10 @@
     </section>
 
     <section id="volunteer-assistance" class="panel" hidden aria-labelledby="volunteer-help-title">
-      <h2 id="volunteer-help-title">Volunteer assistance</h2><p class="field-note">General helpers · attendance does not imply medical qualifications. Go available shares location for 10 minutes and stays on across tab switches. Background updates depend on your browser; check the last-fix age. Pause stops sharing.</p>
+      <h2 id="volunteer-help-title">Volunteer assistance</h2><p class="field-note">General helpers · attendance does not imply medical qualifications. Go available shares location with Mo and other volunteers for 10 minutes and stays on across tab switches. Your assigned requester sees your starting location and progress, not your moving position. Background updates depend on your browser; check the last-fix age. Pause stops sharing.</p>
       <div class="form-actions"><button id="go-available" type="button" class="primary">Go available</button><button id="pause-volunteer" type="button" class="secondary">Pause</button></div>
       <p id="presence-feedback" class="feedback" role="status"></p><div id="volunteer-offers" aria-live="polite"></div>
+      <h3>Choose an incident</h3><p class="field-note">Go available to choose an ordinary incident, or wait for the safety lead to send you an offer. Details unlock after you accept. Private reports are assigned by the safety lead.</p><div id="available-incidents" aria-live="polite"></div><p id="claim-feedback" class="feedback" role="status"></p>
     </section>
 
     <section id="reporting-view" aria-label="Event-goer reporting view" hidden>
@@ -73,8 +90,12 @@
             <label for="category">Issue type</label><select id="category" name="category" required></select>
             <label for="report-text">What did you see?</label>
             <textarea id="report-text" name="text" rows="5" maxlength="2000" required placeholder="Describe the issue and where it is. Use fictional examples."></textarea>
-            <label class="checkbox-label"><input id="immediate-concern" type="checkbox" name="immediateConcern"> Flag immediate concern for Mo</label>
-            <div class="form-actions"><button class="primary" type="submit">Send report</button><button id="example-report" type="button" class="secondary">Use example text</button></div>
+            <label class="checkbox-label"><input id="immediate-concern" type="checkbox" name="immediateConcern"> Flag an immediate safety concern</label>
+            <label class="checkbox-label"><input id="report-sensitive" type="checkbox"> Private report — the safety lead assigns a volunteer</label>
+            <label class="checkbox-label"><input id="report-location" type="checkbox"> Add my current location to this report</label>
+            <p id="report-request-note" class="field-note">Sending an incident report does not request a volunteer. Choose “Send &amp; request volunteer” if you want someone to come; this shares your current GPS location with the safety team. Private reports and reports flagged by AI wait for the safety lead to assign.</p>
+            <div class="form-actions"><button class="primary" type="submit">Send report only</button><button id="request-volunteer" type="submit" class="secondary" aria-describedby="report-request-note">Send &amp; request volunteer</button><button id="example-report" type="button" class="secondary">Use example text</button></div>
+            <p id="report-feedback" class="feedback" role="status" aria-live="polite"></p>
             <p class="field-note">Submitting a report does not guarantee a response. Follow the event’s established emergency procedure for immediate help.</p>
           </form>
         </section>
@@ -85,7 +106,7 @@
       <div class="panel-heading"><h2 id="qa-title">Ask Riverside</h2><button id="qa-clear" type="button" class="secondary">Clear chat</button></div>
       <p class="field-note">Ask about event information or reports you can access. Answers are AI-generated; check the sources. For immediate help, follow the event’s established emergency procedure.</p>
       <p id="qa-availability" class="field-note"></p>
-      <div class="form-actions"><button id="find-first-aid" type="button" class="secondary">Find first aid</button><button id="request-volunteer" type="button" class="secondary">Request a volunteer</button></div>
+      <div class="form-actions"><button id="find-first-aid" type="button" class="secondary">Find first aid</button></div>
       <p id="help-feedback" class="feedback" role="status"></p><div id="first-aid-results" aria-live="polite"></div>
       <div id="qa-messages" class="qa-messages" aria-live="polite" aria-relevant="additions"></div>
       <form id="qa-form">
@@ -101,7 +122,8 @@
           <label for="qa-draft-zone">Incident zone</label><select id="qa-draft-zone" required></select>
           <label for="qa-draft-category">Issue type</label><select id="qa-draft-category" required></select>
           <label for="qa-draft-text">What did you see?</label><textarea id="qa-draft-text" rows="4" maxlength="2000" required></textarea>
-          <label class="checkbox-label"><input id="qa-draft-urgent" type="checkbox"> Flag immediate concern for Mo</label>
+          <label class="checkbox-label"><input id="qa-draft-urgent" type="checkbox"> Flag an immediate safety concern</label>
+          <label class="checkbox-label"><input id="qa-draft-sensitive" type="checkbox"> Private report — the safety lead assigns a volunteer</label>
           <label class="checkbox-label"><input id="qa-draft-assistance" type="checkbox"> Request a volunteer to come</label>
           <p class="field-note">Requesting attendance shares your current GPS destination with Mo and the offered volunteer. You must confirm below. GPS must be fresh and accurate to 100 metres or better. An offer does not mean someone is on their way.</p>
           <div class="form-actions"><button id="qa-draft-submit" class="primary" type="submit">Confirm and submit report</button><button id="qa-draft-cancel" class="secondary" type="button">Discard draft</button></div>

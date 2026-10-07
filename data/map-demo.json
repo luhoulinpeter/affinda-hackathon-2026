@@ -1,0 +1,9 @@
+{
+  "centre": { "lat": -37.7985, "lng": 144.961 },
+  "label": "University of Melbourne area · fictional event overlay",
+  "stations": [
+    { "name": "Demo North First Aid", "description": "Fictional demo station near the north of the sample event area. Not a real facility.", "latitude": -37.7958, "longitude": 144.9612 },
+    { "name": "Demo South First Aid", "description": "Fictional demo station near the south of the sample event area. Not a real facility.", "latitude": -37.8003, "longitude": 144.9605 },
+    { "name": "Demo East First Aid", "description": "Fictional demo station near the east of the sample event area. Not a real facility.", "latitude": -37.7987, "longitude": 144.9642 }
+  ]
+}

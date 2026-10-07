@@ -57,7 +57,10 @@ function setup() {
   async function request(reporter = { id: 'guest-test', role: 'public' }, destination = pos()) {
     const input = { zone: 'zone-a', text: 'Fictional scraped arm; please bring a bandaid', assistance: { requestId: String(Math.random()), state: 'looking', destination: position(destination, time), offers: [], events: [] } };
     if (reporter.role === 'volunteer') input.volunteerId = reporter.id; else input.reporter = reporter;
-    const result = await workflow.submitReport(input); manager.tick(); return result.id;
+    const result = await workflow.submitReport(input);
+    await workflow.whenIdle();
+    workflow.setSensitivity(result.id, false, { id: 'mo', role: 'mo' }, 'Mo reviewed this fictional report after AI was unavailable.');
+    manager.tick(); return result.id;
   }
   const incident = id => workflow.getState().incidents.find(i => i.id === id);
   const offer = id => incident(id).assistance.offers.find(o => o.status === 'pending');

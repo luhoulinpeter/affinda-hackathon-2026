@@ -8,9 +8,15 @@ function text(value, max) {
   return value.trim();
 }
 function classification(value, categories) {
-  object(value, ['category', 'urgency']);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) invalid();
+  const keys = Object.keys(value);
+  const legacy = keys.length === 2 && keys.includes('category') && keys.includes('urgency');
+  const current = keys.length === 3 && keys.includes('category') && keys.includes('urgency') && keys.includes('sensitivity');
+  if (!legacy && !current) invalid();
   if (!categories.includes(value.category) || !['routine', 'urgent', 'unclear'].includes(value.urgency)) invalid();
-  return { category: value.category, urgency: value.urgency };
+  if (legacy) return { category: value.category, urgency: value.urgency };
+  if (!['ordinary', 'sensitive', 'unclear'].includes(value.sensitivity)) invalid();
+  return { category: value.category, urgency: value.urgency, sensitivity: value.sensitivity };
 }
 function screening(value) {
   object(value, ['intent']);

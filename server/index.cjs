@@ -9,6 +9,11 @@ const { answerQuestion } = require('./ai/qa.cjs');
 const createIncidents = require('../src/js/domain/incidents.js');
 const { createAssistance, position } = require('./assistance.cjs');
 const { validateStations, firstAid } = require('./stations.cjs');
+const { mapData } = require('./maps.cjs');
+const { createAssignmentRecommendations } = require('./assignment-recommendations.cjs');
+const { createVolunteerClaims } = require('./volunteer-claims.cjs');
+const { createDemoJourneys } = require('./demo-journeys.cjs');
+const mapDemo = require('../data/map-demo.json');
 const root = path.resolve(__dirname, '..');
 
 // A public origin enables HTTPS deployment and disables browser first-account setup.
@@ -22,6 +27,9 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
   fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const dbFile = path.join(dataDir, 'store.json');
   const db = fs.existsSync(dbFile) ? JSON.parse(fs.readFileSync(dbFile, 'utf8')) : { users: [], workflow: {}, cookieSecret: randomBytes(32).toString('hex') };
+  // The user authorised these fictional defaults. Never replace saved configuration.
+  if (!db.helpStations) db.helpStations = validateStations({ enabled: true, stations: mapDemo.stations });
+  const mapsKey = aiEnv.GOOGLE_MAPS_API_KEY || '';
   function save() {
     const temporary = `${dbFile}.tmp`;
     fs.writeFileSync(temporary, JSON.stringify(db), { mode: 0o600 });
@@ -55,6 +63,13 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
     hasAccount: id => db.users.some(u => u.role === 'volunteer' && u.actorId === id),
     sessionAlive: token => sessions.has(token) && sessions.get(token).expires > now() });
   const assistanceTimer = setInterval(() => assistance.tick(), 1000);
+  const recommendations = createAssignmentRecommendations({ workflow, assistance, providers: { rankAssignment: input => {
+    if (!providers.rankAssignment) throw Object.assign(new Error('AI suggestions are unavailable. Choose an eligible volunteer manually.'), { status: 503 });
+    return providers.rankAssignment(input);
+  } }, roster: data.volunteers, now });
+  const rankingActive = new Set();
+  const volunteerClaims = createVolunteerClaims({ workflow, assistance, roster: data.volunteers, now });
+  const demoJourneys = createDemoJourneys({ now });
   assistanceTimer.unref();
   const loginAttempts = new Map();
   const dummy = { salt: randomBytes(16).toString('hex'), hash: randomBytes(64).toString('hex') };
@@ -114,6 +129,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       const a = incident.assistance;
       const recipient = actor.role === 'volunteer' && (incident.assignee === actor.id || a.offers.some(o => o.volunteerId === actor.id && o.status === 'pending'));
       if (!recipient) delete a.destination;
+      if (actor.role === 'public') delete a.initialDistanceMetres;
       a.offers = actor.role === 'volunteer' ? a.offers.filter(o => o.volunteerId === actor.id) : [];
       a.events = a.events.filter(e => e.actorId === actor.id || e.volunteerId === actor.id || (!e.volunteerId && e.actorId === 'system'));
     }
@@ -122,7 +138,8 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       return { ...availability, reports, incidents: incidents.map(item => ({
         id: item.id, reportIds: item.reportIds.filter(id => own.some(report => report.id === id)),
         zone: item.zone, status: item.status, attention: item.attention,
-        assignee: item.assignee, resolvedBy: item.resolvedBy, resolvedAt: item.resolvedAt, assistance: item.assistance
+        assignee: item.assignee, resolvedBy: item.resolvedBy, resolvedAt: item.resolvedAt, assistance: item.assistance,
+        sensitive: item.sensitive, sensitivityReview: item.sensitivityReview
       })) };
     }
     return { ...availability, reports, incidents };
@@ -152,13 +169,20 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
     ['/src/js/services/tab-session.js', ['src/js/services/tab-session.js', 'text/javascript']],
     ['/src/js/ui/app.js', ['src/js/ui/app.js', 'text/javascript']],
     ['/src/js/ui/qa.js', ['src/js/ui/qa.js', 'text/javascript']],
-    ['/src/js/ui/assistance.js', ['src/js/ui/assistance.js', 'text/javascript']]
+    ['/src/js/ui/report.js', ['src/js/ui/report.js', 'text/javascript']],
+    ['/src/js/ui/recommendations.js', ['src/js/ui/recommendations.js', 'text/javascript']],
+    ['/src/js/ui/claims.js', ['src/js/ui/claims.js', 'text/javascript']],
+    ['/src/js/ui/assistance.js', ['src/js/ui/assistance.js', 'text/javascript']],
+    ['/src/js/domain/map.js', ['src/js/domain/map.js', 'text/javascript']],
+    ['/src/js/ui/map.js', ['src/js/ui/map.js', 'text/javascript']]
   ]);
   const server = http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'same-origin');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+    const nonce = randomBytes(18).toString('base64');
+    if (mapsKey) res.setHeader('Content-Security-Policy', `default-src 'self'; script-src 'self' 'nonce-${nonce}' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com; style-src 'self' 'nonce-${nonce}' https://fonts.googleapis.com; img-src 'self' data: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com; connect-src 'self' https://*.googleapis.com https://*.google.com https://*.gstatic.com data: blob:; font-src 'self' https://fonts.gstatic.com; frame-src https://*.google.com; worker-src blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`);
     try {
       const address = server.address();
       const allowedHosts = deployed ? [deployed.host] : [`127.0.0.1:${address.port}`, `localhost:${address.port}`];
@@ -170,12 +194,19 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         const asset = assets.get(url.pathname);
         if (req.method !== 'GET' || !asset) return json(res, 404, { error: 'Not found.' });
         res.writeHead(200, { 'Content-Type': `${asset[1]}; charset=utf-8` });
-        res.end(fs.readFileSync(path.join(root, asset[0])));
+        const content = fs.readFileSync(path.join(root, asset[0]));
+        res.end(asset[0] === 'index.html' ? content.toString().replace('<!-- MAP_NONCE -->', mapsKey ? `<style nonce="${nonce}"></style><meta name="maps-nonce" content="${nonce}">` : '') : content);
         return;
       }
       const ctx = context(req, res, url);
       if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: ctx.user ? publicUser(ctx.user) : null, guest: ctx.guest, csrf: ctx.csrf, setupRequired: !deployed && db.users.length === 0, ai: providers.status(), guideApproved: (guide || require('../data/event-guide.json')).approved === true });
       if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, stateFor(ctx.actor));
+      if (req.method === 'GET' && url.pathname === '/api/maps-config') return json(res, 200, { key: mapsKey, centre: mapDemo.centre });
+      if (req.method === 'GET' && url.pathname === '/api/available-incidents') return json(res, 200, { incidents: volunteerClaims.list(ctx.actor) });
+      if (req.method === 'GET' && url.pathname === '/api/map-data') {
+        const presence = assistance.snapshot({ role: 'mo' }).presence;
+        return json(res, 200, mapData(ctx.actor, workflow.getState(), presence, db.helpStations, now(), demoJourneys));
+      }
       if (req.method === 'GET' && url.pathname === '/api/stations') return json(res, 200, ctx.actor.role === 'mo' ? db.helpStations || { enabled: false, stations: [] } : { enabled: db.helpStations?.enabled === true, stations: db.helpStations?.enabled ? db.helpStations.stations : [] });
       if (req.method === 'GET' && url.pathname === '/api/events') {
         res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
@@ -200,6 +231,43 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       if (offerRoute) { assistance.respond(ctx.actor, offerRoute[1], offerRoute[2], body.decision); return json(res, 200, { ok: true }); }
       const manualOfferRoute = url.pathname.match(/^\/api\/incidents\/(I-\d+)\/assignment-offer$/);
       if (manualOfferRoute) { assistance.offer(ctx.actor, manualOfferRoute[1], body.volunteerId); return json(res, 200, { ok: true }); }
+      const claimRoute = url.pathname.match(/^\/api\/incidents\/(I-\d+)\/claim$/);
+      if (claimRoute) return json(res, 200, volunteerClaims.claim(ctx.actor, claimRoute[1]));
+      const journeyRoute = url.pathname.match(/^\/api\/incidents\/(I-\d+)\/demo-journey$/);
+      if (journeyRoute) {
+        requireMo(ctx);
+        if (body.action === 'stop') demoJourneys.stop(ctx.actor, journeyRoute[1]);
+        else if (body.action === 'start') {
+          const incident = workflow.getState().incidents.find(i => i.id === journeyRoute[1]);
+          if (!incident) return json(res, 404, { error: 'Incident not found.' });
+          demoJourneys.start(ctx.actor, incident);
+        } else return json(res, 400, { error: 'Choose start or stop.' });
+        broadcast('event: state\ndata: {}\n\n'); return json(res, 200, { ok: true });
+      }
+      const sensitivityRoute = url.pathname.match(/^\/api\/incidents\/(I-\d+)\/sensitivity$/);
+      if (sensitivityRoute) {
+        requireMo(ctx);
+        const incident = workflow.getState().incidents.find(i => i.id === sensitivityRoute[1]);
+        if (!incident) return json(res, 404, { error: 'Incident not found.' });
+        if (incident.status === 'resolved') return json(res, 409, { error: 'This incident is already confirmed resolved.' });
+        if (typeof body.sensitive !== 'boolean' || typeof body.reason !== 'string' || !body.reason.trim() || body.reason.trim().length > 500) return json(res, 400, { error: 'Choose a privacy decision and add a review reason of 1 to 500 characters.' });
+        workflow.setSensitivity(sensitivityRoute[1], body.sensitive, ctx.actor, body.reason);
+        assistance.tick(); return json(res, 200, { ok: true });
+      }
+      const rankingRoute = url.pathname.match(/^\/api\/incidents\/(I-\d+)\/assignment-recommendation$/);
+      if (rankingRoute) {
+        requireMo(ctx);
+        if (rankingActive.has(ctx.actor.id) || rankingActive.size >= 2) return json(res, 429, { error: 'A suggestion is already being prepared. Please wait.' });
+        const version = resetVersion;
+        const isCurrent = () => version === resetVersion && sessions.get(ctx.token)?.username === ctx.user.username && sessions.get(ctx.token)?.expires > now();
+        rankingActive.add(ctx.actor.id);
+        try {
+          const result = await recommendations.recommend(ctx.actor, rankingRoute[1], { isCurrent });
+          return json(res, 200, result);
+        } catch (error) {
+          return json(res, error.status || 503, { error: error.status ? error.message : 'AI suggestions are unavailable. Choose an eligible volunteer manually.' });
+        } finally { rankingActive.delete(ctx.actor.id); }
+      }
       const assistanceRoute = url.pathname.match(/^\/api\/incidents\/(I-\d+)\/assistance$/);
       if (assistanceRoute) {
         if (!stateFor(ctx.actor).incidents.some(i => i.id === assistanceRoute[1])) return json(res, 404, { error: 'Incident not found.' });
@@ -267,6 +335,8 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         return json(res, 200, { ok: true });
       }
       if (url.pathname === '/api/reports') {
+        if (body.reportLocation !== undefined && typeof body.reportLocation !== 'boolean') return json(res, 400, { error: 'Choose whether to add your current location.' });
+        const reportLocation = body.reportLocation === true ? position(body.position, now()) : undefined;
         let request;
         if (body.requestAssistance === true) {
           if (typeof body.requestId !== 'string' || !/^[a-zA-Z0-9_-]{8,100}$/.test(body.requestId)) return json(res, 400, { error: 'An assistance request reference is required.' });
@@ -275,8 +345,8 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
           if (existing) return json(res, 200, { id: existing.id });
           request = { requestId: body.requestId, destination: position(body.position, now()), state: 'looking', offers: [], events: [] };
         }
-        const incident = await workflow.submitReport({ text: body.text, zone: body.zone, category: body.category, immediateConcern: body.immediateConcern,
-          assistance: request,
+        const incident = await workflow.submitReport({ text: body.text, zone: body.zone, category: body.category, immediateConcern: body.immediateConcern, sensitive: body.sensitive,
+          assistance: request, location: reportLocation,
           ...(ctx.actor.role === 'volunteer' ? { volunteerId: ctx.actor.id } : { reporter: ctx.actor }) });
         assistance.tick();
         return json(res, 201, { id: incident.id });

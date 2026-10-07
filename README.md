@@ -6,7 +6,7 @@ The team is following [the original incident-response plan](docs/INCIDENT-MVP-DR
 
 Node.js is required; no package installation is needed.
 
-1. In a terminal in this folder, run `node server/index.cjs`.
+1. In a terminal in this folder, run `node server/index.cjs`. If your keys are saved in `.env`, use `node --env-file=.env server/index.cjs` instead so Maps and authorised AI settings load.
 2. Open [http://127.0.0.1:8765/](http://127.0.0.1:8765/).
 3. The event-goer reporting page opens without sign-in. Use fictional reports only.
 4. Click **Staff sign in**. On the first run, create the first Mo account with your own username and a password (both username and password may be any non-empty length). Enter passwords in the browser, never in chat.
@@ -17,11 +17,11 @@ Opening `index.html` directly is no longer supported: real accounts and permissi
 
 ## Try the workflow
 
-- As an event-goer, use **Use example text**, then **Send report**. Its reference and status appear under **Your reports**.
+- As an event-goer, use **Use example text**, then **Send report only**. Its reference and status appear under **Your reports**. Use **Send & request volunteer** to request attendance and share your current GPS; reporting alone does not request attendance.
 - Sign in as Mo to review it. Acknowledging or escalating keeps it open. Only explicit resolution closes it and records who confirmed and when.
 - Sign out to return to the same browser's event-goer history. Its original reporter can also confirm resolution.
 - In a private browser window, unrelated event-goer reports should not appear.
-- Volunteer accounts see their own reports and, when assignment is implemented, assigned incidents. They cannot read Mo's full queue or create accounts.
+- Volunteer accounts see their own reports and offered/assigned incident details. Available volunteers can choose ordinary waiting incidents or wait for Mo's offer. Other ordinary incidents appear as minimal pins/cards; private or unchecked reports wait for Mo's personal assignment. Volunteers cannot read Mo's full queue or create accounts.
 
 The server stores reports and password hashes in `.riverside/store.json`, excluded from Git and unavailable through the web server. Reports/accounts survive restarts. Staff sessions last up to eight hours and require sign-in again after a restart. Public report ownership uses a signed cookie lasting up to seven days; clearing that cookie loses access to the original reporter's history.
 
@@ -41,7 +41,7 @@ See [roles.md](roles.md) and [the API contract](docs/STARTER-CONTRACT.md).
 
 Report analysis and Q&A are implemented with separate server-side Jev and OpenRouter adapters. All three views have a question panel, permission-filtered sources and confirmed report drafts; Mo can submit a draft too. Live calls are disabled by default. Basic real responses are verified; wider model quality and Jev provider billing hard stops remain unverified and the fictional event guide awaits team approval. Follow [AI setup](docs/AI-SETUP.md) before enabling either provider. OpenRouter defaults to Nemotron 3 Super (free) with paid routes blocked. Small live checks and bounded interactive use are now authorised; notify before larger runs and do not silently expand allowances. No credit purchases, recharge or paid OpenRouter routes are authorised. See [model research](docs/OPENROUTER-MODELS.md).
 
-The team chose to keep the current stack. Voice, automatic assignment, coverage checks, maps and public deployment remain later tasks. The layout adapts below 720px, with large action buttons and a collapsible incident queue. See [the settled AI plan](docs/AI-PLAN.md).
+The team chose to keep the current stack. Voice, coverage checks and public deployment remain later tasks. Google Maps, GPS assistance, volunteer self-selection, private-report review and advisory volunteer ranking are implemented. Actual Google loading and three-role browser scenarios have been checked; physical-device GPS remains unverified. The layout adapts below 720px, with large action buttons and a collapsible incident queue. See [the settled AI plan](docs/AI-PLAN.md) and [map evidence/checklist](docs/OVERNIGHT-MVP-PLAN.md).
 
 ## Verification
 
@@ -53,4 +53,8 @@ Start each task branch from the latest `main`, commit small working steps, and h
 
 ### GPS assistance
 
-Use **Request a volunteer** in Ask Riverside, confirm an editable report and share GPS. Signed-in volunteers opt in with **Go available**. Mo sees offered/accepted responders and configures team-provided fictional first-aid stations. See [the setup and behaviour guide](docs/GPS-ASSISTANCE.md). No stations or volunteer passwords are seeded; real phone GPS needs HTTPS and permission.
+Use **Send & request volunteer** in the main report form to request attendance and share GPS. **Send report only** can optionally attach GPS without requesting attendance. Signed-in volunteers opt in with **Go available**. Mo sees offered/accepted responders, reviews private/unchecked reports and configures fictional first-aid stations. Three fictional University-area stations seed only when no saved settings exist; no volunteer passwords are seeded. See [the setup and behaviour guide](docs/GPS-ASSISTANCE.md). Real phone GPS needs HTTPS and permission.
+
+Attendees see their assigned volunteer's frozen starting ping, their own destination and a dotted grey-to-white progress curve. Moving volunteer positions stay on the staff maps. Mo can start/stop a clearly labelled fictional 90-second journey on an accepted assignment; it never marks arrival or resolves the incident. Mo's **Suggest with AI** button ranks eligible volunteers using free OpenRouter; Mo still chooses and sends the offer.
+
+For Google Maps, place a no-billing Maps Demo Key after `GOOGLE_MAPS_API_KEY=` in the ignored local `.env`, then start with `node --env-file=.env server/index.cjs`. The browser Maps key is served deliberately to Google Maps; AI provider keys remain server-only. Without a Maps key, the app lists fictional help stations and retains reporting/assignment controls. See [key setup and verification limits](docs/OVERNIGHT-MVP-PLAN.md#maps-credential-preparation).

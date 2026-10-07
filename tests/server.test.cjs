@@ -235,7 +235,7 @@ test('verified provider call allowance persists over restart and prevents excess
   let calls = 0;
   const options = { dataDir, aiEnv: { RIVERSIDE_JEV_ENABLED: 'true', TYPESAFE_API_KEY: 'test-placeholder' }, aiFetch: async () => {
     calls++;
-    return new Response(JSON.stringify({ answers: { category: { type: 'choice', choice: 'hazard', confidence: 0.9 }, urgency: { type: 'choice', choice: 'routine', confidence: 0.9 } } }));
+    return new Response(JSON.stringify({ answers: { category: { type: 'choice', choice: 'hazard', confidence: 0.9 }, urgency: { type: 'choice', choice: 'routine', confidence: 0.9 }, sensitivity: { type: 'choice', choice: 'ordinary', confidence: 0.9 } } }));
   } };
   let server = createApp(options);
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

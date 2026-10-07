@@ -14,8 +14,18 @@
   const notify = () => { persist(getState()); subscribers.forEach(callback => callback()); };
   // A stopped process cannot finish old calls. Do not spend credits retrying on restart.
   for (const incident of incidents) {
+    // Older saved classifications remain readable but cannot establish that
+    // a report is ordinary.
+    if (incident.sensitivityReview === undefined) {
+      incident.sensitivityReview = incident.analysis?.jev?.state === 'complete' ? 'legacy' :
+        incident.analysis?.jev?.state === 'failed' ? 'unavailable' : 'pending';
+    }
+    if (incident.sensitive === undefined) incident.sensitive = false;
     for (const provider of ['jev', 'luna']) {
-      if (incident.analysis?.[provider]?.state === 'pending') incident.analysis[provider] = { state: 'failed', reason: 'Analysis interrupted by server restart' };
+      if (incident.analysis?.[provider]?.state === 'pending') {
+        incident.analysis[provider] = { state: 'failed', reason: 'Analysis interrupted by server restart' };
+        if (provider === 'jev' && incident.sensitivityReview === 'pending') incident.sensitivityReview = 'unavailable';
+      }
     }
   }
 
@@ -38,18 +48,21 @@
     if (!text || text.length > 2000) throw new Error("Write a report between 1 and 2,000 characters.");
     const category = input.category || "other";
     if (!data.categories.some(item => item.id === category)) throw new Error("Choose a valid issue type.");
+    if (input.sensitive !== undefined && typeof input.sensitive !== 'boolean') throw new Error('Sensitivity flag must be true or false.');
 
     const number = ++sequence;
     const report = {
       id: `R-${number}`, volunteerId: volunteer ? volunteer.id : null, reporter, category, zone: input.zone, text,
-      immediateConcern: input.immediateConcern === true, time: now()
+      immediateConcern: input.immediateConcern === true, sensitive: input.sensitive === true, time: now()
     };
     const incident = {
       id: `I-${number}`, reportIds: [report.id], zone: report.zone,
       category: "unclassified", brief: "Awaiting human review",
       status: "open", attention: report.immediateConcern || /\bcrowd pressure\b|\bimmediate danger\b/i.test(report.text) ? "urgent" : "review",
+      sensitive: report.sensitive, sensitivityReview: 'pending',
       assignee: null, acknowledgedBy: null, resolvedBy: null, resolvedAt: null,
       ...(input.assistance ? { assistance: clone(input.assistance) } : {}),
+      ...(input.location ? { location: clone(input.location) } : {}),
       analysis: { jev: { state: "pending" }, luna: { state: "pending" } }, history: []
     };
     history(incident, reporter, "reported");
@@ -68,9 +81,17 @@
           if (reportGeneration !== generation) return;
           const keys = Object.keys(suggestion || {});
           if (provider === 'jev') {
-            if (keys.length !== 2 || !keys.includes('category') || !keys.includes('urgency') || !data.categories.some(item => item.id === suggestion.category) || !['routine', 'urgent', 'unclear'].includes(suggestion.urgency)) throw new Error('Invalid classification');
+            const legacy = keys.length === 2 && keys.includes('category') && keys.includes('urgency');
+            const current = keys.length === 3 && keys.includes('category') && keys.includes('urgency') && keys.includes('sensitivity');
+            if ((!legacy && !current) || !data.categories.some(item => item.id === suggestion.category) || !['routine', 'urgent', 'unclear'].includes(suggestion.urgency) || (current && !['ordinary', 'sensitive', 'unclear'].includes(suggestion.sensitivity))) throw new Error('Invalid classification');
             incident.category = suggestion.category;
             if (suggestion.urgency === 'urgent') incident.attention = 'urgent';
+            if (incident.sensitivityReview === 'pending') {
+              if (current) {
+                if (suggestion.sensitivity !== 'ordinary') incident.sensitive = true;
+                incident.sensitivityReview = 'complete';
+              } else incident.sensitivityReview = 'legacy';
+            }
           } else {
             if (keys.length !== 1 || typeof suggestion.summary !== 'string' || !suggestion.summary.trim() || suggestion.summary.length > 1200) throw new Error('Invalid summary');
             incident.brief = suggestion.summary.trim();
@@ -79,6 +100,7 @@
         } catch {
           if (reportGeneration !== generation) return;
           incident.analysis[provider] = { state: 'failed', reason: 'Analysis unavailable; original report retained for Mo' };
+          if (provider === 'jev' && incident.sensitivityReview === 'pending') incident.sensitivityReview = 'unavailable';
         }
         notify();
       });
@@ -119,6 +141,20 @@
     return clone(incident);
   }
 
+  function setSensitivity(incidentId, sensitive, actor, reason) {
+    const incident = incidents.find(item => item.id === incidentId);
+    if (!incident) throw new Error('Incident not found.');
+    if (!actor || actor.id !== 'mo' || actor.role !== 'mo') throw new Error('Only Mo can review sensitivity.');
+    if (incident.status === 'resolved') throw new Error('This incident is already confirmed resolved.');
+    if (typeof sensitive !== 'boolean') throw new Error('Sensitivity decision must be true or false.');
+    if (typeof reason !== 'string' || !reason.trim() || reason.trim().length > 500) throw new Error('Add a review reason of 1 to 500 characters.');
+    incident.sensitive = sensitive;
+    incident.sensitivityReview = 'reviewed';
+    incident.history.push({ actorId: actor.id, actorRole: actor.role, action: 'sensitivity reviewed', sensitive, reason: reason.trim(), time: now() });
+    notify();
+    return clone(incident);
+  }
+
   // Retain the saved counter so stale actions cannot target later reports, even after restart.
   function reset() {
     generation++;
@@ -134,7 +170,7 @@
       update(incident);
       notify();
     },
-    getState, submitReport, act, reset, whenIdle: () => Promise.all([...jobs]),
+    getState, submitReport, act, setSensitivity, reset, whenIdle: () => Promise.all([...jobs]),
     subscribe(callback) { subscribers.add(callback); return () => subscribers.delete(callback); }
   };
 });

@@ -1,5 +1,20 @@
 # Live AI verification — 7 October 2026
 
+## Additional map MVP checks — late evening
+
+After advance notice, one additional call per provider checked the new sensitivity and ranking features through the actual adapters and strict response validation:
+
+| Provider | Fictional input | Actual result |
+|---|---|---|
+| Jev `jev-latest` | An attendee asks to discuss harassment privately and restrict sharing | `category: other`, `urgency: unclear`, `sensitivity: sensitive`; this holds assignment for Mo |
+| OpenRouter `nvidia/nemotron-3-super-120b-a12b:free` | Two eligible candidates: nearby/same-zone and far/other-zone | Ranked the nearby/same-zone candidate first; returned both supplied IDs exactly once |
+
+These were **one Jev and one free OpenRouter request**, with no retries or paid fallback. Jev dollar cost and token counts were not collected; request latency was not measured correctly and is not reported. This is representative integration evidence, not a broad quality evaluation.
+
+The announced test limit was persisted separately in ignored `.riverside/map-ai-check-usage.json`, at one call per provider, with the existing spending-control evidence and original expiry. Both test calls are spent. The check did not open or write the active app's store, reset/expand its interactive ledger, renew approval dates, buy credits or enable recharge. Preserve the spent test ledger on rerun. The earlier interactive session numbers below describe their original handoff, not a new balance reading.
+
+Recorded requests across this document: **4 Jev and 3 OpenRouter**. Other user/chat activity is not included in that count.
+
 The user authorised two OpenRouter checks, small Jev checks and bounded interactive use of the local app. This is a record of actual responses, separate from simulated tests. No large run, balance-exhaustion test, new purchase, recharge or paid OpenRouter route was used.
 
 ## Checks performed through the real app

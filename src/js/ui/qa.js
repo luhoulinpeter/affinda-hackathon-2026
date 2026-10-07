@@ -76,14 +76,6 @@
       api.refresh().catch(() => {});
     } finally { if (version === generation) { asking = false; availability(); } }
   });
-  $('#request-volunteer').addEventListener('click', () => {
-    if (submitting || api.isIdentityChanging()) return;
-    const text = !$('#qa-draft').hidden ? $('#qa-draft-text').value : $('#qa-question').value || exchanges.at(-1)?.question || '';
-    if ($('#qa-draft').hidden) { $('#qa-draft-form').reset(); draftRequestId = crypto.randomUUID(); }
-    $('#qa-draft-text').value = text; $('#qa-draft-assistance').checked = true;
-    $('#qa-draft').hidden = false; $('#qa-draft-title').textContent = 'Assistance request draft · Not submitted yet';
-    $('#qa-draft-text').focus();
-  });
   $('#qa-draft-form').addEventListener('submit', async event => {
     event.preventDefault();
     if (submitting || api.isIdentityChanging()) return;
@@ -91,6 +83,7 @@
     submitting = true; availability(); $('#qa-feedback').textContent = 'Submitting report…';
     try {
       const input = { zone: $('#qa-draft-zone').value, category: $('#qa-draft-category').value, text: $('#qa-draft-text').value, immediateConcern: $('#qa-draft-urgent').checked };
+      if ($('#qa-draft-sensitive').checked) input.sensitive = true;
       if ($('#qa-draft-assistance').checked) {
         $('#qa-feedback').textContent = 'Getting GPS destination. Nothing has been submitted yet…';
         input.position = await window.RiversideAssistance.gps();
