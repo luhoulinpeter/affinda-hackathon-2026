@@ -10,9 +10,9 @@ function fixture({key='simulated-key',role='mo'}={}) {
   const get=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id)};
   const document={querySelector:get,createElement:node,dispatchEvent:e=>events.push(e),addEventListener(type,cb){documentListeners[type]=cb},head:{append(script){scripts.push(script);window.riversideGoogleReady()}}};
   let data={centre:{lat:0,lng:0},label:'Simulation',stations:[{id:'station-1',name:'Demo station',description:'Fictional',latitude:0,longitude:0}],incidents:[{id:'I-1',status:'open',assignee:'vol-priya',assistanceState:'accepted',initialDistanceMetres:200,position:{latitude:0,longitude:0}}],volunteers:[{id:'vol-priya',name:'Priya',state:'busy',fresh:true,position:{latitude:0,longitude:.001}}]};
-  class Marker {constructor(options){Object.assign(this,options);this.listeners={};createdMarkers.push(this)}addListener(type,cb){this.listeners[type]=cb}}
+  class Marker {constructor(options){Object.assign(this,options);this.listeners={};createdMarkers.push(this)}addEventListener(type,cb){this.listeners[type]=cb}}
   class Polyline {constructor(options){Object.assign(this,options);createdLines.push(this)}setPath(path){this.path=path}setMap(map){this.map=map}}
-  const libraries={Map:class {addListener(type,cb){mapListeners[type]=cb}setCenter(){}setZoom(){}fitBounds(bounds,padding){fits.push({bounds,padding})}},AdvancedMarkerElement:Marker,PinElement:class{constructor(options){Object.assign(this,options);this.element=this}},InfoWindow:class{close(){}setContent(content){popups.push(content)}open(){}}};
+  const libraries={Map:class {addListener(type,cb){mapListeners[type]=cb}setCenter(){}setZoom(){}fitBounds(bounds,padding){fits.push({bounds,padding})}},AdvancedMarkerElement:Marker,PinElement:class{constructor(options){Object.assign(this,options)}get element(){throw Error('Deprecated pin.element must not be used')}},InfoWindow:class{close(){}setContent(content){popups.push(content)}open(){}}};
   const api={getSession:()=>({user:currentRole==='public'?null:{role:currentRole}}),getIdentityVersion:()=>identity,isIdentityChanging:()=>false,getMapsConfig:async()=>({key,centre:{lat:0,lng:0}}),getMapData:async()=>{if(failData)throw Error('Disconnected');if(pendingData)return pendingData;return data},subscribe:cb=>subscribers.push(cb),onIdentityChange:cb=>identityCallbacks.push(cb),onConnectionChange:cb=>connectionCallbacks.push(cb)};
   const window={RiversideData:require('../data/fixtures.js'),RiversideAPI:api,RiversideMapGeometry:require('../src/js/domain/map.js'),google:{maps:{importLibrary:async()=>libraries,Polyline}}};
   vm.runInNewContext(fs.readFileSync('src/js/ui/map.js','utf8'),{window,document,CustomEvent:class{constructor(type,options={}){this.type=type;this.detail=options.detail}},setTimeout:()=>1,clearTimeout(){},requestAnimationFrame:cb=>{cb(1000);return 1},cancelAnimationFrame(){},performance:{now:()=>0}});
@@ -25,7 +25,7 @@ test('simulated Maps renderer draws staff pins and grey/white progress; Mo can s
     assert.equal(t.get('#live-map').hidden,false);assert.equal(t.get('#map-fallback').hidden,true);
     const incident=t.createdMarkers.find(m=>m.title.startsWith('I-1'));
     assert.equal(incident.gmpClickable,role==='mo');
-    if(role==='mo'){incident.listeners.click();assert.equal(t.events[0].detail,'I-1')}
+    if(role==='mo'){incident.listeners['gmp-click']();assert.equal(t.events[0].detail,'I-1')}
     assert.equal(t.createdLines[0].strokeOpacity,0); // dotted symbols, not a continuous stroke
     assert.equal(t.createdLines[0].icons[0].repeat,'12px');
     assert.equal(t.createdLines[0].icons[0].icon.fillColor,'#6a757c');assert.equal(t.createdLines[1].icons[0].icon.fillColor,'#ffffff');
@@ -97,7 +97,7 @@ test('zones are selectable public reference pins; only Mo can place a zone, and 
     for(const letter of ['A','B','C']) assert.equal(t.createdMarkers.find(m=>m.title===`Zone ${letter} · Test · event zone`).content.glyphText,letter);
     const zone=t.createdMarkers.find(m=>m.title==='Zone A · Test · event zone');assert.equal(zone.gmpClickable,true);
     data.zones[0].name='Zone D · Renamed';await t.refresh();assert.equal(zone.content.glyphText,'D');assert.equal(zone.title,'Zone D · Renamed · event zone');
-    zone.listeners.click();const popup=t.popups.at(-1);
+    zone.listeners['gmp-click']();const popup=t.popups.at(-1);
     assert.match(popup.children[2].textContent,/approximate.*not a boundary/);
     assert.equal(t.createdLines.length,0);assert.match(t.createdMarkers.find(m=>m.title.includes('I-1')).title,/approximate zone location/);
     if(role!=='mo') {

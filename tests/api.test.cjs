@@ -4,6 +4,36 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
+test('a tunnel HTML error is readable, does not retry submissions, and recovers on refresh', async () => {
+  let failed = false, posts = 0;
+  const notices = [];
+  const context = { window: { RiversideTab: { ready: Promise.resolve('11111111-1111-4111-8111-111111111111') } },
+    fetch: async (route, options) => {
+      if (options.method === 'POST') posts++;
+      if (failed) return { ok: false, status: 502, json: async () => { throw new SyntaxError('Unexpected token \'<\', "<!doctype " is not valid JSON'); } };
+      return { ok: true, json: async () => route === '/api/session' ? { liveUpdates: 'polling', csrf: 'same' } : { reports: [{ id: 'R-1' }], incidents: [] } };
+    } };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../src/js/services/api.js'), 'utf8'), context);
+  const api = context.window.RiversideAPI;
+  api.onConnectionChange(value => notices.push(value));
+  await api.refresh();
+  failed = true;
+  await assert.rejects(api.refresh(), /unreadable response \(HTTP 502\).*current event link/);
+  assert.equal(api.getState().reports[0].id, 'R-1');
+  await assert.rejects(api.submitReport({ text: 'Fictional report' }), error => !error.message.includes('Unexpected token') && error.message.includes('current event link'));
+  assert.equal(posts, 1, 'Never automatically repeat a possibly received submission');
+  failed = false;
+  await api.refresh();
+  assert.deepEqual(notices, [true, false, true]);
+});
+
+test('valid JSON permission errors keep the server explanation', async () => {
+  const context = { window: { RiversideTab: { ready: Promise.resolve('11111111-1111-4111-8111-111111111111') } },
+    fetch: async () => ({ ok: false, status: 403, json: async () => ({ error: 'Mo access required.' }) }) };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../src/js/services/api.js'), 'utf8'), context);
+  await assert.rejects(context.window.RiversideAPI.refresh(), { message: 'Mo access required.' });
+});
+
 test('polling-only session avoids unsupported event streams on temporary HTTPS links', async () => {
   let streams = 0, requests = 0;
   const context = { window: { RiversideTab: { ready: Promise.resolve('11111111-1111-4111-8111-111111111111') } },

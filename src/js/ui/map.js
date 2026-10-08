@@ -69,9 +69,9 @@
     if (!item) {
       const pin = new libraries.PinElement({ background: color, borderColor: '#ffffff', glyphColor: '#ffffff', glyphText: glyph, scale: 1 });
       const dot = document.createElement('span'); dot.className = 'map-start-dot';
-      const marker = new libraries.AdvancedMarkerElement({ map, position: latLng(position), title, content: kind === 'start' ? dot : pin.element, gmpClickable: !!click });
+      const marker = new libraries.AdvancedMarkerElement({ map, position: latLng(position), title, content: kind === 'start' ? dot : pin, gmpClickable: !!click });
       item = { marker, pin, current: latLng(position), click };
-      if (click) marker.addListener('click', () => item.click?.());
+      if (click) marker.addEventListener('gmp-click', () => item.click?.());
       markers.set(key, item);
     } else {
       item.marker.title = title;

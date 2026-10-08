@@ -23,7 +23,14 @@ window.RiversideAPI = (() => {
       headers: { 'X-Riverside-Tab': tabId, ...(body === undefined ? {} : { "Content-Type": "application/json", "X-CSRF-Token": session?.csrf || "" }) },
       ...(body === undefined ? {} : { method: "POST", body: JSON.stringify(body) })
     });
-    const result = await response.json();
+    let result;
+    try { result = await response.json(); }
+    catch {
+      // A disconnected tunnel can return an HTML error page, even though the
+      // app normally returns JSON. Keep that page out of user-facing errors.
+      const status = response.status ? ` (HTTP ${response.status})` : '';
+      throw new Error(`The event server returned an unreadable response${status}. Check your connection and that you are using the current event link.`);
+    }
     if (!response.ok) throw new Error(result.error || "Request failed.");
     return result;
   }
