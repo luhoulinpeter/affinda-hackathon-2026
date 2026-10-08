@@ -14,7 +14,7 @@ In local mode the server binds to `127.0.0.1` only. `PORT` changes the port; `RI
 - State-changing API calls require a session-bound CSRF token and same-origin requests. Login attempts are limited, and the server caps concurrent password-hashing work.
 - Only allowlisted browser assets are served. Account data, server code, environment files and Git files are not web assets.
 
-The local first-run setup is intended for the laptop operator. Temporary HTTPS phone access is configured through a loopback-only tunnel launcher; see [phone instructions](../docs/PHONE-HTTPS.md). Independent hosting remains unconfigured. Before a later deployment, configure HTTPS, secure cookies, permitted hosts, controlled administrator provisioning and a persistent data volume. Password reset and account recovery are not implemented; record your credentials privately.
+The local first-run setup is intended for the laptop operator. Temporary HTTPS phone access is configured through a loopback-only tunnel launcher; see [optional integration and phone setup](../SETUP.md). Independent hosting remains unconfigured. Before a later deployment, configure HTTPS, secure cookies, permitted hosts, controlled administrator provisioning and a persistent data volume. Password reset and account recovery are not implemented; record your credentials privately.
 
 The password-storage implementation follows [Node's crypto API](https://nodejs.org/api/crypto.html) and [OWASP's scrypt guidance](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#scrypt).
 
@@ -35,7 +35,7 @@ The server runs on any host that runs one long-running Node.js process (for exam
 
 **Live updates.** Browsers connected to `GET /api/events` are told immediately when reports or incidents change, then re-fetch their own permitted state. The interface's 6-second polling remains as a fallback. Local mode supports windows on this computer; configured HTTPS deployment supports remote browsers. Temporary tunnel HTTPS access is verified; independent hosting and physical phones remain unverified.
 
-**Demo reset.** Signed in as Mo, expand **Demo controls**, choose **Clear reports & incidents…**, then type **CLEAR** and confirm. This clears reports/incidents/assignments and pauses sharing; accounts, zones, stations, unique ID counter and cumulative provider usage are kept. The Mo-only `POST /api/reset` endpoint also remains available. See [demo instructions and verification](../docs/DEMO-CONTROLS.md). Never delete the data directory to prepare a presentation: that would also remove accounts and usage ledgers.
+**Demo reset.** Signed in as Mo, expand **Demo controls**, choose **Clear reports & incidents…**, then type **CLEAR** and confirm. This clears reports/incidents/assignments and pauses sharing; accounts, zones, stations, unique ID counter and cumulative provider usage are kept. The Mo-only `POST /api/reset` endpoint also remains available. See [judge demo instructions](../JUDGES.md). Never delete the data directory to prepare a presentation: that would also remove accounts and usage ledgers.
 
 One server process owns the JSON store, written atomically with private file permissions. Reports and accounts survive restarts; staff sessions are in memory. This is a prototype store, not a multi-process database.
 
@@ -43,4 +43,4 @@ Person 2 owns this entry point, account handling, the browser API adapter and wo
 
 ## AI configuration
 
-See [AI-SETUP.md](../docs/AI-SETUP.md). The server does not automatically load `.env`; use `node --env-file=.env server/index.cjs` with Node 20.6+ if using a local environment file. The API never returns keys. Provider flags alone cannot enable calls: valid operator approval is required. Ongoing approval relies on the user-configured API limits and records every attempt; bounded approval additionally enforces a local request allowance and expiry. Guide approval and provider enablement are separate. No real requests were made during implementation.
+See [SETUP.md](../SETUP.md). The server does not automatically load `.env`; use `node --env-file=.env server/index.cjs` with Node 20.6+ if using a local environment file. The API never returns keys. Provider flags alone cannot enable calls: valid operator approval is required. Ongoing approval relies on the user-configured API limits and records every attempt; bounded approval additionally enforces a local request allowance and expiry. Guide approval and provider enablement are separate. Basic live calls were checked during development; routine regression tests and judge mode use simulations.

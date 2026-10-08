@@ -159,7 +159,8 @@
         }
       }
       if (!configured) { config = await api.getMapsConfig(); if (!current()) return; configured = true; }
-      if (!config.key) { unavailable('Google Maps needs a demo key. Use Find first aid below to look up stations; reporting remains available.'); return; }
+      if (!libraries && window.HiVisDemoMapLibraries) libraries = window.HiVisDemoMapLibraries;
+      if (!config.key && !libraries) { unavailable('Google Maps needs a demo key. Use Find first aid below to look up stations; reporting remains available.'); return; }
       if (!libraries) { $('#map-status').textContent = 'Loading Google Maps…'; libraries = await loadGoogle(config.key); if (!current()) return; }
       if (failure) return;
       $('#live-map').hidden = false;

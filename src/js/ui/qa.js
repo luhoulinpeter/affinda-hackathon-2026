@@ -17,7 +17,7 @@
     const status = ['jev', 'luna'].map(name => {
       const provider = session.ai?.[name];
       const allowance = Number.isInteger(provider?.remainingCalls) ? ` (${provider.remainingCalls} calls left)` : '';
-      return `${name === 'jev' ? 'Jev' : 'OpenRouter'}: ${provider?.enabled ? 'live calls enabled' : provider?.reason || 'unavailable'}${allowance}`;
+      return `${name === 'jev' ? 'Jev' : 'OpenRouter'}: ${provider?.simulated ? 'simulated · no provider calls' : provider?.enabled ? 'live calls enabled' : provider?.reason || 'unavailable'}${allowance}`;
     }).join(' · ');
     $('#ai-status').textContent = status;
     $('#qa-availability').textContent = `${status}. ${session.guideApproved ? 'Fictional event guide approved.' : 'General event guide awaiting team approval. First-aid stations have separate Mo approval.'} Only your permitted records are used.`;
