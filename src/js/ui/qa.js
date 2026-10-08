@@ -36,7 +36,7 @@
     for (const exchange of exchanges) {
       const article = document.createElement('article'); article.className = 'qa-exchange';
       const question = document.createElement('p'); question.className = 'qa-question'; question.textContent = `You: ${exchange.question}`;
-      const answer = document.createElement('p'); answer.textContent = `Riverside: ${exchange.answer}`;
+      const answer = document.createElement('p'); answer.textContent = `Hi-Vis: ${exchange.answer}`;
       article.append(question, answer);
       for (const source of exchange.sources || []) {
         const details = document.createElement('details'); details.className = 'qa-source';

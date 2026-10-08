@@ -10,7 +10,7 @@
 
 ## What we're building
 - Official challenge: "Build an AI-powered product that helps Fieldday successfully deliver Riverside at a scale they've never operated before."
-- Project name and tagline: <TODO: team to decide>.
+- Project name: **Hi-Vis**, chosen by the user on 8 October (high-visibility vests); orange interface. Tagline: <TODO: team to decide>.
 - Track: **Track 3, Ground Control (Crew & Safety Operations), confirmed by the team on 7 October 2026.** Submission of the track-selection form has not been verified.
 - Users and problem: festival-goers and volunteers report on-site issues. Safety volunteers need assignments they can assess and escalate; Mo, the safety lead, needs to see urgent, stalled and mounting issues without approving every routine field assessment.
 - Current MVP direction: a browser app with public/volunteer incident reporting; a direct assignment offer to an eligible safety volunteer; volunteer acknowledgement, arrival, proposed resolution or escalation; Mo's alert queue and a zone map showing report counts and unresolved work. An incident stays open until Mo, its assigned volunteer or its original reporter explicitly confirms resolution. There is no automatic timeout or closure. The team is also considering volunteer voice reports, worker redistribution suggestions and a public help map.
@@ -18,6 +18,8 @@
 - Human workflow remains unchanged: an eligible volunteer can be offered an assessment without Mo's prior approval; the volunteer makes the first on-site safety judgement. Mo handles urgent, unclear, repeated or escalated situations. Neither Jev nor the LLM can confirm resolution, bypass eligibility rules or hide a report from its human workflow. Both provider connections have returned real responses; original reports are retained regardless of provider failures.
 
 ## Decisions
+
+- 8 October, Hi-Vis branding — User renamed the app Hi-Vis and chose orange. Updated visible app identity, favicon and shared interface palette. Full simulated suite **171/171 passed**; browser checks exercised reporting → Mo incident → Priya acceptance, dotted path/starting estimate and first-aid lookup, plus mobile layout/sign-in checks. Live HTTPS branding/map verified; no app restart, real report changes or live AI/Routes calls. [Evidence and limitations](docs/checks/HI-VIS-REBRAND.md).
 
 - 8 October, zone pin letters — Replaced generic Z glyphs with each named zone's letter (A/B/C for the samples), updating existing markers when Mo renames a zone. Custom names use their first character. **171/171 isolated simulated tests passed**, including all-role zone selection and rename refresh; live HTTPS Google map visually verified with A/B/C. No restart, saved report changes or live AI/Routes calls. [Live evidence](docs/checks/zone-letter-pins.png).
 

@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Riverside · Incident response starter</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23173c36'/%3E%3Ctext x='8' y='24' fill='white' font-size='24'%3ER%3C/text%3E%3C/svg%3E">
+  <title>Hi-Vis · Event safety</title>
+  <meta name="theme-color" content="#f97316">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23f97316'/%3E%3Ctext x='4' y='22' fill='%23321b0d' font-family='sans-serif' font-weight='700' font-size='16'%3EHV%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="src/css/app.css">
   <!-- MAP_NONCE -->
   <!-- Run node server/index.cjs, then open the local server URL. -->
@@ -23,11 +24,11 @@
 </head>
 <body>
   <header class="site-header">
-    <div class="brand"><span class="brand-icon" aria-hidden="true">R</span><div><strong>Riverside</strong><span>Incident response · team starter</span></div></div>
+    <div class="brand"><span class="brand-icon" aria-hidden="true">HV</span><div><strong>Hi-Vis</strong><span>Event safety · Incident response</span></div></div>
     <div class="account-controls"><span id="session-label" class="demo-label">Event-goer</span><button id="signin-button" type="button" class="header-button" disabled>Staff sign in</button><button id="signout-button" type="button" class="header-button" hidden>Sign out</button></div>
   </header>
   <main>
-    <div class="page-heading"><div><p id="page-eyebrow" class="eyebrow">Riverside festival</p><h1 id="page-title">Get help. Report an issue.</h1><p id="page-description">Tell the safety team what you saw and where it happened.</p></div></div>
+    <div class="page-heading"><div><p id="page-eyebrow" class="eyebrow">Hi-Vis · Event safety</p><h1 id="page-title">Get help. Report an issue.</h1><p id="page-description">Tell the safety team what you saw and where it happened.</p></div></div>
     <aside class="notice"><strong>Prototype · fictional data.</strong> Assistance offers reach volunteers using this app; no emergency service is connected. Keep the app open to receive offers. <span id="ai-status">Checking AI availability…</span></aside>
     <p id="feedback" class="feedback" role="status" aria-live="polite">Connecting to the server…</p>
 
@@ -111,7 +112,7 @@
       </div>
     </section>
     <section id="qa-panel" class="panel qa-panel" aria-labelledby="qa-title" hidden>
-      <div class="panel-heading"><h2 id="qa-title">Ask Riverside</h2><button id="qa-clear" type="button" class="secondary">Clear chat</button></div>
+      <div class="panel-heading"><h2 id="qa-title">Ask Hi-Vis</h2><button id="qa-clear" type="button" class="secondary">Clear chat</button></div>
       <p class="field-note">Ask about event information or reports you can access. Answers are AI-generated; check the sources. For immediate help, follow the event’s established emergency procedure.</p>
       <p id="qa-availability" class="field-note"></p>
       <div class="form-actions"><button id="find-first-aid" type="button" class="secondary">Find first aid</button></div>

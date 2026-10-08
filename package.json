@@ -1,7 +1,7 @@
 {
-  "name": "riverside",
+  "name": "hi-vis",
   "private": true,
-  "description": "Riverside incident response prototype (Affinda AI Innovation Challenge). No dependencies.",
+  "description": "Hi-Vis event safety prototype (Affinda AI Innovation Challenge). No dependencies.",
   "engines": {
     "node": ">=20"
   },
