@@ -13,11 +13,12 @@ const { mapData } = require('./maps.cjs');
 const { createAssignmentRecommendations } = require('./assignment-recommendations.cjs');
 const { createVolunteerClaims } = require('./volunteer-claims.cjs');
 const { createDemoJourneys } = require('./demo-journeys.cjs');
+const { createWalkingEstimates } = require('./walking-estimates.cjs');
 const mapDemo = require('../data/map-demo.json');
 const root = path.resolve(__dirname, '..');
 
 // A public origin enables HTTPS deployment and disables browser first-account setup.
-function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = null, secureCookies = false, eventStreams = true, aiProviders, guide, aiEnv = process.env, aiFetch, now = Date.now } = {}) {
+function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = null, secureCookies = false, eventStreams = true, aiProviders, guide, aiEnv = process.env, aiFetch, routesFetch, now = Date.now } = {}) {
   let deployed = null;
   if (publicOrigin !== null) {
     try { deployed = new URL(publicOrigin); } catch { throw new Error('PUBLIC_ORIGIN must be an HTTPS origin.'); }
@@ -70,6 +71,14 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
   const rankingActive = new Set();
   const volunteerClaims = createVolunteerClaims({ workflow, assistance, roster: data.volunteers, now });
   const demoJourneys = createDemoJourneys({ now });
+  const walkingEstimates = createWalkingEstimates({ now, fetchImpl: routesFetch,
+    enabled: aiEnv.RIVERSIDE_GOOGLE_ROUTES_ENABLED === 'true', key: aiEnv.GOOGLE_ROUTES_API_KEY || '',
+    reserve() {
+      const limit = Number(aiEnv.RIVERSIDE_GOOGLE_ROUTES_MAX_CALLS || 0);
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000 || (db.routesUsage || 0) >= limit) return false;
+      db.routesUsage = (db.routesUsage || 0) + 1; save(); return true;
+    }
+  });
   assistanceTimer.unref();
   const loginAttempts = new Map();
   const dummy = { salt: randomBytes(16).toString('hex'), hash: randomBytes(64).toString('hex') };
@@ -180,6 +189,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'same-origin');
+    res.setHeader('Permissions-Policy', 'geolocation=(self)');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     const nonce = randomBytes(18).toString('base64');
     if (mapsKey) res.setHeader('Content-Security-Policy', `default-src 'self'; script-src 'self' 'nonce-${nonce}' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com; style-src 'self' 'nonce-${nonce}' https://fonts.googleapis.com; img-src 'self' data: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com; connect-src 'self' https://*.googleapis.com https://*.google.com https://*.gstatic.com data: blob:; font-src 'self' https://fonts.gstatic.com; frame-src https://*.google.com; worker-src blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`);
@@ -205,7 +215,28 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       if (req.method === 'GET' && url.pathname === '/api/available-incidents') return json(res, 200, { incidents: volunteerClaims.list(ctx.actor) });
       if (req.method === 'GET' && url.pathname === '/api/map-data') {
         const presence = assistance.snapshot({ role: 'mo' }).presence;
-        return json(res, 200, mapData(ctx.actor, workflow.getState(), presence, db.helpStations, now(), demoJourneys));
+        const state = workflow.getState();
+        const visible = mapData(ctx.actor, state, presence, db.helpStations, now(), demoJourneys);
+        const estimates = await Promise.all(visible.incidents.map(async pin => {
+          const incident = state.incidents.find(i => i.id === pin.id);
+          return { id: pin.id, signature: walkingEstimates.signature(incident),
+            estimate: await walkingEstimates.get(incident, presence.find(p => p.id === incident.assignee), demoJourneys.project(incident)) };
+        }));
+        // Recheck permissions/lifecycle after the network wait. A resolution,
+        // reassignment or privacy change must not resurrect a previous journey.
+        if (ctx.token && (!sessions.has(ctx.token) || sessions.get(ctx.token).expires <= now())) return json(res, 401, { error: 'Session changed. Refresh and try again.' });
+        const currentPresence = assistance.snapshot({ role: 'mo' }).presence;
+        const currentState = workflow.getState();
+        const result = mapData(ctx.actor, currentState, currentPresence, db.helpStations, now(), demoJourneys);
+        for (const pin of result.incidents) {
+          const incident = currentState.incidents.find(i => i.id === pin.id);
+          const found = estimates.find(e => e.id === pin.id && e.signature === walkingEstimates.signature(incident));
+          if (found?.estimate && ['accepted', 'arrived'].includes(pin.assistanceState)) {
+            pin.walkingEstimate = found.estimate.state === 'ready' && pin.progress === null
+              ? { state: 'unavailable', label: 'Volunteer location is no longer current' } : found.estimate;
+          }
+        }
+        return json(res, 200, result);
       }
       if (req.method === 'GET' && url.pathname === '/api/stations') return json(res, 200, ctx.actor.role === 'mo' ? db.helpStations || { enabled: false, stations: [] } : { enabled: db.helpStations?.enabled === true, stations: db.helpStations?.enabled ? db.helpStations.stations : [] });
       if (req.method === 'GET' && url.pathname === '/api/events') {

@@ -7,6 +7,7 @@ const { randomBytes, randomUUID } = require('node:crypto');
 const { createApp } = require('../server/index.cjs');
 
 async function main() {
+  const walkingDemo = process.env.RIVERSIDE_DEMO_WALKING === 'true';
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'riverside-recording-'));
   const providers = {
     status: () => ({}),
@@ -14,22 +15,25 @@ async function main() {
     summarise: async () => ({ summary: 'Fictional attendee needs a volunteer near the south lawn. Simulated analysis.' })
   };
   const server = createApp({ dataDir, aiProviders: providers,
-    aiEnv: { GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY || '' } });
+    ...(walkingDemo ? { routesFetch: async () => ({ ok: true, json: async () => ({ routes: [{ duration: '90s', warnings: ['Simulated routing response for UI verification.'] }] }) }) } : {}),
+    aiEnv: { GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY || '',
+      ...(walkingDemo ? { GOOGLE_ROUTES_API_KEY: 'simulation-only', RIVERSIDE_GOOGLE_ROUTES_ENABLED: 'true', RIVERSIDE_GOOGLE_ROUTES_MAX_CALLS: '100' } : {}) } });
   // The fixture is loaded only by this loopback sandbox, before the real UI code.
   // All form submissions, permission checks, offers and map rendering stay real.
   const gps = `(() => {
     const volunteer = new URLSearchParams(location.search).get('demo-role') === 'volunteer';
+    const denied = new URLSearchParams(location.search).get('demo-gps') === 'denied';
     const position = () => ({ coords: { latitude: volunteer ? -37.7958 : -37.7992,
       longitude: volunteer ? 144.9612 : 144.962, accuracy: 8 }, timestamp: Date.now() });
     let next = 0; const watches = new Map();
     Object.defineProperty(navigator, 'geolocation', { value: {
-      getCurrentPosition(ok) { setTimeout(() => ok(position()), 20); },
+      getCurrentPosition(ok, fail) { setTimeout(() => denied ? fail({ code: 1 }) : ok(position()), 20); },
       watchPosition(ok) { const id = ++next; ok(position()); watches.set(id, setInterval(() => ok(position()), 10000)); return id; },
       clearWatch(id) { clearInterval(watches.get(id)); watches.delete(id); }
     }});
     document.addEventListener('DOMContentLoaded', () => {
       const banner = document.createElement('div'); banner.className = 'recording-banner';
-      banner.textContent = 'RECORDING SANDBOX · Fictional GPS + simulated AI · Separate test data';
+      banner.textContent = 'RECORDING SANDBOX · Fictional GPS + simulated AI${walkingDemo ? ' + simulated routing' : ''} · Separate test data';
       document.body.prepend(banner);
     });
   })();`;

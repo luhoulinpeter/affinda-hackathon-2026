@@ -21,6 +21,7 @@
     lines.clear();
     info?.close();
     $('#map-summary').textContent = '';
+    $('#map-estimates').replaceChildren();
   }
   function loadGoogle(key) {
     if (loader) return loader;
@@ -129,6 +130,18 @@
       const fresh = data.volunteers.filter(v => !v.demo && v.fresh && geometry.valid(v.position)).length;
       const simulated = data.volunteers.filter(v => v.demo && geometry.valid(v.position)).length;
       $('#map-summary').textContent = role === 'public' ? `${data.stations.length} fictional first-aid stations${data.incidents.length ? ` · ${data.incidents.length} assigned request${data.incidents.length === 1 ? '' : 's'} shown` : ''}` : `${data.incidents.length} incidents · ${unlocated} without a map position · ${fresh} volunteers sharing a current position${simulated ? ` · ${simulated} simulated journey` : ''}`;
+      $('#map-estimates').replaceChildren();
+      for (const incident of data.incidents.filter(i => i.walkingEstimate)) {
+        const estimate = incident.walkingEstimate, row = document.createElement('p');
+        const age = Number.isFinite(estimate.estimatedAt) ? Math.max(0, Math.floor((data.serverTime - estimate.estimatedAt) / 60000)) : 0;
+        row.textContent = `${incident.id} · ${estimate.label}${estimate.state === 'ready' ? ` on foot · Google Maps estimate${age ? ` · checked ${age} min ago` : ''}` : ''}${incident.demo ? ' · simulated location' : ''}`;
+        $('#map-estimates').append(row);
+        if (estimate.state === 'ready') {
+          const warning = document.createElement('p');
+          warning.textContent = [...(estimate.warnings || []), 'Walking routes may be missing sidewalks or pedestrian paths. Follow on-site access instructions; arrival needs volunteer confirmation.'].join(' ');
+          $('#map-estimates').append(warning);
+        }
+      }
       if (!configured) { config = await api.getMapsConfig(); if (!current()) return; configured = true; }
       if (!config.key) { unavailable('Google Maps needs a demo key. Use Find first aid below to look up stations; reporting remains available.'); return; }
       if (!libraries) { $('#map-status').textContent = 'Loading Google Maps…'; libraries = await loadGoogle(config.key); if (!current()) return; }

@@ -37,6 +37,7 @@
       <div id="map-fallback" class="map-fallback"><strong>Google Maps is not connected yet.</strong><p>You can still report an issue and request help below.</p></div>
       <div class="map-legend"><span><i class="legend-dot station-dot"></i>Fictional first aid</span><span id="staff-map-legend" hidden><i class="legend-dot volunteer-dot"></i>Volunteer <i class="legend-dot incident-dot"></i>Incident</span><span id="public-map-legend" hidden><i class="legend-dot volunteer-dot"></i>Volunteer start <i class="legend-dot incident-dot"></i>Your request</span></div>
       <p id="map-summary" class="field-note"></p>
+      <div id="map-estimates" class="field-note" aria-live="polite"></div>
       <p id="map-privacy" class="field-note">First-aid pins are fictional demo placements, not real facilities.</p>
     </section>
 
@@ -77,6 +78,7 @@
     <section id="volunteer-assistance" class="panel" hidden aria-labelledby="volunteer-help-title">
       <h2 id="volunteer-help-title">Volunteer assistance</h2><p class="field-note">General helpers · attendance does not imply medical qualifications. Go available shares location with Mo and other volunteers until you press Pause or sign out. Sharing stays on after you finish an incident, and you become available for another. Your assigned requester sees your starting location and progress, not your moving position. Keep the app open; background updates depend on your browser. Old fixes expire after 10 minutes without updates.</p>
       <div class="form-actions"><button id="go-available" type="button" class="primary">Go available</button><button id="pause-volunteer" type="button" class="secondary">Pause</button></div>
+      <details class="field-note"><summary>No location popup on iPhone?</summary><p>In Safari’s page menu, open Website Settings → Location → Ask or Allow. In iPhone Settings → Privacy &amp; Security → Location Services → Safari Websites, allow location while using Safari and turn Precise Location on. Then return and tap Go available again. A previous denial can prevent another popup.</p></details>
       <p id="presence-feedback" class="feedback" role="status"></p><div id="volunteer-offers" aria-live="polite"></div>
       <h3>Choose an incident</h3><p class="field-note">Go available to choose an ordinary incident, or wait for the safety lead to send you an offer. Details unlock after you accept. Private reports are assigned by the safety lead.</p><div id="available-incidents" aria-live="polite"></div><p id="claim-feedback" class="feedback" role="status"></p>
     </section>
@@ -93,6 +95,7 @@
             <label class="checkbox-label"><input id="immediate-concern" type="checkbox" name="immediateConcern"> Flag an immediate safety concern</label>
             <label class="checkbox-label"><input id="report-sensitive" type="checkbox"> Contains sensitive information</label>
             <p id="report-request-note" class="field-note">“Use my location” shares your current GPS location with the safety team when you send. Choose a zone instead if location access is unavailable. Sending a report does not request a volunteer; choose “Send &amp; request volunteer” if you want someone to come.</p>
+            <details class="field-note"><summary>No location popup on iPhone?</summary><p>Enter your report text before tapping Send. If location is blocked, open Safari’s page menu → Website Settings → Location → Ask or Allow. Also check iPhone Settings → Privacy &amp; Security → Location Services → Safari Websites, allow access while using Safari and turn Precise Location on. Return and try Send again. You can choose a zone to send a report without GPS.</p></details>
             <div class="form-actions"><button class="primary" type="submit">Send report only</button><button id="request-volunteer" type="submit" class="secondary" aria-describedby="report-request-note">Send &amp; request volunteer</button><button id="example-report" type="button" class="secondary">Use example text</button></div>
             <p id="report-feedback" class="feedback" role="status" aria-live="polite"></p>
             <p class="field-note">Submitting a report does not guarantee a response. Follow the event’s established emergency procedure for immediate help.</p>

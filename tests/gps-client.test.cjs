@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 function browserFixture(options = {}) {
   let time=1000000, identity=0, delayed=false, pending;
-  const elements=new Map(), documentEvents=new Map(), timers=new Map(), subscribers=[], identityListeners=[], calls=[];
+  const elements=new Map(), documentEvents=new Map(), timers=new Map(), deadlines=new Map(), subscribers=[], identityListeners=[], calls=[];
   const node=()=>({hidden:false,disabled:false,textContent:'',children:[],listeners:new Map(),addEventListener(type,callback){this.listeners.set(type,callback)},replaceChildren(){this.children=[]},append(child){this.children.push(child)}});
   const get=id=>{if(!elements.has(id))elements.set(id,node());return elements.get(id)};
   const document={hidden:false,querySelector:get,querySelectorAll:()=>[],addEventListener:(event,callback)=>documentEvents.set(event,callback),createElement:node};
@@ -14,10 +14,10 @@ function browserFixture(options = {}) {
   const api={getSession:()=>({user:{id:'vol-priya',role:'volunteer'},guest:{id:'guest-test'}}),getState:()=>({serverTime:options.cachedClock ? 1000000 : time,presence:[presence],incidents:[],reports:[]}),getIdentityVersion:()=>identity,isIdentityChanging:()=>false,subscribe:cb=>subscribers.push(cb),onIdentityChange:cb=>identityListeners.push(cb),async setPresence(body){calls.push(body);if(options.refreshWhileStarting){subscribers.forEach(cb=>cb());await Promise.resolve()}presence=body.available?{id:'vol-priya',state:'available',eligible:true,fresh:true,position:body.position,expiresAt:time+600000}:{id:'vol-priya',state:'paused',fresh:false};subscribers.forEach(cb=>cb());return {serverTime:time,presence:[presence]}},async refresh(){subscribers.forEach(cb=>cb())}};
   class Clock extends Date {static now(){return time}}
   const window={RiversideAPI:api,RiversideData:require('../data/fixtures.js'),isSecureContext:true};
-  const context={window,document,navigator:{geolocation},Date:Clock,setInterval:(cb,ms)=>{const id=timers.size+1;timers.set(id,{cb,ms});return id},clearInterval:id=>timers.delete(id)};
+  const context={window,document,navigator:{geolocation},Date:Clock,setInterval:(cb,ms)=>{const id=timers.size+1;timers.set(id,{cb,ms});return id},clearInterval:id=>timers.delete(id),setTimeout:(cb,ms)=>{const id=deadlines.size+1;deadlines.set(id,{cb,ms});return id},clearTimeout:id=>deadlines.delete(id)};
   vm.runInNewContext(fs.readFileSync('src/js/ui/assistance.js','utf8'),context);
   subscribers.forEach(cb=>cb());
-  return {assistance:window.RiversideAssistance,calls,document,documentEvents,timers,get,advance:n=>{time+=n},watch:()=>watching?.(coords()),click:id=>get(id).listeners.get('click')(),setDelayed:()=>{delayed=true},resolveGps:()=>pending(coords()),setServerPresence:patch=>{presence={...presence,...patch};subscribers.forEach(cb=>cb())},changeIdentity:()=>{identity++;identityListeners.forEach(cb=>cb())}};
+  return {assistance:window.RiversideAssistance,calls,document,documentEvents,timers,deadlines,get,advance:n=>{time+=n},watch:()=>watching?.(coords()),click:id=>get(id).listeners.get('click')(),setDelayed:()=>{delayed=true},resolveGps:()=>pending(coords()),setServerPresence:patch=>{presence={...presence,...patch};subscribers.forEach(cb=>cb())},changeIdentity:()=>{identity++;identityListeners.forEach(cb=>cb())}};
 }
 const flush=async()=>{for(let i=0;i<10;i++)await Promise.resolve()};
 test('GPS uploads are throttled and tab switching preserves the sharing session',async()=>{
@@ -88,4 +88,12 @@ test('first-aid lookup retains feedback and map guidance without reintroducing s
   t.assistance.showStations({answer:'Station information unavailable.',stations:[]});
   assert.equal(t.get('#help-feedback').textContent,'Station information unavailable.');
   assert.equal(t.get('#first-aid-results').children.length,0);
+});
+
+test('a silent location provider releases the volunteer controls; a late fix cannot start sharing',async()=>{
+  const t=browserFixture();t.setDelayed();const starting=t.click('#go-available');
+  const timeout=[...t.deadlines.values()].find(v=>v.ms===30000);assert.ok(timeout);timeout.cb();await starting;
+  assert.equal(t.get('#go-available').disabled,false);assert.equal(t.calls.length,0);
+  assert.match(t.get('#presence-feedback').textContent,/has not responded.*Safari Website Settings/);
+  t.resolveGps();await flush();assert.equal(t.calls.length,0);
 });

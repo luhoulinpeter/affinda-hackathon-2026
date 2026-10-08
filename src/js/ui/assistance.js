@@ -19,18 +19,26 @@ window.RiversideAssistance = (() => {
     return `<section class="assistance-status"><h3>Offer to a volunteer</h3><p class="field-note">Mo chooses a helper; they must accept or decline within 60 seconds. ${i.assistance?.destination ? '' : 'This report has a zone but no GPS destination; nearest matching is unavailable.'}</p><form data-manual-offer="${escape(i.id)}"><label>Volunteer<select name="volunteerId" required ${blocked ? 'disabled' : ''}><option value="">Choose an available volunteer</option>${options}</select></label><button type="submit" class="primary" ${blocked ? 'disabled' : ''}>Send volunteer offer</button></form>${blocked ? '<p class="field-note">Stop the current assistance offer or assignment before choosing another helper.</p>' : ''}${!i.assistance?.destination ? '<button type="button" class="secondary" disabled>Retry matching · needs requester GPS</button>' : ''}</section>`;
   }
   function locationError(error) {
-    if (error.code === 1) return new Error('Location access is blocked. Allow location for this website and for your browser in your device’s Location Services, then try again. Reports still work without GPS.');
+    if (error.code === 1) return new Error('Location access is blocked. On iPhone: Safari page menu → Website Settings → Location → Ask or Allow. Then Settings → Privacy & Security → Location Services → Safari Websites → While Using the App, with Precise Location on. Return here and tap the same button again. Safari may not show another popup after a previous denial. Reports still work without GPS by choosing a zone.');
     if (error.code === 3) return new Error('Location timed out after 15 seconds. Keep this page visible and try again where your device can get a location. Reports still work without GPS.');
     return new Error('Your browser could not get a location (position unavailable). Check your device’s Location Services and browser permission. If this persists in the embedded browser, open this same address in Safari or Chrome. Reports still work without GPS.');
   }
   function gps() {
     if (!window.isSecureContext || !navigator.geolocation) return Promise.reject(new Error('GPS needs a supported browser and HTTPS (or localhost on this computer).'));
-    return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(p => {
+    return new Promise((resolve, reject) => {
+      // Some browser/OS permission failures never invoke either callback. Keep
+      // the form recoverable and ignore a fix arriving after this attempt ends.
+      let settled = false;
+      const finish = (callback, value) => { if (settled) return; settled = true; clearTimeout(deadline); callback(value); };
+      const deadline = setTimeout(() => finish(reject, new Error('Your browser has not responded to the location request. If no popup appeared on iPhone, check Safari Website Settings → Location and iPhone Location Services → Safari Websites. Keep this page open and try again; your report has not been sent.')), 30000);
+      try { navigator.geolocation.getCurrentPosition(p => {
       const pos = { latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: p.coords.accuracy, capturedAt: p.timestamp };
-      if (!Number.isFinite(pos.accuracy) || pos.accuracy < 0 || pos.accuracy > 100) reject(new Error(`Location accuracy ${Number.isFinite(pos.accuracy) && pos.accuracy >= 0 ? `is ±${Math.ceil(pos.accuracy)} metres` : 'is unavailable'}; volunteer attendance needs 100 metres or better. Try a clearer location or another device. Reports still work without GPS.`));
-      else if (!Number.isFinite(pos.capturedAt) || Date.now() - pos.capturedAt > 60000 || pos.capturedAt > Date.now() + 5000) reject(new Error('The location timestamp is stale or invalid. Check your device’s clock and try again.'));
-      else resolve(pos);
-    }, error => reject(locationError(error)), { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }));
+      if (!Number.isFinite(pos.accuracy) || pos.accuracy < 0 || pos.accuracy > 100) finish(reject, new Error(`Location accuracy ${Number.isFinite(pos.accuracy) && pos.accuracy >= 0 ? `is ±${Math.ceil(pos.accuracy)} metres` : 'is unavailable'}; volunteer attendance needs 100 metres or better. Try a clearer location or another device. Reports still work without GPS.`));
+      else if (!Number.isFinite(pos.capturedAt) || Date.now() - pos.capturedAt > 60000 || pos.capturedAt > Date.now() + 5000) finish(reject, new Error('The location timestamp is stale or invalid. Check your device’s clock and try again.'));
+      else finish(resolve, pos);
+      }, error => finish(reject, locationError(error)), { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }); }
+      catch { finish(reject, new Error('The browser could not start a location request. Check Safari website permission and iPhone Location Services, then try again.')); }
+    });
   }
   function incidentHTML(i) {
     const a = i.assistance; if (!a) return moOfferHTML(i);
