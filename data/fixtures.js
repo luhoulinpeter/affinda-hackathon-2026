@@ -12,7 +12,8 @@ const riversideFixtures = {
     { id: "current-location", name: "GPS location" },
     { id: "zone-a", name: "Zone A · Main stage" },
     { id: "zone-b", name: "Zone B · Water tent" },
-    { id: "zone-c", name: "Zone C · Entry" }
+    { id: "zone-c", name: "Zone C · Entry" },
+    { id: "demo-location", name: "Use demo location · fictional" }
   ],
   volunteers: [
     { id: "vol-priya", name: "Priya (fictional)", zone: "zone-a" },

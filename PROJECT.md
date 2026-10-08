@@ -19,6 +19,8 @@
 
 ## Decisions
 
+- 8 October, demo controls — User requested a fresh demo and a location option for testing. Mo now has a typed-CLEAR confirmation to clear reports/incidents/assignments and pause sharing while retaining accounts, configuration, unique IDs and cumulative API usage. Main and AI-draft forms offer **Use demo location · fictional**, using a server-owned campus point without attendee GPS; live Google routing is skipped for these destinations. **174/174 simulated tests passed** plus denied-GPS browser submissions, labelled staff pins and confirmation/cancel checks. Live HTTPS dropdown and privacy verified; app restarted on the same tunnel, saved setup/reports retained. [Instructions and measured results](docs/DEMO-CONTROLS.md).
+
 - 8 October, Hi-Vis branding — User renamed the app Hi-Vis and chose orange. Updated visible app identity, favicon and shared interface palette. Full simulated suite **171/171 passed**; browser checks exercised reporting → Mo incident → Priya acceptance, dotted path/starting estimate and first-aid lookup, plus mobile layout/sign-in checks. Live HTTPS branding/map verified; no app restart, real report changes or live AI/Routes calls. [Evidence and limitations](docs/checks/HI-VIS-REBRAND.md).
 
 - 8 October, zone pin letters — Replaced generic Z glyphs with each named zone's letter (A/B/C for the samples), updating existing markers when Mo renames a zone. Custom names use their first character. **171/171 isolated simulated tests passed**, including all-role zone selection and rename refresh; live HTTPS Google map visually verified with A/B/C. No restart, saved report changes or live AI/Routes calls. [Live evidence](docs/checks/zone-letter-pins.png).

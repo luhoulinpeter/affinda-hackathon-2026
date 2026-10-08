@@ -106,7 +106,7 @@
     });
     data.stations.forEach(s => point('station', s.id, s, `${s.name} · fictional`, '#14796a', '+', () => stationDetails(s), seen));
     data.volunteers.filter(v => v.fresh && geometry.valid(v.position)).forEach(v => point('volunteer', v.id, v.position, `${v.name} · ${v.state}${v.demo ? ' · simulated movement' : ''}`, v.state === 'busy' ? '#7e729d' : '#225c9e', 'V', null, seen));
-    data.incidents.filter(i => geometry.valid(i.position)).forEach(i => point('incident', i.id, i.position, `${role === 'public' ? 'Your request · ' : ''}${i.id} · ${i.status}${i.locationKind === 'zone' ? ' · approximate zone location' : ''}`, i.status === 'resolved' ? '#677c73' : '#be5c36', role === 'public' ? '●' : '!', role === 'mo' ? () => document.dispatchEvent(new CustomEvent('riverside-map-select', { detail: i.id })) : null, seen));
+    data.incidents.filter(i => geometry.valid(i.position)).forEach(i => point('incident', i.id, i.position, `${role === 'public' ? 'Your request · ' : ''}${i.id} · ${i.status}${i.demoLocation ? ' · fictional demo location' : i.locationKind === 'zone' ? ' · approximate zone location' : ''}`, i.status === 'resolved' ? '#677c73' : '#be5c36', role === 'public' ? '●' : '!', role === 'mo' ? () => document.dispatchEvent(new CustomEvent('riverside-map-select', { detail: i.id })) : null, seen));
     data.incidents.filter(i => geometry.valid(i.startPosition) && geometry.valid(i.position) && ['accepted', 'arrived'].includes(i.assistanceState)).forEach(i => point('start', i.id, i.startPosition, `${i.id} · volunteer starting location${i.demo ? ' · fictional movement demo' : ''}`, '#225c9e', '●', null, seen));
     markers.forEach((item, key) => {
       if (!seen.has(key)) { if (item.animation) cancelAnimationFrame(item.animation); item.marker.map = null; markers.delete(key); }
@@ -174,7 +174,7 @@
         });
       }
       const staleJourney = data.incidents.some(i => i.assignee && ['accepted', 'arrived'].includes(i.assistanceState) && i.progress === null);
-      $('#map-status').textContent = pickingZone ? 'Tap the map to place the zone reference point. Save event zones to publish it.' : `${data.label}. ${data.incidents.some(i => i.demo) ? 'Fictional movement demo active; these journey positions are simulated.' : staleJourney ? 'Volunteer GPS progress is unavailable. Arrival still needs human confirmation.' : 'Positions update while devices share GPS.'}`;
+      $('#map-status').textContent = pickingZone ? 'Tap the map to place the zone reference point. Save event zones to publish it.' : `${data.label}. ${data.incidents.some(i => i.demo) ? 'Fictional movement demo active; these journey positions are simulated.' : staleJourney ? 'Volunteer GPS progress is unavailable. Arrival still needs human confirmation.' : data.incidents.some(i => i.demoLocation) ? 'Demo requester locations are fictional test points; volunteer positions update while devices share GPS.' : 'Positions update while devices share GPS.'}`;
       draw(data, role);
     } catch {
       if (!current()) return;

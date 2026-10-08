@@ -37,12 +37,12 @@
     cancelPick(); fields.replaceChildren(); config.zones.forEach(row); version = config.version; dirty = false;
   }
   function choices(config) {
-    window.RiversideData.zones = [{ id: 'current-location', name: 'GPS location' }, ...config.zones];
+    window.RiversideData.zones = [{ id: 'current-location', name: 'GPS location' }, { id: 'demo-location', name: 'Use demo location · fictional' }, ...config.zones];
     for (const selector of ['#zone', '#qa-draft-zone']) {
       const select = $(selector), selected = select.value || 'current-location'; select.replaceChildren();
       const option = (id, name, disabled = false) => { const o = document.createElement('option'); o.value = id; o.textContent = name; o.disabled = disabled; select.append(o); };
-      option('current-location', 'Use my location'); config.zones.filter(z => z.active).forEach(z => option(z.id, z.name));
-      if (selected !== 'current-location' && !config.zones.some(z => z.id === selected && z.active)) {
+      option('current-location', 'Use my location'); option('demo-location', 'Use demo location · fictional'); config.zones.filter(z => z.active).forEach(z => option(z.id, z.name));
+      if (!['current-location', 'demo-location'].includes(selected) && !config.zones.some(z => z.id === selected && z.active)) {
         option(selected, `${config.zones.find(z => z.id === selected)?.name || 'Previous zone'} · unavailable — choose another`, true);
       }
       select.value = selected;

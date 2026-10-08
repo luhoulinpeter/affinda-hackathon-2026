@@ -44,7 +44,7 @@ function createDemoJourneys({ now = Date.now } = {}) {
     };
   }
 
-  return { start, stop, project };
+  return { start, stop, project, reset: () => activeJourneys.clear() };
 }
 
 module.exports = { createDemoJourneys, DURATION_MS };

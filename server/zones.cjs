@@ -18,7 +18,7 @@ function validateZones(body, existing = []) {
 }
 function sampleZones() {
   const centres = [[-37.7975,144.9601],[-37.7991,144.9608],[-37.7981,144.963]];
-  return require('../data/fixtures.js').zones.filter(z => z.id !== 'current-location').map((z,index) => ({ ...z,
+  return require('../data/fixtures.js').zones.filter(z => z.id.startsWith('zone-')).map((z,index) => ({ ...z,
     description: 'Fictional sample event zone. The marker is a reference point, not an exact attendee location or a defined boundary.',
     latitude: centres[index][0], longitude: centres[index][1], active: true, fictional: true }));
 }

@@ -33,7 +33,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
   // The user authorised these fictional defaults. Never replace saved configuration.
   if (!db.helpStations) db.helpStations = validateStations({ enabled: true, stations: mapDemo.stations });
   if (!db.eventZones) db.eventZones = { version: 1, zones: sampleZones() };
-  const syncZones = () => { data.zones = [fixtures.zones[0], ...db.eventZones.zones]; };
+  const syncZones = () => { data.zones = [...fixtures.zones.filter(z => ['current-location', 'demo-location'].includes(z.id)), ...db.eventZones.zones]; };
   syncZones();
   const mapsKey = aiEnv.GOOGLE_MAPS_API_KEY || '';
   function save() {
@@ -380,6 +380,8 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         data.volunteers.forEach(v => assistance.pause(v.id));
         resetVersion++;
         workflow.reset();
+        demoJourneys.reset();
+        walkingEstimates.retain([]);
         return json(res, 200, { ok: true });
       }
       if (url.pathname === '/api/reports') {
@@ -387,14 +389,17 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         if (!selectedZone || selectedZone.active === false) return json(res, 400, { error: 'Choose a current selectable event zone, or Use my location.' });
         if (body.zone === 'current-location' && body.reportLocation !== true) return json(res, 400, { error: 'Use my location requires a current GPS position. Choose a zone to report without GPS.' });
         if (body.reportLocation !== undefined && typeof body.reportLocation !== 'boolean') return json(res, 400, { error: 'Choose whether to add your current location.' });
-        const reportLocation = body.reportLocation === true ? position(body.position, now()) : undefined;
+        const demoLocation = body.zone === 'demo-location';
+        // A fixed fictional point, never a claimed GPS sample or client-chosen coordinate.
+        const demoPoint = { latitude: -37.7992, longitude: 144.9620, demo: true };
+        const reportLocation = demoLocation ? demoPoint : body.reportLocation === true ? position(body.position, now()) : undefined;
         let request;
         if (body.requestAssistance === true) {
           if (typeof body.requestId !== 'string' || !/^[a-zA-Z0-9_-]{8,100}$/.test(body.requestId)) return json(res, 400, { error: 'An assistance request reference is required.' });
           const state = workflow.getState();
           const existing = state.incidents.find(i => i.assistance?.requestId === body.requestId && state.reports.some(r => i.reportIds.includes(r.id) && r.reporter.id === ctx.actor.id && r.reporter.role === ctx.actor.role));
           if (existing) return json(res, 200, { id: existing.id });
-          request = { requestId: body.requestId, destination: position(body.position, now()), state: 'looking', offers: [], events: [] };
+          request = { requestId: body.requestId, destination: demoLocation ? demoPoint : position(body.position, now()), state: 'looking', offers: [], events: [] };
         }
         const incident = await workflow.submitReport({ text: body.text, zone: body.zone, category: body.category, immediateConcern: body.immediateConcern, sensitive: body.sensitive,
           assistance: request, location: reportLocation, zoneName: selectedZone.name,

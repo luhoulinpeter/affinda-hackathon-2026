@@ -166,6 +166,26 @@
     } catch (error) { $("#account-feedback").textContent = error.message; }
     finally { button.disabled = false; }
   });
+  let resetting = false;
+  const resetDialog = $('#demo-reset-dialog');
+  const resetReady = () => { $('#demo-reset-submit').disabled = resetting || $('#demo-reset-confirm').value !== 'CLEAR'; };
+  $('#demo-reset-open').addEventListener('click', () => {
+    if (api.getSession()?.user?.role !== 'mo') return;
+    $('#demo-reset-form').reset(); $('#demo-reset-error').textContent = ''; resetReady(); resetDialog.showModal();
+  });
+  $('#demo-reset-confirm').addEventListener('input', resetReady);
+  $('#demo-reset-cancel').addEventListener('click', () => resetDialog.close());
+  $('#demo-reset-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    if (resetting || api.getSession()?.user?.role !== 'mo' || $('#demo-reset-confirm').value !== 'CLEAR') return;
+    resetting = true; resetReady();
+    try {
+      await api.resetDemo(); resetDialog.close(); $('#demo-controls').open = api.getSession()?.user?.role === 'mo';
+      $('#demo-reset-feedback').textContent = 'Reports, incidents and assignments cleared. Volunteers are paused; choose Go available to share again. Accounts and settings kept.';
+    } catch (error) { $('#demo-reset-error').textContent = error.message; }
+    finally { resetting = false; resetReady(); }
+  });
+  api.onIdentityChange(() => { resetDialog.close(); $('#demo-reset-form').reset(); $('#demo-reset-error').textContent = ''; $('#demo-reset-feedback').textContent = ''; resetReady(); $('#demo-controls').open = false; });
   api.subscribe(render);
   document.addEventListener('riverside-recommendation-update', render);
   document.addEventListener('riverside-map-select', event => {

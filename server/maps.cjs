@@ -18,6 +18,7 @@ function mapData(actor, state, presence, stations, serverTime, demoJourneys, eve
     return {
     id: i.id, status: i.status, attention: i.attention, assignee: i.assignee,
     ...(location ? { position: { latitude: location.latitude, longitude: location.longitude }, locationKind: location === i.zoneLocation ? 'zone' : 'gps' } : {}),
+    ...(i.zone === 'demo-location' ? { locationKind: 'demo-location', demoLocation: true } : {}),
     ...(simulation ? { position: simulation.destination, locationKind: 'demo', startPosition: simulation.startPosition, demo: true } : start && ['accepted', 'arrived'].includes(i.assistance?.state) ? { startPosition: { latitude: start.latitude, longitude: start.longitude } } : {}),
     progress,
     assistanceState: i.assistance?.state || null,

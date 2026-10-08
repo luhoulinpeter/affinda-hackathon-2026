@@ -450,3 +450,56 @@ test('current-location reports require fresh accurate GPS and preserve coordinat
   assert.equal(manual.zone, 'zone-b'); assert.equal(manual.location, undefined); assert.equal(manual.assistance, undefined);
   assert.equal(calls, 4);
 });
+
+test('demo locations use server-owned fictional points without GPS and Mo reset preserves setup and usage while clearing active work', async t => {
+  const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'hi-vis-demo-controls-'));
+  const dbFile=path.join(dataDir,'store.json');
+  fs.writeFileSync(dbFile,JSON.stringify({users:[],workflow:{},cookieSecret:randomBytes(32).toString('hex'),aiUsage:{'jev:original-approval':4},routesUsage:2}));
+  let routingCalls=0;
+  const server=createApp({dataDir,aiEnv:{RIVERSIDE_GOOGLE_ROUTES_ENABLED:'true',GOOGLE_ROUTES_API_KEY:'simulation-key',RIVERSIDE_GOOGLE_ROUTES_MAX_CALLS:'10'},
+    routesFetch:async()=>{routingCalls++;throw Error('Demo should not route')},
+    aiProviders:{status:()=>({}),classify:async r=>({category:r.category,urgency:'routine',sensitivity:'ordinary'}),summarise:async()=>({summary:'Simulated demo report'})}});
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  t.after(async()=>{await server.whenAIIdle();await new Promise(r=>server.close(r));fs.rmSync(dataDir,{recursive:true,force:true})});
+  const base=`http://127.0.0.1:${server.address().port}`,mo=client(base),vol=client(base),guest=client(base),outsider=client(base);
+  for(const c of [mo,vol,guest,outsider])await c.request('/api/session');
+  await mo.request('/api/setup',{username:'demo-mo',password:randomBytes(12).toString('hex')});await mo.request('/api/session');
+  const password=randomBytes(12).toString('hex');await mo.request('/api/accounts',{username:'demo-priya',password,volunteerId:'vol-priya'});
+  await vol.request('/api/login',{username:'demo-priya',password});await vol.request('/api/session');
+  const body={zone:'demo-location',category:'other',text:'Fictional test only',position:{latitude:1,longitude:1},location:{latitude:2,longitude:2},zoneName:'Forged label'};
+  const reported=await guest.request('/api/reports',body);assert.equal(reported.status,201);
+  let state=(await mo.request('/api/state')).result,incident=state.incidents.find(i=>i.id===reported.result.id);
+  assert.deepEqual(incident.location,{latitude:-37.7992,longitude:144.962,demo:true});assert.equal(incident.assistance,undefined);
+  assert.match(incident.zoneName,/demo location.*fictional/i);assert.equal(incident.location.accuracy,undefined);
+  await server.whenAIIdle();
+  let pin=(await mo.request('/api/map-data')).result.incidents.find(i=>i.id===reported.result.id);
+  assert.equal(pin.locationKind,'demo-location');assert.equal(pin.demoLocation,true);
+  assert.equal((await outsider.request('/api/map-data')).result.incidents.length,0);
+  const requested=await guest.request('/api/reports',{...body,requestAssistance:true,requestId:randomUUID()});assert.equal(requested.status,201);
+  await server.whenAIIdle();
+  const position={latitude:-37.7958,longitude:144.9612,accuracy:8,capturedAt:Date.now()};
+  assert.equal((await vol.request('/api/presence',{available:true,start:true,position})).status,200);
+  incident=(await vol.request('/api/state')).result.incidents.find(i=>i.id===requested.result.id);
+  const offer=incident.assistance.offers.find(o=>o.status==='pending');assert.ok(offer);
+  assert.equal((await vol.request(`/api/incidents/${incident.id}/offers/${offer.id}`,{decision:'accept'})).status,200);
+  for(const c of [mo,vol,guest]){
+    pin=(await c.request('/api/map-data')).result.incidents.find(i=>i.id===incident.id);
+    assert.equal(pin.demoLocation,true);assert.equal(pin.locationKind,'demo-location');assert.ok(pin.startPosition);
+    assert.equal(pin.walkingEstimate.state,'disabled');assert.match(pin.walkingEstimate.label,/Fictional demo/);
+  }
+  assert.equal(routingCalls,0);
+  const before=JSON.parse(fs.readFileSync(dbFile,'utf8'));
+  assert.equal((await guest.request('/api/reset',{})).status,403);assert.equal((await vol.request('/api/reset',{})).status,403);
+  assert.equal((await mo.request('/api/reset',{}, {'X-CSRF-Token':'invalid'})).status,403);
+  assert.equal((await mo.request('/api/reset',{})).status,200);
+  for(const c of [mo,vol,guest]){
+    state=(await c.request('/api/state')).result;assert.equal(state.incidents.length,0);assert.equal(state.reports.length,0);
+    assert.equal((await c.request('/api/map-data')).result.incidents.length,0);
+  }
+  state=(await mo.request('/api/state')).result;assert.ok(state.presence.every(p=>p.state==='paused'&&!p.position));
+  const after=JSON.parse(fs.readFileSync(dbFile,'utf8'));
+  for(const key of ['users','eventZones','helpStations','aiUsage','routesUsage'])assert.deepEqual(after[key],before[key],key);
+  assert.equal((await vol.request('/api/session')).result.user.role,'volunteer');
+  const next=await guest.request('/api/reports',{zone:'demo-location',category:'other',text:'Next fictional presentation'});
+  assert.equal(next.status,201);assert.notEqual(next.result.id,reported.result.id);assert.notEqual(next.result.id,requested.result.id);
+});

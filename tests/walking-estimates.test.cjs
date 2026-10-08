@@ -9,6 +9,12 @@ test('walking labels use a two-minute minimum and round longer Google durations 
   for(const seconds of [0,59,119.9,120])assert.equal(estimateLabel(seconds),'Up to 2 minutes');
   assert.equal(estimateLabel(120.01),'About 3 minutes');assert.equal(estimateLabel(300),'About 5 minutes');
 });
+test('fictional demo destinations never reserve or call Google even with live routing configured',async()=>{
+  let calls=0,reservations=0; const i=incident(); i.zone='demo-location';
+  const service=createWalkingEstimates({enabled:true,key:'private',reserve:()=>{reservations++;return true},fetchImpl:async()=>{calls++;return response()}});
+  const result=await service.get(i,responder());assert.equal(result.state,'disabled');assert.match(result.label,/Fictional demo/);
+  assert.equal(calls,0);assert.equal(reservations,0);
+});
 test('walking request uses server-only Google WALK duration and does not project coordinates or key',async()=>{
   let calls=0;const service=createWalkingEstimates({enabled:true,key:'private-route-key',reserve:()=>true,fetchImpl:async(url,options)=>{calls++;assert.equal(url,'https://routes.googleapis.com/directions/v2:computeRoutes');assert.equal(options.headers['X-Goog-Api-Key'],'private-route-key');assert.equal(options.headers['X-Goog-FieldMask'],'routes.duration,routes.warnings');const body=JSON.parse(options.body);assert.equal(body.travelMode,'WALK');assert.equal(body.routingPreference,undefined);assert.equal(body.origin.location.latLng.latitude,-37.798);return response();}});
   const eta=await service.get(incident(),responder());assert.equal(calls,1);assert.equal(eta.label,'Up to 2 minutes');assert.equal(eta.source,'Google Maps');assert.deepEqual(eta.warnings,['Fictional route warning']);assert.doesNotMatch(JSON.stringify(eta),/private-route-key|latitude|longitude/);

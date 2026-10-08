@@ -20,7 +20,7 @@
     const requestHelp = event.submitter?.id === 'request-volunteer';
     submitting = true; buttons().forEach(button => { button.disabled = true; });
     try {
-      if (requestHelp || input.reportLocation) {
+      if (input.zone !== 'demo-location' && (requestHelp || input.reportLocation)) {
         feedback('Getting your GPS location. Nothing has been submitted yet…');
         input.position = await window.RiversideAssistance.gps();
         if (identity !== api.getIdentityVersion()) return;

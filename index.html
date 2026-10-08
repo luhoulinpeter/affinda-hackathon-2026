@@ -79,6 +79,11 @@
         <p class="field-note">Sample zones are fictional. Set a reference pin for each zone; this is not a boundary or an attendee’s exact location. Saved selectable zones appear on everyone’s map and report form. Turn off selectable to retire a zone while keeping report history.</p>
         <form id="zones-form"><div id="zone-fields"></div><div class="form-actions"><button id="zone-add" type="button" class="secondary">Add zone</button><button type="submit" class="primary">Save event zones</button><button id="zone-reload" type="button" class="secondary">Reload saved zones</button><button id="zone-pick-cancel" type="button" class="secondary" hidden>Cancel map placement</button></div><p id="zones-feedback" class="feedback" role="status"></p></form>
       </details>
+      <details id="demo-controls" class="panel"><summary><strong>Demo controls</strong></summary>
+        <p class="field-note">Start a clean presentation by clearing all reports, incidents, assignments and active location sharing. Accounts, zones, first-aid settings and API usage counts are kept.</p>
+        <button id="demo-reset-open" type="button" class="secondary">Clear reports &amp; incidents…</button>
+        <p id="demo-reset-feedback" class="feedback" role="status"></p>
+      </details>
     </section>
 
     <section id="volunteer-assistance" class="panel" hidden aria-labelledby="volunteer-help-title">
@@ -102,6 +107,7 @@
             <label class="checkbox-label"><input id="report-sensitive" type="checkbox"> Contains sensitive information</label>
             <p id="report-request-note" class="field-note">“Use my location” shares your current GPS location with the safety team when you send. Choose a zone instead if location access is unavailable. Sending a report does not request a volunteer; choose “Send &amp; request volunteer” if you want someone to come.</p>
             <p class="field-note">Zones are marked on the map. A zone-only report uses its approximate reference point; it does not share your GPS location.</p>
+            <p class="field-note">For testing, “Use demo location · fictional” places the incident at a fixed sample point near the University of Melbourne, without requesting your GPS. Volunteer requests still need an available volunteer to accept. Demo destinations do not use Google walking estimates.</p>
             <details class="field-note"><summary>No location popup on iPhone?</summary><p>Enter your report text before tapping Send. If location is blocked, open Safari’s page menu → Website Settings → Location → Ask or Allow. Also check iPhone Settings → Privacy &amp; Security → Location Services → Safari Websites, allow access while using Safari and turn Precise Location on. Return and try Send again. You can choose a zone to send a report without GPS.</p></details>
             <div class="form-actions"><button class="primary" type="submit">Send report only</button><button id="request-volunteer" type="submit" class="secondary" aria-describedby="report-request-note">Send &amp; request volunteer</button><button id="example-report" type="button" class="secondary">Use example text</button></div>
             <p id="report-feedback" class="feedback" role="status" aria-live="polite"></p>
@@ -142,6 +148,16 @@
     <footer>Sensitive information is handled directly by the safety chief.</footer>
     <noscript>This prototype needs JavaScript enabled in your browser.</noscript>
   </main>
+  <dialog id="demo-reset-dialog" aria-labelledby="demo-reset-title">
+    <h2 id="demo-reset-title">Clear reports and incidents?</h2>
+    <p>This permanently clears every report, incident and assignment, and pauses volunteer location sharing. Accounts, zones, first-aid settings and API usage counts stay saved.</p>
+    <p>Use this only when you are ready to discard the current reports. This cannot be undone.</p>
+    <form id="demo-reset-form">
+      <label for="demo-reset-confirm">Type CLEAR to confirm</label><input id="demo-reset-confirm" autocomplete="off" autocapitalize="characters" spellcheck="false" required pattern="CLEAR">
+      <div class="form-actions"><button id="demo-reset-cancel" type="button" class="secondary">Cancel</button><button id="demo-reset-submit" type="submit" class="primary" disabled>Clear reports &amp; incidents</button></div>
+      <p id="demo-reset-error" class="feedback error" role="alert"></p>
+    </form>
+  </dialog>
   <dialog id="signin-dialog" aria-labelledby="signin-title">
     <div class="dialog-heading"><h2 id="signin-title">Staff sign in</h2><button id="close-signin" type="button" class="secondary" aria-label="Close sign-in">Close</button></div>
     <p id="signin-description" class="field-note">Sign-in applies to this tab only. Your account determines whether you see the Volunteer or Mo workspace.</p>

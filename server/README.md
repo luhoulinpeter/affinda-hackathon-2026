@@ -35,7 +35,7 @@ The server runs on any host that runs one long-running Node.js process (for exam
 
 **Live updates.** Browsers connected to `GET /api/events` are told immediately when reports or incidents change, then re-fetch their own permitted state. The interface's 6-second polling remains as a fallback. Local mode supports windows on this computer; configured HTTPS deployment supports remote browsers. Temporary tunnel HTTPS access is verified; independent hosting and physical phones remain unverified.
 
-**Demo reset.** Signed in as Mo, run `RiversideAPI.resetDemo()` in the browser console (or `POST /api/reset`) to clear all reports and incidents before re-recording a demo. Accounts, the report ID counter and provider usage allowances are kept. IDs stay unique across reset/restart, and late analysis or Q&A from before reset is discarded. To wipe everything including accounts, stop the server and delete the `.riverside/` folder.
+**Demo reset.** Signed in as Mo, expand **Demo controls**, choose **Clear reports & incidents…**, then type **CLEAR** and confirm. This clears reports/incidents/assignments and pauses sharing; accounts, zones, stations, unique ID counter and cumulative provider usage are kept. The Mo-only `POST /api/reset` endpoint also remains available. See [demo instructions and verification](../docs/DEMO-CONTROLS.md). Never delete the data directory to prepare a presentation: that would also remove accounts and usage ledgers.
 
 One server process owns the JSON store, written atomically with private file permissions. Reports and accounts survive restarts; staff sessions are in memory. This is a prototype store, not a multi-process database.
 

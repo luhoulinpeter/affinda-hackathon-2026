@@ -18,6 +18,7 @@ function createWalkingEstimates({ enabled = false, key = '', reserve = () => fal
   async function get(i, _responder, simulation) {
     if (!i.assignee || i.status === 'resolved' || !['accepted', 'arrived'].includes(i.assistance?.state)) return null;
     if (i.assistance.state === 'arrived') return { state: 'arrived', label: 'Volunteer marked arrived' };
+    if (i.zone === 'demo-location') return { state: 'disabled', label: 'Fictional demo destination · Google walking estimate disabled' };
     const origin = simulation?.startPosition || i.assistance.startPosition || i.assistance.offers?.find(o => o.status === 'accepted')?.startPosition;
     const destination = simulation?.destination || i.assistance.destination;
     if (!geometry.valid(origin) || !geometry.valid(destination)) return { state: 'unavailable', label: 'Starting walking estimate needs the volunteer’s starting location and requester GPS' };

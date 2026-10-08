@@ -71,6 +71,20 @@ test('manual-zone report submits without GPS or assistance fields and gives a di
   assert.equal(app.fields['report-text'].value, '');
   assert.ok(app.buttons.every(button => !button.disabled));
 });
+
+test('fictional demo location submits either report button without GPS, preserving explicit assistance and retry identity', async () => {
+  for (const requestHelp of [false, true]) {
+    let gpsCalls = 0;
+    const app = harness({ gps: async () => { gpsCalls++; throw new Error('Demo must not request GPS'); } });
+    app.fields.zone.value = 'demo-location';
+    await app.submit(requestHelp);
+    assert.equal(gpsCalls, 0); assert.equal(app.calls.length, 1);
+    assert.equal(app.calls[0].zone, 'demo-location'); assert.equal(app.calls[0].position, undefined);
+    assert.equal(app.calls[0].reportLocation, undefined);
+    assert.equal(app.calls[0].requestAssistance, requestHelp ? true : undefined);
+    assert.equal(app.calls[0].requestId, requestHelp ? 'request-1' : undefined);
+  }
+});
 test('a private report flag is explicit and survives submission without requesting attendance',async()=>{
   const app=harness();app.fields['report-sensitive'].checked=true;
   await app.submit(false);assert.equal(app.calls[0].sensitive,true);
