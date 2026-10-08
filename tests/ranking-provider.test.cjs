@@ -69,3 +69,10 @@ test('rejects unknown, duplicate, or incomplete returned ID orders', async () =>
     await assert.rejects(provider.rankAssignment(input), /Invalid assignment ranking response/);
   }
 });
+
+test('configured custom zone IDs remain eligible for coarse ranking; unknown IDs fail before transport', async () => {
+  let calls=0;
+  const provider=setup(async()=>{calls++;return response(['vol-a','vol-b'])},{getZones:()=>[{id:'zone-custom'}]});
+  assert.deepEqual(await provider.rankAssignment({...input,incident:{...input.incident,zone:'zone-custom'}}),{rankedIds:['vol-a','vol-b']});
+  await assert.rejects(provider.rankAssignment({...input,incident:{...input.incident,zone:'zone-unknown'}}));assert.equal(calls,1);
+});

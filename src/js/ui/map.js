@@ -5,7 +5,7 @@
   const panel = $('#map-panel');
   let map = null, libraries = null, loader = null, config = null, sequence = 0, configured = false, failure = '';
   const markers = new Map(), lines = new Map();
-  let info = null;
+  let info = null, pickingZone = false;
 
   function unavailable(message, fatal = false) {
     if (fatal) failure = message;
@@ -15,6 +15,7 @@
     $('#map-recentre').disabled = true;
   }
   function clear() {
+    pickingZone = false;
     markers.forEach(item => { if (item.animation) cancelAnimationFrame(item.animation); item.marker.map = null; });
     markers.clear();
     lines.forEach(pair => pair.forEach(line => line.setMap(null)));
@@ -85,11 +86,23 @@
     info.setContent(content);
     info.open({ map, anchor: markers.get(`station:${station.id}`)?.marker });
   }
+  function zoneDetails(zone, role) {
+    const content = document.createElement('div'), title = document.createElement('strong'), description = document.createElement('p'), note = document.createElement('p');
+    title.textContent = zone.name; description.textContent = zone.description;
+    note.textContent = 'Zone reference point · approximate location, not a boundary.';
+    content.append(title, description, note);
+    if (role !== 'mo') {
+      const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Use this zone';
+      button.addEventListener('click', () => { info.close(); document.dispatchEvent(new CustomEvent('riverside-zone-select', { detail: zone.id })); }); content.append(button);
+    }
+    info ||= new libraries.InfoWindow(); info.setContent(content); info.open({ map, anchor: markers.get(`zone:${zone.id}`)?.marker });
+  }
   function draw(data, role) {
     const seen = new Set();
+    (data.zones || []).forEach(z => point('zone', z.id, z, `${z.name} · event zone`, '#85652c', 'Z', () => zoneDetails(z, role), seen));
     data.stations.forEach(s => point('station', s.id, s, `${s.name} · fictional`, '#14796a', '+', () => stationDetails(s), seen));
     data.volunteers.filter(v => v.fresh && geometry.valid(v.position)).forEach(v => point('volunteer', v.id, v.position, `${v.name} · ${v.state}${v.demo ? ' · simulated movement' : ''}`, v.state === 'busy' ? '#7e729d' : '#225c9e', 'V', null, seen));
-    data.incidents.filter(i => geometry.valid(i.position)).forEach(i => point('incident', i.id, i.position, `${role === 'public' ? 'Your request · ' : ''}${i.id} · ${i.status}`, i.status === 'resolved' ? '#677c73' : '#be5c36', role === 'public' ? '●' : '!', role === 'mo' ? () => document.dispatchEvent(new CustomEvent('riverside-map-select', { detail: i.id })) : null, seen));
+    data.incidents.filter(i => geometry.valid(i.position)).forEach(i => point('incident', i.id, i.position, `${role === 'public' ? 'Your request · ' : ''}${i.id} · ${i.status}${i.locationKind === 'zone' ? ' · approximate zone location' : ''}`, i.status === 'resolved' ? '#677c73' : '#be5c36', role === 'public' ? '●' : '!', role === 'mo' ? () => document.dispatchEvent(new CustomEvent('riverside-map-select', { detail: i.id })) : null, seen));
     data.incidents.filter(i => geometry.valid(i.startPosition) && geometry.valid(i.position) && ['accepted', 'arrived'].includes(i.assistanceState)).forEach(i => point('start', i.id, i.startPosition, `${i.id} · volunteer starting location${i.demo ? ' · fictional movement demo' : ''}`, '#225c9e', '●', null, seen));
     markers.forEach((item, key) => {
       if (!seen.has(key)) { if (item.animation) cancelAnimationFrame(item.animation); item.marker.map = null; markers.delete(key); }
@@ -98,7 +111,7 @@
     for (const incident of data.incidents) {
       const responder = data.volunteers.find(v => v.id === incident.assignee && v.fresh && geometry.valid(v.position));
       const start = geometry.valid(incident.startPosition) ? incident.startPosition : responder?.position;
-      if (!geometry.valid(start) || !geometry.valid(incident.position) || !['accepted', 'arrived'].includes(incident.assistanceState)) continue;
+      if (incident.locationKind === 'zone' || !geometry.valid(start) || !geometry.valid(incident.position) || !['accepted', 'arrived'].includes(incident.assistanceState)) continue;
       activeLines.add(incident.id);
       let pair = lines.get(incident.id);
       if (!pair) {
@@ -129,7 +142,7 @@
       const unlocated = data.incidents.filter(i => !geometry.valid(i.position)).length;
       const fresh = data.volunteers.filter(v => !v.demo && v.fresh && geometry.valid(v.position)).length;
       const simulated = data.volunteers.filter(v => v.demo && geometry.valid(v.position)).length;
-      $('#map-summary').textContent = role === 'public' ? `${data.stations.length} fictional first-aid stations${data.incidents.length ? ` · ${data.incidents.length} assigned request${data.incidents.length === 1 ? '' : 's'} shown` : ''}` : `${data.incidents.length} incidents · ${unlocated} without a map position · ${fresh} volunteers sharing a current position${simulated ? ` · ${simulated} simulated journey` : ''}`;
+      $('#map-summary').textContent = `${(data.zones || []).length} event zones · ` + (role === 'public' ? `${data.stations.length} fictional first-aid stations${data.incidents.length ? ` · ${data.incidents.length} assigned request${data.incidents.length === 1 ? '' : 's'} shown` : ''}` : `${data.incidents.length} incidents · ${unlocated} without a map position · ${fresh} volunteers sharing a current position${simulated ? ` · ${simulated} simulated journey` : ''}`);
       $('#map-estimates').replaceChildren();
       for (const incident of data.incidents.filter(i => i.walkingEstimate)) {
         const estimate = incident.walkingEstimate, row = document.createElement('p');
@@ -149,9 +162,16 @@
       $('#live-map').hidden = false;
       $('#map-fallback').hidden = true;
       $('#map-recentre').disabled = false;
-      if (!map) map = new libraries.Map($('#live-map'), { center: config.centre, zoom: 16, mapId: 'DEMO_MAP_ID', disableDefaultUI: true, zoomControl: true, gestureHandling: 'cooperative', clickableIcons: false });
+      if (!map) {
+        map = new libraries.Map($('#live-map'), { center: config.centre, zoom: 16, mapId: 'DEMO_MAP_ID', disableDefaultUI: true, zoomControl: true, gestureHandling: 'cooperative', clickableIcons: false });
+        map.addListener('click', event => {
+          if (!pickingZone || api.getSession()?.user?.role !== 'mo' || !event.latLng) return;
+          pickingZone = false;
+          document.dispatchEvent(new CustomEvent('riverside-zone-picked', { detail: { latitude: event.latLng.lat(), longitude: event.latLng.lng() } }));
+        });
+      }
       const staleJourney = data.incidents.some(i => i.assignee && ['accepted', 'arrived'].includes(i.assistanceState) && i.progress === null);
-      $('#map-status').textContent = `${data.label}. ${data.incidents.some(i => i.demo) ? 'Fictional movement demo active; these journey positions are simulated.' : staleJourney ? 'Volunteer GPS progress is unavailable. Arrival still needs human confirmation.' : 'Positions update while devices share GPS.'}`;
+      $('#map-status').textContent = pickingZone ? 'Tap the map to place the zone reference point. Save event zones to publish it.' : `${data.label}. ${data.incidents.some(i => i.demo) ? 'Fictional movement demo active; these journey positions are simulated.' : staleJourney ? 'Volunteer GPS progress is unavailable. Arrival still needs human confirmation.' : 'Positions update while devices share GPS.'}`;
       draw(data, role);
     } catch {
       if (!current()) return;
@@ -159,6 +179,12 @@
       clear(); unavailable('Map updates are unavailable. Existing reporting and assignment controls remain below.');
     }
   }
+  document.addEventListener('riverside-zone-pick-start', () => {
+    if (!map || failure || $('#live-map').hidden || api.getSession()?.user?.role !== 'mo') { document.dispatchEvent(new CustomEvent('riverside-zone-pick-unavailable')); return; }
+    pickingZone = true; $('#map-status').textContent = 'Tap the map to place the zone reference point. Save event zones to publish it.';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  document.addEventListener('riverside-zone-pick-cancel', () => { pickingZone = false; });
   $('#map-recentre').addEventListener('click', () => { if (map && config) { map.setCenter(config.centre); map.setZoom(16); } });
   api.onIdentityChange(() => { sequence++; clear(); $('#live-map').hidden = true; panel.hidden = true; });
   api.subscribe(refresh);

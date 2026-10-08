@@ -19,7 +19,7 @@
       $('#available-incidents').replaceChildren();
       for (const incident of result.incidents) {
         const card = document.createElement('article'); card.className = 'offer-card';
-        const title = document.createElement('h4'); title.textContent = `${incident.id} · ${window.RiversideData.zones.find(z => z.id === incident.zone)?.name || incident.zone}`;
+        const title = document.createElement('h4'); title.textContent = `${incident.id} · ${incident.zoneName || window.RiversideData.zones.find(z => z.id === incident.zone)?.name || incident.zone}`;
         const note = document.createElement('p'); note.className = 'field-note'; note.textContent = 'Details are private until assigned. Choosing accepts this incident immediately.';
         const button = document.createElement('button'); button.type = 'button'; button.className = 'secondary'; button.dataset.claimIncident = incident.id; button.disabled = claiming || !ready; button.textContent = 'Accept this incident';
         card.append(title, note, button); $('#available-incidents').append(card);

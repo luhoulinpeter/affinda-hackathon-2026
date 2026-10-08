@@ -52,6 +52,7 @@ function createVolunteerClaims({ workflow, assistance, roster, now = Date.now })
     return state.incidents.filter(incident => claimable(state, actor, incident)).map(incident => ({
       id: incident.id,
       zone: incident.zone,
+      ...(incident.zoneName ? { zoneName: incident.zoneName } : {}),
       category: incident.category,
       attention: incident.attention,
       status: incident.status

@@ -55,6 +55,7 @@
       id: `R-${number}`, volunteerId: volunteer ? volunteer.id : null, reporter, category, zone: input.zone, text,
       immediateConcern: input.immediateConcern === true, sensitive: input.sensitive === true, time: now()
     };
+    if (input.zoneName) report.zoneName = String(input.zoneName);
     const incident = {
       id: `I-${number}`, reportIds: [report.id], zone: report.zone,
       category: "unclassified", brief: "Awaiting human review",
@@ -63,6 +64,8 @@
       assignee: null, acknowledgedBy: null, resolvedBy: null, resolvedAt: null,
       ...(input.assistance ? { assistance: clone(input.assistance) } : {}),
       ...(input.location ? { location: clone(input.location) } : {}),
+      ...(input.zoneName ? { zoneName: String(input.zoneName) } : {}),
+      ...(input.zoneLocation ? { zoneLocation: clone(input.zoneLocation) } : {}),
       analysis: { jev: { state: "pending" }, luna: { state: "pending" } }, history: []
     };
     history(incident, reporter, "reported");

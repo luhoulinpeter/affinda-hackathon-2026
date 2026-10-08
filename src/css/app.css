@@ -167,3 +167,8 @@ dialog form > .primary { width: 100%; min-height: 48px; }
   .live-map { height: 360px; }
 }
 .map-start-dot { display: block; width: 18px; height: 18px; border: 3px solid white; border-radius: 50%; background: #225c9e; box-shadow: 0 1px 5px #334b60; }
+
+.zone-dot { background: #85652c; }
+.zone-editor { margin: 1rem 0; padding: 1rem; border: 1px solid #c8dbd6; border-radius: 10px; min-width: 0; }
+.zone-editor input:not([type="checkbox"]) { width: 100%; box-sizing: border-box; }
+.zone-editor > button { margin: .4rem .4rem 0 0; }

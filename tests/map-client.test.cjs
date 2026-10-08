@@ -5,18 +5,18 @@ const fs=require('node:fs');
 const flush=async()=>{for(let i=0;i<30;i++)await Promise.resolve()};
 function fixture({key='simulated-key',role='mo'}={}) {
   let identity=0,currentRole=role,pendingData,failData=false;
-  const nodes=new Map(),subscribers=[],identityCallbacks=[],createdMarkers=[],createdLines=[],events=[],scripts=[];
-  const node=()=>({hidden:false,disabled:false,textContent:'',children:[],listeners:{},append(...items){this.children.push(...items)},replaceChildren(){this.children=[]},addEventListener(type,cb){this.listeners[type]=cb}});
+  const nodes=new Map(),subscribers=[],identityCallbacks=[],createdMarkers=[],createdLines=[],events=[],scripts=[],mapListeners={},documentListeners={},popups=[];
+  const node=()=>({hidden:false,disabled:false,textContent:'',scrollIntoView(){},children:[],listeners:{},append(...items){this.children.push(...items)},replaceChildren(){this.children=[]},addEventListener(type,cb){this.listeners[type]=cb}});
   const get=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id)};
-  const document={querySelector:get,createElement:node,dispatchEvent:e=>events.push(e),head:{append(script){scripts.push(script);window.riversideGoogleReady()}}};
+  const document={querySelector:get,createElement:node,dispatchEvent:e=>events.push(e),addEventListener(type,cb){documentListeners[type]=cb},head:{append(script){scripts.push(script);window.riversideGoogleReady()}}};
   let data={centre:{lat:0,lng:0},label:'Simulation',stations:[{id:'station-1',name:'Demo station',description:'Fictional',latitude:0,longitude:0}],incidents:[{id:'I-1',status:'open',assignee:'vol-priya',assistanceState:'accepted',initialDistanceMetres:200,position:{latitude:0,longitude:0}}],volunteers:[{id:'vol-priya',name:'Priya',state:'busy',fresh:true,position:{latitude:0,longitude:.001}}]};
   class Marker {constructor(options){Object.assign(this,options);this.listeners={};createdMarkers.push(this)}addListener(type,cb){this.listeners[type]=cb}}
   class Polyline {constructor(options){Object.assign(this,options);createdLines.push(this)}setPath(path){this.path=path}setMap(map){this.map=map}}
-  const libraries={Map:class {setCenter(){}setZoom(){}},AdvancedMarkerElement:Marker,PinElement:class{element={}},InfoWindow:class{close(){}setContent(){}open(){}}};
+  const libraries={Map:class {addListener(type,cb){mapListeners[type]=cb}setCenter(){}setZoom(){}},AdvancedMarkerElement:Marker,PinElement:class{element={}},InfoWindow:class{close(){}setContent(content){popups.push(content)}open(){}}};
   const api={getSession:()=>({user:currentRole==='public'?null:{role:currentRole}}),getIdentityVersion:()=>identity,isIdentityChanging:()=>false,getMapsConfig:async()=>({key,centre:{lat:0,lng:0}}),getMapData:async()=>{if(failData)throw Error('Disconnected');if(pendingData)return pendingData;return data},subscribe:cb=>subscribers.push(cb),onIdentityChange:cb=>identityCallbacks.push(cb)};
   const window={RiversideAPI:api,RiversideMapGeometry:require('../src/js/domain/map.js'),google:{maps:{importLibrary:async()=>libraries,Polyline}}};
-  vm.runInNewContext(fs.readFileSync('src/js/ui/map.js','utf8'),{window,document,CustomEvent:class{constructor(type,options){this.type=type;this.detail=options.detail}},setTimeout:()=>1,clearTimeout(){},requestAnimationFrame:cb=>{cb(1000);return 1},cancelAnimationFrame(){},performance:{now:()=>0}});
-  return {get,scripts,createdMarkers,createdLines,events,authFailure:()=>window.gm_authFailure(),refresh:()=>{subscribers.forEach(cb=>cb());return flush()},setData:value=>{data=value},getData:()=>data,changeRole(value){identity++;currentRole=value;identityCallbacks.forEach(cb=>cb())},delay(){let resolve;pendingData=new Promise(r=>{resolve=r});return value=>{pendingData=null;resolve(value)}},setFailure(value){failData=value}};
+  vm.runInNewContext(fs.readFileSync('src/js/ui/map.js','utf8'),{window,document,CustomEvent:class{constructor(type,options={}){this.type=type;this.detail=options.detail}},setTimeout:()=>1,clearTimeout(){},requestAnimationFrame:cb=>{cb(1000);return 1},cancelAnimationFrame(){},performance:{now:()=>0}});
+  return {get,scripts,createdMarkers,createdLines,events,mapListeners,documentListeners,popups,authFailure:()=>window.gm_authFailure(),refresh:()=>{subscribers.forEach(cb=>cb());return flush()},setData:value=>{data=value},getData:()=>data,changeRole(value){identity++;currentRole=value;identityCallbacks.forEach(cb=>cb())},delay(){let resolve;pendingData=new Promise(r=>{resolve=r});return value=>{pendingData=null;resolve(value)}},setFailure(value){failData=value}};
 }
 test('simulated Maps renderer draws staff pins and grey/white progress; Mo can select and volunteer pins cannot open details',async()=>{
   for(const role of ['mo','volunteer']) {
@@ -85,5 +85,26 @@ test('walking estimates appear for all roles, disclose Google and age, and clear
     data.incidents[0].walkingEstimate={state:'unavailable',label:'Google walking estimate is temporarily unavailable'};await t.refresh();
     assert.equal(t.get('#map-estimates').children.length,1);assert.doesNotMatch(t.get('#map-estimates').children[0].textContent,/minutes|on foot/);
     t.changeRole('public');assert.equal(t.get('#map-estimates').children.length,0);
+  }
+});
+
+
+test('zones are selectable public reference pins; only Mo can place a zone, and zone-only incidents have no fabricated path',async()=>{
+  for(const role of ['public','volunteer','mo']) {
+    const t=fixture({role}),data=t.getData();
+    data.zones=[{id:'zone-a',name:'Test zone',description:'Fictional reference',latitude:0,longitude:.003}];
+    data.incidents[0].locationKind='zone'; t.setData(data);await t.refresh();
+    const zone=t.createdMarkers.find(m=>m.title==='Test zone · event zone');assert.equal(zone.gmpClickable,true);
+    zone.listeners.click();const popup=t.popups.at(-1);
+    assert.match(popup.children[2].textContent,/approximate.*not a boundary/);
+    assert.equal(t.createdLines.length,0);assert.match(t.createdMarkers.find(m=>m.title.includes('I-1')).title,/approximate zone location/);
+    if(role!=='mo') {
+      assert.equal(popup.children.at(-1).textContent,'Use this zone');popup.children.at(-1).listeners.click();assert.equal(t.events.at(-1).detail,'zone-a');
+      t.documentListeners['riverside-zone-pick-start']();assert.equal(t.events.at(-1).type,'riverside-zone-pick-unavailable');
+    } else {
+      assert.equal(popup.children.length,3);t.documentListeners['riverside-zone-pick-start']();
+      t.mapListeners.click({latLng:{lat:()=>1,lng:()=>2}});assert.equal(t.events.at(-1).type,'riverside-zone-picked');assert.deepEqual({...t.events.at(-1).detail},{latitude:1,longitude:2});
+      const count=t.events.length;t.mapListeners.click({latLng:{lat:()=>3,lng:()=>4}});assert.equal(t.events.length,count);
+    }
   }
 });

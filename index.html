@@ -11,6 +11,7 @@
   <script defer src="data/fixtures.js"></script>
   <script defer src="src/js/services/tab-session.js"></script>
   <script defer src="src/js/services/api.js"></script>
+  <script defer src="src/js/ui/zones.js"></script>
   <script defer src="src/js/domain/map.js"></script>
   <script defer src="src/js/ui/map.js"></script>
   <script defer src="src/js/ui/assistance.js"></script>
@@ -35,7 +36,7 @@
       <p id="map-status" class="field-note" role="status">Preparing map…</p>
       <div id="live-map" class="live-map" aria-label="Google Maps event area" hidden></div>
       <div id="map-fallback" class="map-fallback"><strong>Google Maps is not connected yet.</strong><p>You can still report an issue and request help below.</p></div>
-      <div class="map-legend"><span><i class="legend-dot station-dot"></i>Fictional first aid</span><span id="staff-map-legend" hidden><i class="legend-dot volunteer-dot"></i>Volunteer <i class="legend-dot incident-dot"></i>Incident</span><span id="public-map-legend" hidden><i class="legend-dot volunteer-dot"></i>Volunteer start <i class="legend-dot incident-dot"></i>Your request</span></div>
+      <div class="map-legend"><span><i class="legend-dot station-dot"></i>Fictional first aid</span><span><i class="legend-dot zone-dot"></i>Event zone</span><span id="staff-map-legend" hidden><i class="legend-dot volunteer-dot"></i>Volunteer <i class="legend-dot incident-dot"></i>Incident</span><span id="public-map-legend" hidden><i class="legend-dot volunteer-dot"></i>Volunteer start <i class="legend-dot incident-dot"></i>Your request</span></div>
       <p id="map-summary" class="field-note"></p>
       <div id="map-estimates" class="field-note" aria-live="polite"></div>
       <p id="map-privacy" class="field-note">First-aid pins are fictional demo placements, not real facilities.</p>
@@ -73,6 +74,10 @@
           <button type="submit" class="primary">Save station configuration</button><p id="station-feedback" class="feedback" role="status"></p>
         </form>
       </details>
+      <details id="zones-panel" class="panel"><summary><strong>Event zones</strong></summary>
+        <p class="field-note">Sample zones are fictional. Set a reference pin for each zone; this is not a boundary or an attendee’s exact location. Saved selectable zones appear on everyone’s map and report form. Turn off selectable to retire a zone while keeping report history.</p>
+        <form id="zones-form"><div id="zone-fields"></div><div class="form-actions"><button id="zone-add" type="button" class="secondary">Add zone</button><button type="submit" class="primary">Save event zones</button><button id="zone-reload" type="button" class="secondary">Reload saved zones</button><button id="zone-pick-cancel" type="button" class="secondary" hidden>Cancel map placement</button></div><p id="zones-feedback" class="feedback" role="status"></p></form>
+      </details>
     </section>
 
     <section id="volunteer-assistance" class="panel" hidden aria-labelledby="volunteer-help-title">
@@ -95,6 +100,7 @@
             <label class="checkbox-label"><input id="immediate-concern" type="checkbox" name="immediateConcern"> Flag an immediate safety concern</label>
             <label class="checkbox-label"><input id="report-sensitive" type="checkbox"> Contains sensitive information</label>
             <p id="report-request-note" class="field-note">“Use my location” shares your current GPS location with the safety team when you send. Choose a zone instead if location access is unavailable. Sending a report does not request a volunteer; choose “Send &amp; request volunteer” if you want someone to come.</p>
+            <p class="field-note">Zones are marked on the map. A zone-only report uses its approximate reference point; it does not share your GPS location.</p>
             <details class="field-note"><summary>No location popup on iPhone?</summary><p>Enter your report text before tapping Send. If location is blocked, open Safari’s page menu → Website Settings → Location → Ask or Allow. Also check iPhone Settings → Privacy &amp; Security → Location Services → Safari Websites, allow access while using Safari and turn Precise Location on. Return and try Send again. You can choose a zone to send a report without GPS.</p></details>
             <div class="form-actions"><button class="primary" type="submit">Send report only</button><button id="request-volunteer" type="submit" class="secondary" aria-describedby="report-request-note">Send &amp; request volunteer</button><button id="example-report" type="button" class="secondary">Use example text</button></div>
             <p id="report-feedback" class="feedback" role="status" aria-live="polite"></p>

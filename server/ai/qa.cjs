@@ -9,9 +9,9 @@ function buildSources(actor, state, guide = defaultGuide) {
   // Bounded inputs. Never pass full internal history, model outputs, accounts or credentials.
   for (const incident of state.incidents.slice(-30).reverse()) {
     const assistance = incident.assistance ? `\nAssistance status: ${incident.assistance.state}\nAccepted responder: ${incident.assignee ? require('../../data/fixtures.js').volunteers.find(v => v.id === incident.assignee)?.name || 'Unknown' : 'None'}\nAcceptance is not proof of arrival.` : '\nNo volunteer attendance was requested.';
-    sources.push({ id: incident.id, title: `Current status ${incident.id}`, text: `Incident ${incident.id}\nZone: ${zoneName(incident.zone)}\nStatus: ${incident.status}\nAttention: ${incident.attention}\nSource reports: ${incident.reportIds.join(', ')}${assistance}` });
+    sources.push({ id: incident.id, title: `Current status ${incident.id}`, text: `Incident ${incident.id}\nZone: ${incident.zoneName || zoneName(incident.zone)}\nStatus: ${incident.status}\nAttention: ${incident.attention}\nSource reports: ${incident.reportIds.join(', ')}${assistance}` });
     for (const report of state.reports.filter(item => incident.reportIds.includes(item.id))) {
-      sources.push({ id: report.id, title: `Original report ${report.id}`, text: `Reported zone: ${zoneName(report.zone)}\nReporter-selected category: ${report.category}\nImmediate concern flag: ${report.immediateConcern === true ? 'Yes' : 'No'}\nReported at: ${report.time}\nOriginal unverified report text:\n${report.text}` });
+      sources.push({ id: report.id, title: `Original report ${report.id}`, text: `Reported zone: ${report.zoneName || zoneName(report.zone)}\nReporter-selected category: ${report.category}\nImmediate concern flag: ${report.immediateConcern === true ? 'Yes' : 'No'}\nReported at: ${report.time}\nOriginal unverified report text:\n${report.text}` });
     }
   }
   // Truncation is explicit so the model cannot claim a complete narrative of a large queue.

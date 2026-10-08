@@ -83,6 +83,7 @@ window.RiversideAPI = (() => {
     getStations: () => request('/api/stations'),
     getMapsConfig: () => request('/api/maps-config'),
     getMapData: () => request('/api/map-data'),
+    async saveZones(input) { const result = await request('/api/zones', input); try { await refresh(); } catch { /* The save succeeded; polling can recover. */ } return result; },
     saveStations: input => request('/api/stations', input),
     findFirstAid: input => request('/api/first-aid', input),
     ask: input => request('/api/qa', input),

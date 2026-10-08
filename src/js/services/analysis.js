@@ -9,11 +9,11 @@ const ZONES = new Set(require('../../../data/fixtures.js').zones.map(item => ite
 const URGENCIES = new Set(['routine', 'urgent', 'unclear']);
 const DISTANCE_BANDS = new Set(['unknown', 'near', 'medium', 'far']);
 
-function cleanInput(input) {
+function cleanInput(input, zones = ZONES) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid assignment ranking input.');
   const incident = input.incident;
   if (!incident || typeof incident !== 'object' || Array.isArray(incident) ||
-      !CATEGORIES.has(incident.category) || !URGENCIES.has(incident.urgency) || !ZONES.has(incident.zone)) throw new Error('Invalid assignment ranking incident.');
+      !CATEGORIES.has(incident.category) || !URGENCIES.has(incident.urgency) || !zones.has(incident.zone)) throw new Error('Invalid assignment ranking incident.');
   if (!Array.isArray(input.candidates) || input.candidates.length < 1 || input.candidates.length > 20) throw new Error('Assignment ranking requires 1 to 20 candidates.');
   const ids = new Set();
   const candidates = input.candidates.map(candidate => {
@@ -49,7 +49,7 @@ function createProviders(options = {}) {
   }
 
   async function rankAssignment(input) {
-    const safe = cleanInput(input);
+    const safe = cleanInput(input, options.getZones ? new Set(options.getZones().map(z => z.id)) : ZONES);
     const reason = gate();
     if (reason) throw new Error(reason);
     if (active >= 2) throw new Error('Provider busy');

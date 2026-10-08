@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomBytes, randomUUID } = require('node:crypto');
 const { validCredentials, hashPassword, verifyPassword, equal, sign } = require('./auth.cjs');
-const data = require('../data/fixtures.js');
+const fixtures = require('../data/fixtures.js');
 const { createProviders } = require('../src/js/services/analysis.js');
 const { answerQuestion } = require('./ai/qa.cjs');
 const createIncidents = require('../src/js/domain/incidents.js');
@@ -14,11 +14,13 @@ const { createAssignmentRecommendations } = require('./assignment-recommendation
 const { createVolunteerClaims } = require('./volunteer-claims.cjs');
 const { createDemoJourneys } = require('./demo-journeys.cjs');
 const { createWalkingEstimates } = require('./walking-estimates.cjs');
+const { validateZones, sampleZones } = require('./zones.cjs');
 const mapDemo = require('../data/map-demo.json');
 const root = path.resolve(__dirname, '..');
 
 // A public origin enables HTTPS deployment and disables browser first-account setup.
 function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = null, secureCookies = false, eventStreams = true, aiProviders, guide, aiEnv = process.env, aiFetch, routesFetch, now = Date.now } = {}) {
+  const data = structuredClone(fixtures);
   let deployed = null;
   if (publicOrigin !== null) {
     try { deployed = new URL(publicOrigin); } catch { throw new Error('PUBLIC_ORIGIN must be an HTTPS origin.'); }
@@ -30,6 +32,9 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
   const db = fs.existsSync(dbFile) ? JSON.parse(fs.readFileSync(dbFile, 'utf8')) : { users: [], workflow: {}, cookieSecret: randomBytes(32).toString('hex') };
   // The user authorised these fictional defaults. Never replace saved configuration.
   if (!db.helpStations) db.helpStations = validateStations({ enabled: true, stations: mapDemo.stations });
+  if (!db.eventZones) db.eventZones = { version: 1, zones: sampleZones() };
+  const syncZones = () => { data.zones = [fixtures.zones[0], ...db.eventZones.zones]; };
+  syncZones();
   const mapsKey = aiEnv.GOOGLE_MAPS_API_KEY || '';
   function save() {
     const temporary = `${dbFile}.tmp`;
@@ -39,7 +44,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
   save();
   let verification = {};
   try { verification = JSON.parse(fs.readFileSync(path.join(dataDir, 'ai-credit-verification.json'), 'utf8')); } catch { /* Missing controls keep live calls disabled. */ }
-  const providers = aiProviders || createProviders({ env: aiEnv, verification, fetchImpl: aiFetch,
+  const providers = aiProviders || createProviders({ env: aiEnv, verification, fetchImpl: aiFetch, getZones: () => data.zones,
     remainingCalls: (name, proof) => proof.approvalMode === 'ongoing' ? null : Math.max(0, proof.maxCalls - (db.aiUsage?.[`${name}:${proof.id}`] || 0)),
     reserveCall(name, proof) {
     db.aiUsage ||= {};
@@ -130,7 +135,8 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
   function stateFor(actor) {
     const availability = assistance.snapshot(actor);
     const state = workflow.getState();
-    if (actor.role === 'mo') return { ...state, ...availability };
+    const zoneConfig = { eventZones: db.eventZones };
+    if (actor.role === 'mo') return { ...state, ...availability, ...zoneConfig };
     const own = state.reports.filter(item => item.reporter.id === actor.id && item.reporter.role === actor.role);
     const incidents = state.incidents.filter(item => item.assignee === actor.id || own.some(report => item.reportIds.includes(report.id)) ||
       (actor.role === 'volunteer' && item.assistance?.offers.some(o => o.volunteerId === actor.id && o.status === 'pending')));
@@ -144,14 +150,14 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
     }
     const reports = actor.role === 'volunteer' ? state.reports.filter(report => incidents.some(item => item.reportIds.includes(report.id))) : own;
     if (actor.role === 'public') {
-      return { ...availability, reports, incidents: incidents.map(item => ({
+      return { ...availability, ...zoneConfig, reports, incidents: incidents.map(item => ({
         id: item.id, reportIds: item.reportIds.filter(id => own.some(report => report.id === id)),
         zone: item.zone, status: item.status, attention: item.attention,
         assignee: item.assignee, resolvedBy: item.resolvedBy, resolvedAt: item.resolvedAt, assistance: item.assistance,
         sensitive: item.sensitive, sensitivityReview: item.sensitivityReview
       })) };
     }
-    return { ...availability, reports, incidents };
+    return { ...availability, ...zoneConfig, reports, incidents };
   }
   async function readBody(req) {
     if (!(req.headers['content-type'] || '').startsWith('application/json')) throw Object.assign(new Error('Send JSON data.'), { status: 415 });
@@ -183,7 +189,8 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
     ['/src/js/ui/claims.js', ['src/js/ui/claims.js', 'text/javascript']],
     ['/src/js/ui/assistance.js', ['src/js/ui/assistance.js', 'text/javascript']],
     ['/src/js/domain/map.js', ['src/js/domain/map.js', 'text/javascript']],
-    ['/src/js/ui/map.js', ['src/js/ui/map.js', 'text/javascript']]
+    ['/src/js/ui/map.js', ['src/js/ui/map.js', 'text/javascript']],
+    ['/src/js/ui/zones.js', ['src/js/ui/zones.js', 'text/javascript']]
   ]);
   const server = http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -212,11 +219,12 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: ctx.user ? publicUser(ctx.user) : null, guest: ctx.guest, csrf: ctx.csrf, setupRequired: !deployed && db.users.length === 0, liveUpdates: eventStreams ? 'events' : 'polling', ai: providers.status(), guideApproved: (guide || require('../data/event-guide.json')).approved === true });
       if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, stateFor(ctx.actor));
       if (req.method === 'GET' && url.pathname === '/api/maps-config') return json(res, 200, { key: mapsKey, centre: mapDemo.centre });
+      if (req.method === 'GET' && url.pathname === '/api/zones') return json(res, 200, db.eventZones);
       if (req.method === 'GET' && url.pathname === '/api/available-incidents') return json(res, 200, { incidents: volunteerClaims.list(ctx.actor) });
       if (req.method === 'GET' && url.pathname === '/api/map-data') {
         const presence = assistance.snapshot({ role: 'mo' }).presence;
         const state = workflow.getState();
-        const visible = mapData(ctx.actor, state, presence, db.helpStations, now(), demoJourneys);
+        const visible = mapData(ctx.actor, state, presence, db.helpStations, now(), demoJourneys, db.eventZones.zones);
         const estimates = await Promise.all(visible.incidents.map(async pin => {
           const incident = state.incidents.find(i => i.id === pin.id);
           return { id: pin.id, signature: walkingEstimates.signature(incident),
@@ -227,7 +235,7 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         if (ctx.token && (!sessions.has(ctx.token) || sessions.get(ctx.token).expires <= now())) return json(res, 401, { error: 'Session changed. Refresh and try again.' });
         const currentPresence = assistance.snapshot({ role: 'mo' }).presence;
         const currentState = workflow.getState();
-        const result = mapData(ctx.actor, currentState, currentPresence, db.helpStations, now(), demoJourneys);
+        const result = mapData(ctx.actor, currentState, currentPresence, db.helpStations, now(), demoJourneys, db.eventZones.zones);
         for (const pin of result.incidents) {
           const incident = currentState.incidents.find(i => i.id === pin.id);
           const found = estimates.find(e => e.id === pin.id && e.signature === walkingEstimates.signature(incident));
@@ -249,6 +257,14 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       if (req.method !== 'POST') return json(res, 404, { error: 'Not found.' });
       if (!equal(req.headers['x-csrf-token'], ctx.csrf)) return json(res, 403, { error: 'Session changed. Refresh and try again.' });
       const body = await readBody(req);
+      if (url.pathname === '/api/zones') {
+        requireMo(ctx);
+        if (body.version !== db.eventZones.version) return json(res, 409, { error: 'Zones changed in another session. Reload saved zones before editing again.' });
+        const zones = validateZones(body, db.eventZones.zones);
+        db.eventZones = { version: db.eventZones.version + 1, zones };
+        syncZones(); save(); broadcast('event: state\ndata: {}\n\n');
+        return json(res, 200, db.eventZones);
+      }
       if (url.pathname === '/api/stations') {
         requireMo(ctx); db.helpStations = validateStations(body); save(); broadcast('event: state\ndata: {}\n\n');
         return json(res, 200, db.helpStations);
@@ -366,6 +382,8 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         return json(res, 200, { ok: true });
       }
       if (url.pathname === '/api/reports') {
+        const selectedZone = data.zones.find(z => z.id === body.zone);
+        if (!selectedZone || selectedZone.active === false) return json(res, 400, { error: 'Choose a current selectable event zone, or Use my location.' });
         if (body.zone === 'current-location' && body.reportLocation !== true) return json(res, 400, { error: 'Use my location requires a current GPS position. Choose a zone to report without GPS.' });
         if (body.reportLocation !== undefined && typeof body.reportLocation !== 'boolean') return json(res, 400, { error: 'Choose whether to add your current location.' });
         const reportLocation = body.reportLocation === true ? position(body.position, now()) : undefined;
@@ -378,7 +396,8 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
           request = { requestId: body.requestId, destination: position(body.position, now()), state: 'looking', offers: [], events: [] };
         }
         const incident = await workflow.submitReport({ text: body.text, zone: body.zone, category: body.category, immediateConcern: body.immediateConcern, sensitive: body.sensitive,
-          assistance: request, location: reportLocation,
+          assistance: request, location: reportLocation, zoneName: selectedZone.name,
+          ...(!reportLocation && !request && body.zone !== 'current-location' ? { zoneLocation: { ...selectedZone } } : {}),
           ...(ctx.actor.role === 'volunteer' ? { volunteerId: ctx.actor.id } : { reporter: ctx.actor }) });
         assistance.tick();
         return json(res, 201, { id: incident.id });

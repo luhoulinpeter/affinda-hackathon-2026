@@ -91,7 +91,8 @@ test('fake assignment journeys project by role and lifecycle without mutating in
   const restored = moMap.volunteers.find(v => v.id === 'vol-priya');
   assert.equal(restored.demo, undefined); assert.equal(restored.position.latitude, .001);
   assert.equal(moMap.incidents.find(i => i.id === ordinaryId).demo, undefined);
-  assert.equal(moMap.incidents.find(i => i.id === ordinaryId).position, undefined);
+  assert.deepEqual(moMap.incidents.find(i => i.id === ordinaryId).position, { latitude: -37.7975, longitude: 144.9601 });
+  assert.equal(moMap.incidents.find(i => i.id === ordinaryId).locationKind, 'zone');
 
   // A requester can cancel and remove a running fake projection.
   await mo(`/api/incidents/${ordinaryId}/demo-journey`, { action: 'start' });
