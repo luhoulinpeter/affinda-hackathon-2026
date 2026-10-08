@@ -35,13 +35,14 @@ test('manual offers reject self, missing-account, unavailable and reserved helpe
     t.manager.offer(mo,report.id,'vol-alex');assert.equal(t.offer(report.id).volunteerId,'vol-alex');
   }
 });
-test('sharing lasts ten minutes with honest freshness and periodic uploads cannot renew an expired session',async()=>{
+test('valid GPS updates renew sharing past ten minutes; abandoned or paused sharing needs a fresh opt-in',async()=>{
   const t=setup();t.available('priya');const expires=t.manager.snapshot(t.volunteer('priya')).presence[0].expiresAt;
   t.advance(120000);let p=t.manager.snapshot(t.volunteer('priya')).presence[0];assert.equal(p.state,'available');assert.equal(p.fresh,false);assert.equal(p.eligible,true);
   const request=await t.request();assert.equal(t.offer(request).volunteerId,'vol-priya');
   t.advance(470000);t.manager.setPresence(t.volunteer('priya'),{available:true,start:false,position:t.pos()},'priya');
-  assert.equal(t.manager.snapshot(t.volunteer('priya')).presence[0].expiresAt,expires);
-  t.advance(10001);p=t.manager.snapshot(t.volunteer('priya')).presence[0];assert.equal(p.state,'paused');assert.equal(p.position,undefined);
+  assert.ok(t.manager.snapshot(t.volunteer('priya')).presence[0].expiresAt>expires);
+  t.advance(10001);p=t.manager.snapshot(t.volunteer('priya')).presence[0];assert.equal(p.state,'available');assert.equal(p.fresh,true);
+  t.advance(600001);p=t.manager.snapshot(t.volunteer('priya')).presence[0];assert.equal(p.state,'paused');assert.equal(p.position,undefined);
   assert.throws(()=>t.manager.setPresence(t.volunteer('priya'),{available:true,start:false,position:t.pos()},'priya'),e=>e.status===409);
   t.manager.setPresence(t.volunteer('priya'),{available:true,start:true,position:t.pos()},'priya');assert.equal(t.manager.snapshot(t.volunteer('priya')).presence[0].eligible,true);
 });
@@ -119,17 +120,57 @@ test('only the offered volunteer can accept once; arrival and human resolution r
   assert.equal(t.incident(id).attention, 'urgent'); assert.equal(t.incident(id).assistance.state, 'arrived');
   t.workflow.act(id, 'resolve', t.volunteer('priya')); t.manager.tick();
   assert.equal(t.incident(id).assistance.state, 'completed'); assert.equal(t.incident(id).assistance.destination, undefined);
-  assert.equal(t.manager.snapshot(t.volunteer('priya')).presence[0].state, 'paused');
+  assert.equal(t.manager.snapshot(t.volunteer('priya')).presence[0].state, 'available');
   assert.ok(t.captured.every(report => !JSON.stringify(report).includes('latitude')));
 });
 
-test('withdrawal removes the destination, pauses the responder and leaves the incident open', async () => {
+test('withdrawal removes the destination, keeps the responder available and leaves the incident open', async () => {
   const t = setup(); t.available('priya'); const id = await t.request();
   t.manager.respond(t.volunteer('priya'), id, t.offer(id).id, 'accept');
   assert.throws(() => t.manager.action({ id: 'guest-other', role: 'public' }, id, 'withdraw'), e => e.status === 403);
   t.manager.action({ id: 'guest-test', role: 'public' }, id, 'withdraw');
   const i = t.incident(id); assert.equal(i.status, 'open'); assert.equal(i.assignee, null); assert.equal(i.assistance.destination, undefined);
-  assert.equal(t.manager.snapshot(t.volunteer('priya')).presence[0].state, 'paused');
+  assert.equal(t.manager.snapshot(t.volunteer('priya')).presence[0].state, 'available');
+});
+
+test('completion by volunteer, Mo or reporter preserves GPS and allows another incident without opting in again', async () => {
+  for (const resolver of [{id:'vol-priya',role:'volunteer'},{id:'mo',role:'mo'},{id:'guest-test',role:'public'}]) {
+    const t=setup();t.available('priya');const id=await t.request();
+    t.manager.respond(t.volunteer('priya'),id,t.offer(id).id,'accept');
+    t.manager.action(t.volunteer('priya'),id,'arrive');
+    const before=t.manager.snapshot(t.volunteer('priya')).presence[0];
+    t.workflow.act(id,'resolve',resolver);t.manager.tick();
+    const after=t.manager.snapshot(t.volunteer('priya')).presence[0];
+    assert.equal(after.state,'available');assert.equal(after.eligible,true);
+    assert.deepEqual(after.position,before.position);assert.equal(after.expiresAt,before.expiresAt);
+    t.advance(10000);t.manager.setPresence(t.volunteer('priya'),{available:true,start:false,position:t.pos(.003)},'priya');
+    assert.equal(t.manager.snapshot(t.volunteer('priya')).presence[0].position.latitude,.003);
+    const next=await t.request();assert.equal(t.offer(next).volunteerId,'vol-priya');
+    t.manager.respond(t.volunteer('priya'),next,t.offer(next).id,'accept');
+    assert.equal(t.incident(next).assignee,'vol-priya');
+    assert.equal(t.manager.snapshot(t.volunteer('priya')).presence[0].state,'busy');
+  }
+});
+
+test('finishing an incident never restarts explicitly paused sharing', async () => {
+  const t=setup();t.available('priya');const id=await t.request();
+  t.manager.respond(t.volunteer('priya'),id,t.offer(id).id,'accept');
+  t.manager.setPresence(t.volunteer('priya'),{available:false},'priya');
+  t.workflow.act(id,'resolve',t.volunteer('priya'));t.manager.tick();
+  const p=t.manager.snapshot(t.volunteer('priya')).presence[0];
+  assert.equal(p.state,'paused');assert.equal(p.position,undefined);assert.equal(p.eligible,false);
+  assert.throws(()=>t.manager.setPresence(t.volunteer('priya'),{available:true,start:false,position:t.pos()},'priya'),e=>e.status===409);
+  const next=await t.request();assert.equal(t.incident(next).assistance.state,'unavailable');
+});
+
+test('Mo retry and pending-offer cancellation preserve opt-in without reoffering an attempted volunteer',async()=>{
+  const t=setup();t.available('priya');t.available('alex',.001);const id=await t.request();
+  t.manager.respond(t.volunteer('priya'),id,t.offer(id).id,'accept');
+  t.manager.action({id:'mo',role:'mo'},id,'retry');
+  assert.equal(t.manager.snapshot(t.volunteer('priya')).presence[0].state,'available');
+  assert.equal(t.offer(id).volunteerId,'vol-alex');
+  t.manager.action({id:'guest-test',role:'public'},id,'withdraw');
+  assert.equal(t.manager.snapshot(t.volunteer('alex')).presence[0].state,'available');
 });
 
 test('Mo retry selects a newly available candidate; a restart invalidates pending offers', async () => {

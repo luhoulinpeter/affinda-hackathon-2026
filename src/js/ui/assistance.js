@@ -6,7 +6,7 @@ window.RiversideAssistance = (() => {
   const labels = { looking: 'Looking for a volunteer', offered: 'Offered · awaiting acceptance', accepted: 'Accepted · arrival not yet confirmed', arrived: 'Volunteer marked arrived', unavailable: 'No volunteer available — awaiting Mo’s review', cancelled: 'Assistance stopped · incident remains open unless explicitly resolved', completed: 'Assistance completed' };
   let tracking = false, starting = false, trackingVersion = 0, watch = null, timer = null, lastUpload = 0, uploading = false, issue = '';
   let locationPending = null, stationIdentity = null, helpVersion = 0;
-  let serverOffset = 0, sharingExpiresAt = 0;
+  let serverOffset = 0;
   const manualChoices = new Map();
   function moOfferHTML(i) {
     if (api.getSession()?.user?.role !== 'mo' || i.status === 'resolved') return '';
@@ -46,12 +46,11 @@ window.RiversideAssistance = (() => {
       ${role === 'mo' ? `<details><summary>Offer history</summary><ol>${a.events.map(e => `<li>${escape(e.action.replaceAll('_', ' '))}${e.volunteerId ? ` · ${escape(name(e.volunteerId))}` : ''} · ${escape(new Date(e.time).toLocaleTimeString())}</li>`).join('')}</ol></details>` : ''}</section>${moOfferHTML(i)}`;
   }
   function countdown() {
-    if (tracking && sharingExpiresAt && Date.now() >= sharingExpiresAt) { stopTracking(); issue = 'Your 10-minute sharing session ended. Choose Go available to start again.'; api.refresh().catch(() => {}); render(); }
     document.querySelectorAll('[data-offer-expiry]').forEach(el => { const seconds = Math.max(0, Math.ceil((Date.parse(el.dataset.offerExpiry) - Date.now() - serverOffset) / 1000)); el.textContent = seconds ? `${seconds}s left to respond` : 'Offer expired · checking next responder'; });
   }
   setInterval(countdown, 1000);
   function stopTracking() {
-    trackingVersion++; tracking = false; uploading = false; sharingExpiresAt = 0;
+    trackingVersion++; tracking = false; uploading = false;
     if (watch !== null) navigator.geolocation.clearWatch(watch);
     clearInterval(timer); watch = null; timer = null;
   }
@@ -73,14 +72,10 @@ window.RiversideAssistance = (() => {
       if (identity !== api.getIdentityVersion()) return;
       // Set tracking first, since the presence response refreshes the UI.
       tracking = true; const version = ++trackingVersion; lastUpload = Date.now();
-      const receipt = await api.setPresence({ available: true, start: true, position: pos });
-      const serverExpiry = receipt?.presence?.find(p => p.id === api.getSession().user?.id)?.expiresAt;
-      // Keep a local deadline so rendering cached state during a lost connection
-      // cannot extend GPS collection past the consented sharing session.
-      sharingExpiresAt = Date.now() + Math.min(600000, Math.max(0, serverExpiry ? serverExpiry - (receipt.serverTime || Date.now()) : 600000));
+      await api.setPresence({ available: true, start: true, position: pos });
       if (!tracking || identity !== api.getIdentityVersion()) return;
       issue = '';
-      watch = navigator.geolocation.watchPosition(p => upload({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: p.coords.accuracy, capturedAt: p.timestamp }, version), e => { if (version !== trackingVersion) return; issue = `${locationError(e).message} The last accepted position remains in use until this 10-minute session ends. Pause and try again.`; render(); }, { enableHighAccuracy: true, maximumAge: 0 });
+      watch = navigator.geolocation.watchPosition(p => upload({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: p.coords.accuracy, capturedAt: p.timestamp }, version), e => { if (version !== trackingVersion) return; issue = `${locationError(e).message} Updates will retry; old fixes are labelled and expire if no valid location arrives for 10 minutes. Pause stops sharing.`; render(); }, { enableHighAccuracy: true, maximumAge: 0 });
       timer = setInterval(async () => {
         if (!tracking || locationPending) return;
         locationPending = gps();
@@ -93,7 +88,7 @@ window.RiversideAssistance = (() => {
   async function pause() {
     stopTracking();
     try { await api.setPresence({ available: false }); issue = 'Paused. Choose Go available when ready.'; }
-    catch (e) { issue = `${e.message} The server will end sharing when the 10-minute session expires.`; }
+    catch (e) { issue = `${e.message} GPS collection has stopped on this device. The server will remove the last position after 10 minutes without updates.`; }
     render();
   }
   function stationRow(station = {}) {
@@ -119,8 +114,7 @@ window.RiversideAssistance = (() => {
       // A periodic refresh can still contain the old paused state while the
       // initial presence POST is in flight. Do not cancel that opt-in early.
       if (tracking && !starting && p?.state === 'paused') stopTracking();
-      const secondsLeft = p?.expiresAt ? Math.max(0, Math.ceil((p.expiresAt - Date.now() - serverOffset) / 1000)) : 0;
-      $('#presence-feedback').textContent = `${p?.state === 'busy' ? 'Busy on an accepted assignment' : p?.eligible && p?.state === 'available' ? 'Available for offers' : 'Paused / location unavailable'}${p?.position ? ` · GPS ±${Math.round(p.position.accuracy)} m · last fix ${Math.max(0, Math.floor((Date.now() + serverOffset - p.position.capturedAt) / 1000))}s ago${p.fresh ? ' (fresh)' : ' (older position, used for matching)'}` : ''}${secondsLeft && p?.state !== 'paused' ? ` · sharing ends in ${Math.ceil(secondsLeft / 60)} min` : ''}${issue || p?.reason ? `. ${issue || p.reason}` : ''}`;
+      $('#presence-feedback').textContent = `${p?.state === 'busy' ? 'Busy on an accepted assignment' : p?.eligible && p?.state === 'available' ? 'Available for offers' : 'Paused / location unavailable'}${p?.position ? ` · GPS ±${Math.round(p.position.accuracy)} m · last fix ${Math.max(0, Math.floor((Date.now() + serverOffset - p.position.capturedAt) / 1000))}s ago${p.fresh ? ' (fresh)' : ' (older position, used for matching)'}` : ''}${tracking ? ' · sharing stays on until you pause or sign out' : ''}${issue || p?.reason ? `. ${issue || p.reason}` : ''}`;
       $('#go-available').disabled = starting || tracking || api.isIdentityChanging();
       $('#go-available').textContent = starting ? 'Getting location…' : tracking ? 'Location sharing active' : 'Go available';
       $('#pause-volunteer').disabled = starting || (!tracking && p?.state === 'paused');

@@ -97,6 +97,10 @@ test('fake assignment journeys project by role and lifecycle without mutating in
   await mo(`/api/incidents/${ordinaryId}/demo-journey`, { action: 'start' });
   assert.equal((await guest(`/api/incidents/${ordinaryId}/assistance`, { action: 'withdraw' })).status, 200);
   assert.equal((await mo('/api/map-data')).data.incidents.find(i => i.id === ordinaryId).demo, undefined);
+  // Cancellation preserves opt-in; explicitly pause Priya so the next scenario
+  // can exercise Alex's journey without an otherwise-nearer eligible helper.
+  assert.equal((await priya('/api/state')).data.presence[0].state, 'available');
+  assert.equal((await priya('/api/presence', { available: false })).status, 200);
 
   // An ordinary report may opt into a server-validated location; it stays on the incident and out of AI input.
   const reportLocation = { latitude: -37.8011, longitude: 144.9655, accuracy: 12, capturedAt: time };

@@ -1,4 +1,5 @@
 const { randomUUID } = require('node:crypto');
+// Expire abandoned/stale presence, not an actively renewed sharing opt-in.
 const SHARING_MS = 10 * 60 * 1000;
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
 function position(value, now = Date.now()) {
@@ -25,10 +26,10 @@ function createAssistance({ workflow, volunteers, hasAccount, sessionAlive = () 
   function reserved(id) {
     return state().incidents.some(i => active(i) && (i.assignee === id || i.assistance.offers.some(o => o.status === 'pending' && o.volunteerId === id)));
   }
-  function release(id, pause = false) {
+  function release(id) {
     const p = presence.get(id);
     if (p && !reserved(id)) {
-      p.state = pause || !eligible(p) ? 'paused' : 'available';
+      p.state = !eligible(p) ? 'paused' : 'available';
       if (p.state === 'paused') delete p.position;
     }
   }
@@ -46,7 +47,7 @@ function createAssistance({ workflow, volunteers, hasAccount, sessionAlive = () 
       if (action !== 'completed') incident.assignee = null;
       event(a, action, actorId);
     });
-    responders.forEach(id => release(id, true));
+    responders.forEach(id => release(id));
   }
   function match(id) {
     const s = state(), incident = s.incidents.find(i => i.id === id), a = incident?.assistance;
@@ -74,7 +75,7 @@ function createAssistance({ workflow, volunteers, hasAccount, sessionAlive = () 
     });
   }
   function tick() {
-    for (const [id, p] of presence) if (p.state !== 'paused' && !eligible(p)) { p.state = 'paused'; p.reason = 'Sharing session ended. Choose Go available for another 10 minutes.'; delete p.position; }
+    for (const [id, p] of presence) if (p.state !== 'paused' && !eligible(p)) { p.state = 'paused'; p.reason = 'Location updates or sign-in expired. Choose Go available to resume sharing.'; delete p.position; }
     for (const i of state().incidents) {
       if (!active(i)) continue;
       if (i.status === 'resolved') { end(i.id, 'completed', i.resolvedBy?.id || 'system'); continue; }
@@ -114,12 +115,12 @@ function createAssistance({ workflow, volunteers, hasAccount, sessionAlive = () 
     const existing = presence.get(actor.id);
     if (existing?.state !== 'paused' && eligible(existing) && existing.sessionToken !== token) fail('Location sharing is already active for this volunteer in another tab or device. Pause it there first.', 409);
     if (!body.available) { pause(actor.id, token); return; }
-    if (body.start === false && (!eligible(existing) || existing.state === 'paused' || existing.sessionToken !== token)) fail('Sharing session ended. Choose Go available for another 10 minutes.', 409);
+    if (body.start === false && (!eligible(existing) || existing.state === 'paused' || existing.sessionToken !== token)) fail('Location sharing stopped. Choose Go available to resume.', 409);
     let p;
     try { p = position(body.position, now()); }
     catch (error) { pause(actor.id, token); throw error; }
     const busy = state().incidents.some(i => active(i) && i.assignee === actor.id);
-    const expiresAt = body.start === true || !eligible(existing) ? now() + SHARING_MS : existing.expiresAt;
+    const expiresAt = now() + SHARING_MS;
     presence.set(actor.id, { state: busy ? 'busy' : 'available', position: p, sessionToken: token, expiresAt });
     tick();
   }
@@ -191,7 +192,7 @@ function createAssistance({ workflow, volunteers, hasAccount, sessionAlive = () 
         for (const o of i.assistance.offers.filter(o => o.status === 'pending')) { o.status = 'withdrawn'; o.respondedAt = iso(); }
         i.assignee = null; i.assistance.state = 'looking'; i.assistance.matchingMode = 'nearest'; event(i.assistance, 'retry', actor.id);
       });
-      [responder, ...offered].filter(Boolean).forEach(id => release(id, true));
+      [responder, ...offered].filter(Boolean).forEach(id => release(id));
       match(id);
     } else fail('Unknown assistance action.');
   }
