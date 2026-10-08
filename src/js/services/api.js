@@ -4,6 +4,13 @@ window.RiversideAPI = (() => {
   let state = { reports: [], incidents: [] };
   const subscribers = new Set();
   const identitySubscribers = new Set();
+  const connectionSubscribers = new Set();
+  let connected = null;
+  function connection(value) {
+    if (connected === value) return;
+    connected = value;
+    connectionSubscribers.forEach(callback => callback(value));
+  }
   let identityVersion = 0;
   let identityChanging = false;
   const invalidateIdentity = () => { identityVersion++; identitySubscribers.forEach(callback => callback()); };
@@ -22,12 +29,19 @@ window.RiversideAPI = (() => {
   }
   async function refresh() {
     const version = ++refreshVersion;
-    const nextSession = await request("/api/session");
-    const nextState = await request("/api/state");
+    let nextSession, nextState;
+    try {
+      nextSession = await request("/api/session");
+      nextState = await request("/api/state");
+    } catch (error) {
+      if (version === refreshVersion) connection(false);
+      throw error;
+    }
     if (version !== refreshVersion) return;
     if (session && session.csrf !== nextSession.csrf) invalidateIdentity();
     session = nextSession;
     state = nextState;
+    connection(true);
     subscribers.forEach(callback => callback());
     await connectEvents();
   }
@@ -89,6 +103,7 @@ window.RiversideAPI = (() => {
     ask: input => request('/api/qa', input),
     getIdentityVersion: () => identityVersion, isIdentityChanging: () => identityChanging,
     onIdentityChange(callback) { identitySubscribers.add(callback); return () => identitySubscribers.delete(callback); },
+    onConnectionChange(callback) { connectionSubscribers.add(callback); return () => connectionSubscribers.delete(callback); },
     getState: () => clone(state), getSession: () => session && clone(session),
     subscribe(callback) { subscribers.add(callback); return () => subscribers.delete(callback); }
   };

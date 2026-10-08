@@ -5,18 +5,18 @@ const fs=require('node:fs');
 const flush=async()=>{for(let i=0;i<30;i++)await Promise.resolve()};
 function fixture({key='simulated-key',role='mo'}={}) {
   let identity=0,currentRole=role,pendingData,failData=false;
-  const nodes=new Map(),subscribers=[],identityCallbacks=[],createdMarkers=[],createdLines=[],events=[],scripts=[],mapListeners={},documentListeners={},popups=[];
+  const nodes=new Map(),subscribers=[],identityCallbacks=[],connectionCallbacks=[],createdMarkers=[],createdLines=[],fits=[],events=[],scripts=[],mapListeners={},documentListeners={},popups=[];
   const node=()=>({hidden:false,disabled:false,textContent:'',scrollIntoView(){},children:[],listeners:{},append(...items){this.children.push(...items)},replaceChildren(){this.children=[]},addEventListener(type,cb){this.listeners[type]=cb}});
   const get=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id)};
   const document={querySelector:get,createElement:node,dispatchEvent:e=>events.push(e),addEventListener(type,cb){documentListeners[type]=cb},head:{append(script){scripts.push(script);window.riversideGoogleReady()}}};
   let data={centre:{lat:0,lng:0},label:'Simulation',stations:[{id:'station-1',name:'Demo station',description:'Fictional',latitude:0,longitude:0}],incidents:[{id:'I-1',status:'open',assignee:'vol-priya',assistanceState:'accepted',initialDistanceMetres:200,position:{latitude:0,longitude:0}}],volunteers:[{id:'vol-priya',name:'Priya',state:'busy',fresh:true,position:{latitude:0,longitude:.001}}]};
   class Marker {constructor(options){Object.assign(this,options);this.listeners={};createdMarkers.push(this)}addListener(type,cb){this.listeners[type]=cb}}
   class Polyline {constructor(options){Object.assign(this,options);createdLines.push(this)}setPath(path){this.path=path}setMap(map){this.map=map}}
-  const libraries={Map:class {addListener(type,cb){mapListeners[type]=cb}setCenter(){}setZoom(){}},AdvancedMarkerElement:Marker,PinElement:class{constructor(options){Object.assign(this,options);this.element=this}},InfoWindow:class{close(){}setContent(content){popups.push(content)}open(){}}};
-  const api={getSession:()=>({user:currentRole==='public'?null:{role:currentRole}}),getIdentityVersion:()=>identity,isIdentityChanging:()=>false,getMapsConfig:async()=>({key,centre:{lat:0,lng:0}}),getMapData:async()=>{if(failData)throw Error('Disconnected');if(pendingData)return pendingData;return data},subscribe:cb=>subscribers.push(cb),onIdentityChange:cb=>identityCallbacks.push(cb)};
-  const window={RiversideAPI:api,RiversideMapGeometry:require('../src/js/domain/map.js'),google:{maps:{importLibrary:async()=>libraries,Polyline}}};
+  const libraries={Map:class {addListener(type,cb){mapListeners[type]=cb}setCenter(){}setZoom(){}fitBounds(bounds,padding){fits.push({bounds,padding})}},AdvancedMarkerElement:Marker,PinElement:class{constructor(options){Object.assign(this,options);this.element=this}},InfoWindow:class{close(){}setContent(content){popups.push(content)}open(){}}};
+  const api={getSession:()=>({user:currentRole==='public'?null:{role:currentRole}}),getIdentityVersion:()=>identity,isIdentityChanging:()=>false,getMapsConfig:async()=>({key,centre:{lat:0,lng:0}}),getMapData:async()=>{if(failData)throw Error('Disconnected');if(pendingData)return pendingData;return data},subscribe:cb=>subscribers.push(cb),onIdentityChange:cb=>identityCallbacks.push(cb),onConnectionChange:cb=>connectionCallbacks.push(cb)};
+  const window={RiversideData:require('../data/fixtures.js'),RiversideAPI:api,RiversideMapGeometry:require('../src/js/domain/map.js'),google:{maps:{importLibrary:async()=>libraries,Polyline}}};
   vm.runInNewContext(fs.readFileSync('src/js/ui/map.js','utf8'),{window,document,CustomEvent:class{constructor(type,options={}){this.type=type;this.detail=options.detail}},setTimeout:()=>1,clearTimeout(){},requestAnimationFrame:cb=>{cb(1000);return 1},cancelAnimationFrame(){},performance:{now:()=>0}});
-  return {get,scripts,createdMarkers,createdLines,events,mapListeners,documentListeners,popups,authFailure:()=>window.gm_authFailure(),refresh:()=>{subscribers.forEach(cb=>cb());return flush()},setData:value=>{data=value},getData:()=>data,changeRole(value){identity++;currentRole=value;identityCallbacks.forEach(cb=>cb())},delay(){let resolve;pendingData=new Promise(r=>{resolve=r});return value=>{pendingData=null;resolve(value)}},setFailure(value){failData=value}};
+  return {get,scripts,createdMarkers,createdLines,fits,events,mapListeners,documentListeners,popups,authFailure:()=>window.gm_authFailure(),refresh:()=>{subscribers.forEach(cb=>cb());return flush()},setData:value=>{data=value},getData:()=>data,changeRole(value){identity++;currentRole=value;identityCallbacks.forEach(cb=>cb())},delay(){let resolve;pendingData=new Promise(r=>{resolve=r});return value=>{pendingData=null;resolve(value)}},setFailure(value){failData=value},setConnection(value){connectionCallbacks.forEach(cb=>cb(value))}};
 }
 test('simulated Maps renderer draws staff pins and grey/white progress; Mo can select and volunteer pins cannot open details',async()=>{
   for(const role of ['mo','volunteer']) {
@@ -109,4 +109,24 @@ test('zones are selectable public reference pins; only Mo can place a zone, and 
       const count=t.events.length;t.mapListeners.click({latLng:{lat:()=>3,lng:()=>4}});assert.equal(t.events.length,count);
     }
   }
+});
+
+test('accepted attendee assignment names the responder and fits the whole dotted curve once, including distant starts',async()=>{
+  const t=fixture({role:'public'}),data=t.getData();data.volunteers=[];
+  Object.assign(data.incidents[0],{startPosition:{latitude:-37.9,longitude:145.05},position:{latitude:-37.7992,longitude:144.962},locationKind:'demo-location',demoLocation:true,progress:.2});
+  t.setData(data);await t.refresh();
+  assert.match(t.get('#map-summary').textContent,/I-1: Assigned to Priya \(fictional\).*arrival not yet confirmed/);
+  assert.equal(t.createdLines.length,2);assert.equal(t.fits.length,1);
+  const bounds=t.fits[0].bounds;for(const p of t.createdLines[0].path){assert.ok(p.lat<=bounds.north&&p.lat>=bounds.south&&p.lng<=bounds.east&&p.lng>=bounds.west)}
+  data.incidents[0].progress=.6;await t.refresh();assert.equal(t.fits.length,1,'GPS/progress refresh should not reset a user-pan');
+  t.get('#map-recentre').listeners.click();assert.equal(t.fits.length,2);
+  data.incidents[0].assistanceState='arrived';await t.refresh();assert.match(t.get('#map-summary').textContent,/volunteer marked arrived/);
+  t.changeRole('public');await t.refresh();assert.equal(t.fits.length,3,'a changed identity gets a fresh safe fit');
+});
+
+test('lost session/state connection removes stale map tracking and recovers safely on the next successful refresh',async()=>{
+  const t=fixture({role:'public'}),data=t.getData();data.volunteers=[];data.incidents[0].startPosition={latitude:0,longitude:.002};t.setData(data);await t.refresh();
+  assert.equal(t.get('#live-map').hidden,false);t.setConnection(false);
+  assert.equal(t.get('#live-map').hidden,true);assert.equal(t.get('#map-summary').textContent,'');assert.ok(t.createdLines.every(l=>l.map===null));assert.match(t.get('#map-status').textContent,/Connection lost.*unavailable/);
+  t.setConnection(true);await t.refresh();assert.equal(t.get('#live-map').hidden,false);assert.equal(t.get('#map-fallback').hidden,true);assert.equal(t.createdLines.length,4);
 });

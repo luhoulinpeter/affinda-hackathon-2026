@@ -70,3 +70,28 @@ test('a confirmed report receipt survives a failed follow-up state fetch', async
   const api=context.window.RiversideAPI;await api.refresh();
   assert.equal((await api.submitReport({text:'Fictional report'})).id,'I-1');
 });
+
+test('connection loss preserves the last permitted state, signals stale updates, and recovers the accepted assignment',async()=>{
+  let failed=false, accepted=false; const notices=[];
+  const context={window:{RiversideTab:{ready:Promise.resolve('11111111-1111-4111-8111-111111111111')}},fetch:async route=>{
+    if(failed)throw Error('Failed to fetch');
+    return {ok:true,json:async()=>route==='/api/session'?{liveUpdates:'polling',guest:{id:'guest-one',role:'public'},csrf:'same'}:{reports:[{id:'R-1'}],incidents:[{id:'I-1',assignee:accepted?'vol-priya':null,assistance:accepted?{state:'accepted',offers:[],events:[]}:undefined}]}};
+  }};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/js/services/api.js'),'utf8'),context);
+  const api=context.window.RiversideAPI;api.onConnectionChange(value=>notices.push(value));await api.refresh();
+  failed=true;accepted=true;await assert.rejects(api.refresh(),/Failed to fetch/);
+  assert.equal(api.getState().incidents[0].assignee,null);assert.deepEqual(notices,[true,false]);
+  failed=false;await api.refresh();assert.equal(api.getState().incidents[0].assignee,'vol-priya');assert.deepEqual(notices,[true,false,true]);
+});
+
+test('an older failed refresh cannot mark a newer successful assignment update disconnected',async()=>{
+  let release,first=true;const notices=[];
+  const context={window:{RiversideTab:{ready:Promise.resolve('11111111-1111-4111-8111-111111111111')}},fetch:async route=>{
+    if(first){first=false;await new Promise((_r,reject)=>{release=reject});}
+    return {ok:true,json:async()=>route==='/api/session'?{liveUpdates:'polling',csrf:'same'}:{reports:[],incidents:[{id:'I-1',assignee:'vol-priya'}]}};
+  }};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/js/services/api.js'),'utf8'),context);
+  const api=context.window.RiversideAPI;api.onConnectionChange(value=>notices.push(value));
+  const old=api.refresh();for(let i=0;i<5;i++)await Promise.resolve();await api.refresh();release(Error('Old connection failed'));await assert.rejects(old);
+  assert.deepEqual(notices,[true]);assert.equal(api.getState().incidents[0].assignee,'vol-priya');
+});

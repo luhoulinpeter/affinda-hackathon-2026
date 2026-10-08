@@ -194,6 +194,10 @@
     render();
     $('#incident-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
-  api.refresh().then(() => feedback("")).catch(error => feedback(`Cannot connect. Run node server/index.cjs and open the local server URL. ${error.message}`, true));
-  setInterval(() => { if (!document.hidden && !$("#signin-dialog").open) api.refresh().catch(error => feedback(error.message, true)); }, 6000);
+  api.onConnectionChange(connected => {
+    $('#connection-status').hidden = connected;
+    if (connected && $('#feedback').textContent === 'Waiting for a connection to the event server.') feedback('Connected to the event server.');
+  });
+  api.refresh().then(() => feedback("")).catch(() => feedback('Waiting for a connection to the event server.', true));
+  setInterval(() => { if (!document.hidden && !$("#signin-dialog").open) api.refresh().catch(() => {}); }, 6000);
 })();

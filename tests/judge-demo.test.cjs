@@ -63,3 +63,21 @@ test('judge launcher refuses existing non-demo data and packaging excludes secre
   assert.ok(files.every(f=>!f.startsWith('.riverside/') && !f.startsWith('.git/') && !(f.startsWith('.env') && f!=='.env.example') && !f.endsWith('DEMO-VIDEO-DRAFT.md')));
   const zip=buildZip(files); assert.equal(zip.readUInt32LE(0),0x04034b50); assert.equal(zip.readUInt32LE(zip.length-22),0x06054b50);
 });
+
+test('report-only demo location becomes visible to its original attendee immediately after Mo offer acceptance, without starting fake movement',async t=>{
+  const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'hi-vis-manual-demo-regression-'));
+  const {server,base}=await startJudgeDemo({dataDir,port:0});
+  t.after(async()=>{await server.whenAIIdle();await new Promise(r=>server.close(r));fs.rmSync(dataDir,{recursive:true,force:true})});
+  const mo=client(base),vol=client(base),guest=client(base),outsider=client(base);
+  for(const [c,name] of [[mo,'mo'],[vol,'priya']]){await c('/api/session');await c('/api/login',credentials[name]);await c('/api/session')}
+  await guest('/api/session');await outsider('/api/session');
+  const first=await guest('/api/reports',{zone:'demo-location',category:'hazard',text:'Fictional ordinary spill, report only.'});await server.whenAIIdle();
+  assert.equal((await guest('/api/state')).incidents[0].assistance,undefined);
+  await vol('/api/presence',{available:true,start:true,position:{latitude:-37.9,longitude:145.05,accuracy:5,capturedAt:Date.now()}});
+  await mo(`/api/incidents/${first.id}/assignment-offer`,{volunteerId:'vol-priya'});
+  assert.equal((await guest('/api/state')).incidents[0].assistance.state,'offered');
+  const offer=(await vol('/api/state')).incidents[0].assistance.offers[0];await vol(`/api/incidents/${first.id}/offers/${offer.id}`,{decision:'accept'});
+  const own=(await guest('/api/state')).incidents[0];assert.equal(own.assignee,'vol-priya');assert.equal(own.assistance.state,'accepted');assert.equal(own.assistance.destination,undefined);assert.deepEqual(own.assistance.offers,[]);
+  const map=await guest('/api/map-data');assert.equal(map.incidents.length,1);assert.equal(map.incidents[0].assistanceState,'accepted');assert.deepEqual(map.incidents[0].startPosition,{latitude:-37.9,longitude:145.05});assert.deepEqual(map.incidents[0].position,{latitude:-37.7992,longitude:144.962});assert.equal(map.incidents[0].progress,0);assert.deepEqual(map.volunteers,[]);
+  assert.equal((await outsider('/api/map-data')).incidents.length,0);assert.equal((await outsider('/api/state')).incidents.length,0);
+});

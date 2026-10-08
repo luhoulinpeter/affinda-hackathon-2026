@@ -20,7 +20,7 @@ function packageFiles() {
     }
   }
   sourceDirs.forEach(walk);
-  for (const file of ['docs/checks/SUBMISSION-READINESS.md','docs/checks/submission-tests.txt','docs/checks/judge-demo.png']) if (fs.existsSync(path.join(root,file))) files.push(file);
+  for (const file of ['docs/checks/SUBMISSION-READINESS.md','docs/checks/submission-tests.txt','docs/checks/judge-demo.png','docs/checks/ATTENDEE-ASSIGNMENT.md','docs/checks/attendee-manual-assignment.png']) if (fs.existsSync(path.join(root,file))) files.push(file);
   return files.sort();
 }
 function buildZip(files) {

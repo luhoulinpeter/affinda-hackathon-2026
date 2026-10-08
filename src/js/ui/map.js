@@ -6,6 +6,7 @@
   let map = null, libraries = null, loader = null, config = null, sequence = 0, configured = false, failure = '';
   const markers = new Map(), lines = new Map();
   let info = null, pickingZone = false;
+  let publicJourneySignature = '', publicJourneyBounds = null;
 
   function unavailable(message, fatal = false) {
     if (fatal) failure = message;
@@ -16,6 +17,7 @@
   }
   function clear() {
     pickingZone = false;
+    publicJourneySignature = ''; publicJourneyBounds = null;
     markers.forEach(item => { if (item.animation) cancelAnimationFrame(item.animation); item.marker.map = null; });
     markers.clear();
     lines.forEach(pair => pair.forEach(line => line.setMap(null)));
@@ -23,6 +25,15 @@
     info?.close();
     $('#map-summary').textContent = '';
     $('#map-estimates').replaceChildren();
+  }
+  function fitPublicJourney(data, role) {
+    if (role !== 'public') { publicJourneyBounds = null; publicJourneySignature = ''; return; }
+    const journeys = data.incidents.filter(i => i.locationKind !== 'zone' && geometry.valid(i.startPosition) && geometry.valid(i.position) && ['accepted', 'arrived'].includes(i.assistanceState));
+    const signature = JSON.stringify(journeys.map(i => [i.id, i.assignee, i.startPosition, i.position]));
+    const points = journeys.flatMap(i => geometry.curve(i.startPosition, i.position));
+    publicJourneyBounds = points.length ? { north: Math.max(...points.map(p => p.lat)), south: Math.min(...points.map(p => p.lat)), east: Math.max(...points.map(p => p.lng)), west: Math.min(...points.map(p => p.lng)) } : null;
+    if (signature !== publicJourneySignature && publicJourneyBounds && typeof map.fitBounds === 'function') map.fitBounds(publicJourneyBounds, 48);
+    publicJourneySignature = signature;
   }
   function loadGoogle(key) {
     if (loader) return loader;
@@ -147,6 +158,10 @@
       const fresh = data.volunteers.filter(v => !v.demo && v.fresh && geometry.valid(v.position)).length;
       const simulated = data.volunteers.filter(v => v.demo && geometry.valid(v.position)).length;
       $('#map-summary').textContent = `${(data.zones || []).length} event zones · ` + (role === 'public' ? `${data.stations.length} fictional first-aid stations${data.incidents.length ? ` · ${data.incidents.length} assigned request${data.incidents.length === 1 ? '' : 's'} shown` : ''}` : `${data.incidents.length} incidents · ${unlocated} without a map position · ${fresh} volunteers sharing a current position${simulated ? ` · ${simulated} simulated journey` : ''}`);
+      if (role === 'public') for (const incident of data.incidents) {
+        const name = window.RiversideData?.volunteers.find(v => v.id === incident.assignee)?.name || incident.assignee;
+        $('#map-summary').textContent += ` · ${incident.id}: Assigned to ${name}${incident.assistanceState === 'arrived' ? ' · volunteer marked arrived' : ' · arrival not yet confirmed'}`;
+      }
       $('#map-estimates').replaceChildren();
       for (const incident of data.incidents.filter(i => i.walkingEstimate)) {
         const estimate = incident.walkingEstimate, row = document.createElement('p');
@@ -177,6 +192,7 @@
       const staleJourney = data.incidents.some(i => i.assignee && ['accepted', 'arrived'].includes(i.assistanceState) && i.progress === null);
       $('#map-status').textContent = pickingZone ? 'Tap the map to place the zone reference point. Save event zones to publish it.' : `${data.label}. ${data.incidents.some(i => i.demo) ? 'Fictional movement demo active; these journey positions are simulated.' : staleJourney ? 'Volunteer GPS progress is unavailable. Arrival still needs human confirmation.' : data.incidents.some(i => i.demoLocation) ? 'Demo requester locations are fictional test points; volunteer positions update while devices share GPS.' : 'Positions update while devices share GPS.'}`;
       draw(data, role);
+      fitPublicJourney(data, role);
     } catch {
       if (!current()) return;
       // Hide old staff state on errors rather than presenting it as current.
@@ -189,7 +205,12 @@
     panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   document.addEventListener('riverside-zone-pick-cancel', () => { pickingZone = false; });
-  $('#map-recentre').addEventListener('click', () => { if (map && config) { map.setCenter(config.centre); map.setZoom(16); } });
+  $('#map-recentre').addEventListener('click', () => { if (map && config) { if (publicJourneyBounds && typeof map.fitBounds === 'function') map.fitBounds(publicJourneyBounds, 48); else { map.setCenter(config.centre); map.setZoom(16); } } });
+  api.onConnectionChange?.(connected => {
+    if (connected) return;
+    sequence++; clear();
+    unavailable('Connection lost. Assignment progress is unavailable until this event link reconnects.');
+  });
   api.onIdentityChange(() => { sequence++; clear(); $('#live-map').hidden = true; panel.hidden = true; });
   api.subscribe(refresh);
 })();
