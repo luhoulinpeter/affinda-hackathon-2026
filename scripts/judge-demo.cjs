@@ -32,14 +32,9 @@ function client(base) {
     return data;
   };
 }
-async function startJudgeDemo({ dataDir = path.join(root, '.riverside/judge-demo'), port = 8766, now = Date.now } = {}) {
-  const teamDir = path.join(root, '.riverside');
-  if (path.resolve(dataDir) === teamDir || fs.existsSync(dataDir) && fs.existsSync(teamDir) && fs.realpathSync(dataDir) === fs.realpathSync(teamDir)) throw new Error('Judge demo cannot use the team data folder.');
-  const marker = path.join(dataDir, 'judge-demo-only.json');
-  if (fs.existsSync(dataDir) && fs.readdirSync(dataDir).length && !fs.existsSync(marker)) throw new Error('Refusing non-demo data. Choose an empty directory for this sandbox.');
-  fs.mkdirSync(dataDir, { recursive:true, mode:0o700 });
-  fs.writeFileSync(marker, JSON.stringify({ purpose:'Hi-Vis isolated judge demo', version:1 }), { mode:0o600 });
-  const server = createApp({ dataDir, aiProviders:simulatedProviders(), aiEnv:{}, now });
+function createJudgeServer({ dataDir, now, publicOrigin = null }) {
+  const server = createApp({ dataDir, aiProviders:simulatedProviders(), aiEnv:{}, now, publicOrigin, eventStreams:!publicOrigin });
+  const publicHost = publicOrigin && new URL(publicOrigin).host;
   const handler = server.listeners('request')[0]; server.removeListener('request', handler);
   const assets = new Map([
     ['/__judge/map.js', ['demo/map.js','text/javascript']],
@@ -48,8 +43,9 @@ async function startJudgeDemo({ dataDir = path.join(root, '.riverside/judge-demo
   ]);
   server.on('request', (req,res) => {
     const url = new URL(req.url, 'http://127.0.0.1');
-    const allowedHost = [`127.0.0.1:${server.address().port}`, `localhost:${server.address().port}`].includes(req.headers.host);
-    if (req.method === 'GET' && allowedHost && assets.has(url.pathname)) {
+    const allowedHost = publicHost ? req.headers.host === publicHost : [`127.0.0.1:${server.address().port}`, `localhost:${server.address().port}`].includes(req.headers.host);
+    const allowedOrigin = !req.headers.origin || req.headers.origin === (publicOrigin || `http://${req.headers.host}`);
+    if (req.method === 'GET' && allowedHost && allowedOrigin && assets.has(url.pathname)) {
       const [file,type] = assets.get(url.pathname);
       res.writeHead(200, { 'Content-Type':`${type}; charset=utf-8`, 'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff', 'Content-Security-Policy':"default-src 'self'; object-src 'none'; frame-ancestors 'none'" }); res.end(fs.readFileSync(path.join(root,file))); return;
     }
@@ -59,15 +55,34 @@ async function startJudgeDemo({ dataDir = path.join(root, '.riverside/judge-demo
     }
     handler(req,res);
   });
+  return server;
+}
+async function startJudgeDemo({ dataDir = path.join(root, '.riverside/judge-demo'), port = 8766, now = Date.now, publicOrigin = null } = {}) {
+  if (publicOrigin !== null) {
+    const origin = new URL(publicOrigin);
+    if (origin.protocol !== 'https:' || origin.origin !== publicOrigin) throw new Error('Judge public origin must be an exact HTTPS origin.');
+  }
+  const teamDir = path.join(root, '.riverside');
+  if (path.resolve(dataDir) === teamDir || fs.existsSync(dataDir) && fs.existsSync(teamDir) && fs.realpathSync(dataDir) === fs.realpathSync(teamDir)) throw new Error('Judge demo cannot use the team data folder.');
+  const marker = path.join(dataDir, 'judge-demo-only.json');
+  if (fs.existsSync(dataDir) && fs.readdirSync(dataDir).length && !fs.existsSync(marker)) throw new Error('Refusing non-demo data. Choose an empty directory for this sandbox.');
+  fs.mkdirSync(dataDir, { recursive:true, mode:0o700 });
+  fs.writeFileSync(marker, JSON.stringify({ purpose:'Hi-Vis isolated judge demo', version:1 }), { mode:0o600 });
+  let server = createJudgeServer({dataDir,now});
   try {
-    await new Promise((resolve,reject) => { server.once('error',reject); server.listen(port,'127.0.0.1',() => { server.removeListener('error',reject); resolve(); }); });
+    await new Promise((resolve,reject) => { server.once('error',reject); server.listen(publicOrigin ? 0 : port,'127.0.0.1',() => { server.removeListener('error',reject); resolve(); }); });
     const base = `http://127.0.0.1:${server.address().port}`;
     const stored = JSON.parse(fs.readFileSync(path.join(dataDir,'store.json')));
     if (!stored.users.length) await server.ensureMo(credentials.mo.username,credentials.mo.password);
     const mo = client(base); await mo('/api/session'); await mo('/api/login',credentials.mo); await mo('/api/session');
     for (const name of ['priya','alex']) if (!stored.users.some(u => u.username === name && u.actorId === `vol-${name}`)) await mo('/api/accounts',{ ...credentials[name], volunteerId:`vol-${name}` });
     await mo('/api/logout',{});
-    return { server, base, dataDir };
+    if (publicOrigin) {
+      await new Promise(resolve => server.close(resolve));
+      server = createJudgeServer({dataDir,now,publicOrigin});
+      await new Promise((resolve,reject) => { server.once('error',reject); server.listen(port,'127.0.0.1',() => { server.removeListener('error',reject); resolve(); }); });
+    }
+    return { server, base:publicOrigin || base, dataDir };
   } catch (error) { await new Promise(resolve => server.close(resolve)); throw error; }
 }
 if (require.main === module) {

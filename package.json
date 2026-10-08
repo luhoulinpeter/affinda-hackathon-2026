@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node server/index.cjs",
     "demo": "node scripts/judge-demo.cjs",
+    "demo:tunnel": "node scripts/judge-tunnel.cjs",
     "package:submission": "node scripts/package-submission.cjs",
     "test": "node scripts/test.cjs"
   }

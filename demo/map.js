@@ -27,12 +27,13 @@
     constructor(o) {
       this.element = document.createElement(o.gmpClickable ? 'button' : 'span');
       if (o.gmpClickable) this.element.type = 'button';
-      this.element.className = 'judge-marker'; this.element.append(o.content); this.title = o.title; this.position = o.position; this.map = o.map;
+      this.element.className = 'judge-marker'; this.element.append(o.content instanceof Pin ? o.content.element : o.content); this.title = o.title; this.position = o.position; this.map = o.map;
     }
     set title(value) { this.element.title = value; this.element.setAttribute('aria-label', value); }
     set position(value) { this.point = project(value); this.element.style.left = `${this.point.x/10}%`; this.element.style.top = `${this.point.y/5.6}%`; }
     set map(value) { this.owner = value; if (value) value.container.append(this.element); else this.element.remove(); }
-    addListener(name, fn) { this.element.addEventListener(name, e => { e.stopPropagation(); fn(); }); }
+    addEventListener(name, fn) { this.element.addEventListener(name === 'gmp-click' ? 'click' : name, e => { e.stopPropagation(); fn(); }); }
+    addListener(name, fn) { this.addEventListener(name, fn); }
   }
   class Info {
     setContent(content) { this.content = content; }

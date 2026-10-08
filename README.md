@@ -22,9 +22,11 @@ An event-safety prototype for Riverside: attendees report issues, volunteers acc
 | Alex — second volunteer | `alex` | `HiVis-Alex-Demo!` |
 | Event-goer | No sign-in | Open a separate new tab |
 
-These credentials belong only to the isolated, local judge demo. Use **Staff sign in** to enter them. The demo page also contains instructions and links to three separate tabs. [JUDGES.md](JUDGES.md) walks through reporting, assignment, privacy, movement and resetting.
+These credentials belong only to the isolated judge sandbox. Use **Staff sign in** to enter them. The demo page also contains instructions and links to three separate tabs. [JUDGES.md](JUDGES.md) walks through reporting, assignment, privacy, movement and resetting.
 
 **Demo scope:** the real application, account permissions, saved reports, assignments and live update system run locally. AI responses, GPS and the schematic campus map are explicitly simulated. No API credits, internet map tiles or external accounts are required after Node is installed. The demo does not test Google Maps, real GPS or Google walking estimates. Demo records persist in `.riverside/judge-demo/`, separate from the normal app.
+
+To share this fictional demo with phones or other computers, install [Cloudflare's official cloudflared client](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/) and run **`npm run demo:tunnel`**. It prints a temporary HTTPS link and keeps a separate `.riverside/judge-tunnel` sandbox. Anyone with the link can use the displayed demo accounts. Keep the host awake and terminal open; Ctrl+C stops both processes. [Tunnel steps and troubleshooting](JUDGES.md#share-the-demo-by-https-quick-tunnel).
 
 ## Run the normal application
 
@@ -36,7 +38,7 @@ Open http://127.0.0.1:8765/. First-time setup creates your own Mo account; Mo cr
 
 For Google Maps and optional live AI, copy `.env.example` to `.env`, supply your own keys, and follow [SETUP.md](SETUP.md) and [server/README.md](server/README.md). With Node 20.6 or newer, run `node --env-file=.env server/index.cjs` to load that file. A browser Maps key is visible to browsers; restrict it to your approved origins/APIs. Live AI also needs an operator-approved persisted allowance. Routes estimates are disabled by default and require separate configuration. Never share `.env` or `.riverside/`.
 
-A local address opens on the computer running the server. Phones need the separately configured HTTPS hosting/tunnel setup. Quick Tunnel links are temporary; this project does not include permanent public hosting. Use private credentials for any public deployment, never the shared judge demo accounts. Keep one Node process and a persistent writable data directory; this JSON-store MVP is not a serverless deployment.
+A local address opens on the computer running the server. Phones need HTTPS hosting/tunnel setup. Quick Tunnel links are temporary; this project does not include permanent public hosting. The normal app needs private credentials for public deployment; shared judge credentials are only for the explicitly fictional `demo:tunnel` sandbox. Keep one Node process and a persistent writable data directory; this JSON-store MVP is not a serverless deployment.
 
 ## Verify and package
 

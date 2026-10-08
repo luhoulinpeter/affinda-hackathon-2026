@@ -30,6 +30,34 @@ Click **Staff sign in**, enter the two fields, then submit. Each tab keeps its o
 
 The map is a bounded schematic, not street navigation. Its pins and curves use the application's real role-filtered data. It has no zoom/pan. Google Maps and Google walking estimates require the separately configured normal app; this demo makes no Google or AI requests.
 
+## Share the demo by HTTPS Quick Tunnel
+
+1. Install Node.js 20+ and [Cloudflare's official cloudflared client](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/). On a fresh computer, check `cloudflared --version` works in your terminal. No Cloudflare sign-in or domain is needed for a Quick Tunnel.
+2. In the project folder, run `npm run demo:tunnel`.
+3. Wait for **Hi-Vis PUBLIC judge demo: https://…trycloudflare.com**. Open that exact printed link on every computer/phone. Expand **Demo sign-ins & instructions** and use the accounts above.
+4. Keep the host computer awake, online and the terminal running. **Ctrl+C** stops the app and tunnel together. Restart with the same command for a new link.
+
+This command uses port **8768** on loopback and the separate `.riverside/judge-tunnel` sandbox. It never loads `.env`, your normal app's accounts/reports or live API keys. It enforces the printed HTTPS host, secure cookies and server permissions, with six-second polling because Quick Tunnels do not support server-sent events. The ordinary local demo on port 8766 remains separate.
+
+Anyone with the public link can use the displayed demo credentials, including Mo's demo controls: enter **fictional data only**. The schematic, GPS and AI remain simulated even on phones. A new hostname starts new browser guest history; existing sandbox reports remain visible to Mo, but an attendee's original report history does not migrate to the new origin. Staff sign in again after restart.
+
+If `cloudflared` is not on PATH, set **HIVIS_CLOUDFLARED** to its executable path. This workspace also reuses the previously verified binary at `.riverside/tools/cloudflared`; that private binary is not included in the submission ZIP. If port 8768 is busy, set **HIVIS_DEMO_TUNNEL_PORT** to a free port before running:
+
+```sh
+# macOS/Linux, optional alternative port
+HIVIS_DEMO_TUNNEL_PORT=8770 npm run demo:tunnel
+```
+
+```powershell
+# Windows PowerShell, optional alternative port
+$env:HIVIS_DEMO_TUNNEL_PORT='8770'
+npm run demo:tunnel
+```
+
+Diagnostics are saved privately in `.riverside/judge-tunnel.log`; the latest URL/status is in `.riverside/judge-tunnel-access.json`. A **Cannot start demo tunnel** message means no demo link is ready; address the printed error and rerun. For a blocked university network, try another network. Never forward `npm run demo` directly: use `demo:tunnel` so the public-host and secure-cookie configuration is applied.
+
+[Cloudflare's Quick Tunnel documentation](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) describes the temporary hostname, no account requirement and lack of uptime guarantee. This is a temporary demonstration link, not permanent hosting.
+
 ## More useful cases
 
 - **Request attendance directly:** with Priya available, submit a new report using **Send & request volunteer**. An offer should appear for an eligible volunteer; acceptance is still required. The explicit **Use demo location · fictional** choice also works without requester GPS.
@@ -46,7 +74,7 @@ The map is a bounded schematic, not street navigation. Its pins and curves use t
 - **Cannot connect:** check the terminal is still running and use the exact printed URL. The judge launcher listens only on this computer; opening that address on a phone reaches the phone itself.
 - **Login not recognised:** use this demo's printed URL and passwords, not the normal app on port 8765. Restart invalidates staff sessions; sign in again.
 - **Records from an earlier run:** they are intentionally saved. Use Mo's confirmed clear control before starting a fresh walkthrough.
-- **Need real integrations:** follow the normal-app section in [README.md](README.md) and [server/README.md](server/README.md). Do not expose the judge launcher publicly or reuse these shared passwords in a public deployment.
+- **Need real integrations:** follow the normal-app section in [README.md](README.md) and [server/README.md](server/README.md). The explicit `demo:tunnel` command is for the fictional sandbox only; do not reuse its shared passwords with real data or live integrations.
 
 ## Evidence and boundaries
 
