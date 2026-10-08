@@ -146,8 +146,7 @@
       $('#map-estimates').replaceChildren();
       for (const incident of data.incidents.filter(i => i.walkingEstimate)) {
         const estimate = incident.walkingEstimate, row = document.createElement('p');
-        const age = Number.isFinite(estimate.estimatedAt) ? Math.max(0, Math.floor((data.serverTime - estimate.estimatedAt) / 60000)) : 0;
-        row.textContent = `${incident.id} · ${estimate.label}${estimate.state === 'ready' ? ` on foot · Google Maps estimate${age ? ` · checked ${age} min ago` : ''}` : ''}${incident.demo ? ' · simulated location' : ''}`;
+        row.textContent = `${incident.id} · ${estimate.state === 'ready' ? 'Starting walking estimate: ' : ''}${estimate.label}${estimate.state === 'ready' ? ' · Google Maps · fixed from the starting location' : ''}${incident.demo ? ' · simulated location' : ''}`;
         $('#map-estimates').append(row);
         if (estimate.state === 'ready') {
           const warning = document.createElement('p');

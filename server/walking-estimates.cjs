@@ -4,29 +4,30 @@ function estimateLabel(seconds) {
   return seconds <= 120 ? 'Up to 2 minutes' : `About ${Math.ceil(seconds / 60)} minutes`;
 }
 
-// Server-only routing: viewers share a bounded cache; GPS/key never enter the
+// Server-only routing: viewers share the starting estimate; GPS/key never enter the
 // public projection. The persisted reservation counts failures and restarts.
 function createWalkingEstimates({ enabled = false, key = '', reserve = () => false, fetchImpl = fetch, now = Date.now } = {}) {
   const cache = new Map();
-  function signature(i) {
+  function signature(i, simulation) {
     const a = i.assistance;
+    const start = simulation?.startPosition || a?.startPosition || a?.offers?.find(o => o.status === 'accepted')?.startPosition;
+    const destination = simulation?.destination || a?.destination;
     return JSON.stringify([i.id, i.assignee, a?.offers?.find(o => o.status === 'accepted')?.id,
-      a?.destination?.latitude, a?.destination?.longitude]);
+      !!simulation, start?.latitude, start?.longitude, destination?.latitude, destination?.longitude]);
   }
-  async function get(i, responder, simulation) {
+  async function get(i, _responder, simulation) {
     if (!i.assignee || i.status === 'resolved' || !['accepted', 'arrived'].includes(i.assistance?.state)) return null;
     if (i.assistance.state === 'arrived') return { state: 'arrived', label: 'Volunteer marked arrived' };
-    const origin = simulation?.position || (responder?.fresh ? responder.position : null);
+    const origin = simulation?.startPosition || i.assistance.startPosition || i.assistance.offers?.find(o => o.status === 'accepted')?.startPosition;
     const destination = simulation?.destination || i.assistance.destination;
-    if (!geometry.valid(origin) || !geometry.valid(destination)) return { state: 'unavailable', label: 'Walking estimate needs a current volunteer location and requester GPS' };
+    if (!geometry.valid(origin) || !geometry.valid(destination)) return { state: 'unavailable', label: 'Starting walking estimate needs the volunteer’s starting location and requester GPS' };
     if (!enabled || !key) return { state: 'disabled', label: 'Google walking estimate is not configured' };
-    const id = signature(i), old = cache.get(i.id);
+    const id = signature(i, simulation), old = cache.get(i.id);
     if (old?.id === id) {
       if (old.pending) return old.pending;
-      // Never refresh faster than once a minute. Small GPS jitter reuses the
-      // estimate for at most five minutes; age is exposed in the projection.
-      const age = now() - old.at;
-      if (age < 60000 || (old.result.state === 'ready' && age < 300000 && geometry.distance(old.origin, origin) < 50)) return old.result;
+      // Keep the initial result, including failure, for this assignment. Moving
+      // GPS, elapsed time, new viewers and page reloads never repeat the request.
+      return old.result;
     }
     if (!reserve()) return { state: 'unavailable', label: 'Walking estimate request limit reached' };
     const entry = { id, at: now(), origin: { latitude: origin.latitude, longitude: origin.longitude } };
@@ -52,10 +53,13 @@ function createWalkingEstimates({ enabled = false, key = '', reserve = () => fal
       return entry.result;
     })();
     cache.set(i.id, entry);
-    // Bound retained assignment results as new work arrives.
-    if (cache.size > 200) for (const [cachedId, value] of cache) { if (!value.pending && cachedId !== i.id) { cache.delete(cachedId); break; } }
     return entry.pending;
   }
-  return { get, signature };
+  // Retain only active assignments; do not evict an active starting estimate.
+  function retain(incidents) {
+    const active = new Set(incidents.filter(i => i.status !== 'resolved' && i.assignee && ['accepted', 'arrived'].includes(i.assistance?.state)).map(i => i.id));
+    for (const id of cache.keys()) if (!active.has(id)) cache.delete(id);
+  }
+  return { get, signature, retain };
 }
 module.exports = { createWalkingEstimates, estimateLabel };

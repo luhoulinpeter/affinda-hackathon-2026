@@ -64,9 +64,9 @@ test('Mo sees all map incidents, busy Priya still sees new pins, public sees no 
   assert.ok(!body.includes('test-browser-map-key')); // supplied only by explicit config response
   assert.equal((await fetch(base+'/.env',{headers:{Connection:'close'}})).status,404);
   time+=61000;
-  const stale=(await mo('/api/map-data')).data;assert.ok(stale.volunteers.every(v=>v.position===undefined));assert.equal(stale.incidents[0].walkingEstimate.state,'unavailable');assert.equal(routeCalls,1);
+  const stale=(await mo('/api/map-data')).data;assert.ok(stale.volunteers.every(v=>v.position===undefined));assert.equal(stale.incidents[0].walkingEstimate.state,'ready');assert.equal(stale.incidents[0].walkingEstimate.label,'Up to 2 minutes');assert.equal(routeCalls,1);
   await priya('/api/presence',{available:true,start:false,position:pos(-37.797)});
-  assert.match((await mo('/api/map-data')).data.incidents[0].walkingEstimate.label,/limit reached/);assert.equal(routeCalls,1);
+  assert.equal((await mo('/api/map-data')).data.incidents[0].walkingEstimate.label,'Up to 2 minutes');assert.equal(routeCalls,1);
   assert.equal(JSON.parse(fs.readFileSync(path.join(dataDir,'store.json'))).routesUsage,1);
   await guest(`/api/incidents/${a.data.id}/assistance`,{action:'withdraw'});
   assert.equal((await mo('/api/map-data')).data.incidents.find(i=>i.id===a.data.id).position,undefined);

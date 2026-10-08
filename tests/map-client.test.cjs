@@ -75,12 +75,12 @@ test('Google authentication failure hides the map and retains reporting fallback
   assert.equal(t.scripts.length,1);
 });
 
-test('walking estimates appear for all roles, disclose Google and age, and clear on identity change',async()=>{
+test('starting walking estimates appear for all roles, disclose their fixed basis, and clear on identity change',async()=>{
   for(const role of ['public','volunteer','mo']) {
     const t=fixture({role}),data=t.getData();data.serverTime=180000;
     data.incidents[0].walkingEstimate={state:'ready',label:'Up to 2 minutes',source:'Google Maps',estimatedAt:60000,warnings:['Fictional provider warning']};
     t.setData(data);await t.refresh();const rows=t.get('#map-estimates').children;
-    assert.match(rows[0].textContent,/I-1 · Up to 2 minutes on foot · Google Maps estimate · checked 2 min ago/);
+    assert.match(rows[0].textContent,/I-1 · Starting walking estimate: Up to 2 minutes · Google Maps · fixed from the starting location/);
     assert.match(rows[1].textContent,/Fictional provider warning.*sidewalks.*confirmation/);
     data.incidents[0].walkingEstimate={state:'unavailable',label:'Google walking estimate is temporarily unavailable'};await t.refresh();
     assert.equal(t.get('#map-estimates').children.length,1);assert.doesNotMatch(t.get('#map-estimates').children[0].textContent,/minutes|on foot/);

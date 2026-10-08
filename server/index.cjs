@@ -224,11 +224,13 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
       if (req.method === 'GET' && url.pathname === '/api/map-data') {
         const presence = assistance.snapshot({ role: 'mo' }).presence;
         const state = workflow.getState();
+        walkingEstimates.retain(state.incidents);
         const visible = mapData(ctx.actor, state, presence, db.helpStations, now(), demoJourneys, db.eventZones.zones);
         const estimates = await Promise.all(visible.incidents.map(async pin => {
           const incident = state.incidents.find(i => i.id === pin.id);
-          return { id: pin.id, signature: walkingEstimates.signature(incident),
-            estimate: await walkingEstimates.get(incident, presence.find(p => p.id === incident.assignee), demoJourneys.project(incident)) };
+          const simulation = demoJourneys.project(incident);
+          return { id: pin.id, signature: walkingEstimates.signature(incident, simulation),
+            estimate: await walkingEstimates.get(incident, presence.find(p => p.id === incident.assignee), simulation) };
         }));
         // Recheck permissions/lifecycle after the network wait. A resolution,
         // reassignment or privacy change must not resurrect a previous journey.
@@ -238,10 +240,9 @@ function createApp({ dataDir = path.join(root, '.riverside'), publicOrigin = nul
         const result = mapData(ctx.actor, currentState, currentPresence, db.helpStations, now(), demoJourneys, db.eventZones.zones);
         for (const pin of result.incidents) {
           const incident = currentState.incidents.find(i => i.id === pin.id);
-          const found = estimates.find(e => e.id === pin.id && e.signature === walkingEstimates.signature(incident));
+          const found = estimates.find(e => e.id === pin.id && e.signature === walkingEstimates.signature(incident, demoJourneys.project(incident)));
           if (found?.estimate && ['accepted', 'arrived'].includes(pin.assistanceState)) {
-            pin.walkingEstimate = found.estimate.state === 'ready' && pin.progress === null
-              ? { state: 'unavailable', label: 'Volunteer location is no longer current' } : found.estimate;
+            pin.walkingEstimate = pin.assistanceState === 'arrived' ? { state: 'arrived', label: 'Volunteer marked arrived' } : found.estimate;
           }
         }
         return json(res, 200, result);
