@@ -59,11 +59,12 @@
       const pin = new libraries.PinElement({ background: color, borderColor: '#ffffff', glyphColor: '#ffffff', glyphText: glyph, scale: 1 });
       const dot = document.createElement('span'); dot.className = 'map-start-dot';
       const marker = new libraries.AdvancedMarkerElement({ map, position: latLng(position), title, content: kind === 'start' ? dot : pin.element, gmpClickable: !!click });
-      item = { marker, current: latLng(position), click };
+      item = { marker, pin, current: latLng(position), click };
       if (click) marker.addListener('click', () => item.click?.());
       markers.set(key, item);
     } else {
       item.marker.title = title;
+      item.pin.glyphText = glyph;
       item.click = click;
       // Interpolation smooths measured fixes; it does not produce new GPS samples.
       if (item.animation) cancelAnimationFrame(item.animation);
@@ -99,7 +100,10 @@
   }
   function draw(data, role) {
     const seen = new Set();
-    (data.zones || []).forEach(z => point('zone', z.id, z, `${z.name} · event zone`, '#85652c', 'Z', () => zoneDetails(z, role), seen));
+    (data.zones || []).forEach(z => {
+      const letter = z.name.match(/^zone\s+([a-z])\b/i)?.[1] || Array.from(z.name.trim())[0] || 'Z';
+      point('zone', z.id, z, `${z.name} · event zone`, '#85652c', letter.toUpperCase(), () => zoneDetails(z, role), seen);
+    });
     data.stations.forEach(s => point('station', s.id, s, `${s.name} · fictional`, '#14796a', '+', () => stationDetails(s), seen));
     data.volunteers.filter(v => v.fresh && geometry.valid(v.position)).forEach(v => point('volunteer', v.id, v.position, `${v.name} · ${v.state}${v.demo ? ' · simulated movement' : ''}`, v.state === 'busy' ? '#7e729d' : '#225c9e', 'V', null, seen));
     data.incidents.filter(i => geometry.valid(i.position)).forEach(i => point('incident', i.id, i.position, `${role === 'public' ? 'Your request · ' : ''}${i.id} · ${i.status}${i.locationKind === 'zone' ? ' · approximate zone location' : ''}`, i.status === 'resolved' ? '#677c73' : '#be5c36', role === 'public' ? '●' : '!', role === 'mo' ? () => document.dispatchEvent(new CustomEvent('riverside-map-select', { detail: i.id })) : null, seen));

@@ -12,7 +12,7 @@ function fixture({key='simulated-key',role='mo'}={}) {
   let data={centre:{lat:0,lng:0},label:'Simulation',stations:[{id:'station-1',name:'Demo station',description:'Fictional',latitude:0,longitude:0}],incidents:[{id:'I-1',status:'open',assignee:'vol-priya',assistanceState:'accepted',initialDistanceMetres:200,position:{latitude:0,longitude:0}}],volunteers:[{id:'vol-priya',name:'Priya',state:'busy',fresh:true,position:{latitude:0,longitude:.001}}]};
   class Marker {constructor(options){Object.assign(this,options);this.listeners={};createdMarkers.push(this)}addListener(type,cb){this.listeners[type]=cb}}
   class Polyline {constructor(options){Object.assign(this,options);createdLines.push(this)}setPath(path){this.path=path}setMap(map){this.map=map}}
-  const libraries={Map:class {addListener(type,cb){mapListeners[type]=cb}setCenter(){}setZoom(){}},AdvancedMarkerElement:Marker,PinElement:class{element={}},InfoWindow:class{close(){}setContent(content){popups.push(content)}open(){}}};
+  const libraries={Map:class {addListener(type,cb){mapListeners[type]=cb}setCenter(){}setZoom(){}},AdvancedMarkerElement:Marker,PinElement:class{constructor(options){Object.assign(this,options);this.element=this}},InfoWindow:class{close(){}setContent(content){popups.push(content)}open(){}}};
   const api={getSession:()=>({user:currentRole==='public'?null:{role:currentRole}}),getIdentityVersion:()=>identity,isIdentityChanging:()=>false,getMapsConfig:async()=>({key,centre:{lat:0,lng:0}}),getMapData:async()=>{if(failData)throw Error('Disconnected');if(pendingData)return pendingData;return data},subscribe:cb=>subscribers.push(cb),onIdentityChange:cb=>identityCallbacks.push(cb)};
   const window={RiversideAPI:api,RiversideMapGeometry:require('../src/js/domain/map.js'),google:{maps:{importLibrary:async()=>libraries,Polyline}}};
   vm.runInNewContext(fs.readFileSync('src/js/ui/map.js','utf8'),{window,document,CustomEvent:class{constructor(type,options={}){this.type=type;this.detail=options.detail}},setTimeout:()=>1,clearTimeout(){},requestAnimationFrame:cb=>{cb(1000);return 1},cancelAnimationFrame(){},performance:{now:()=>0}});
@@ -92,9 +92,11 @@ test('starting walking estimates appear for all roles, disclose their fixed basi
 test('zones are selectable public reference pins; only Mo can place a zone, and zone-only incidents have no fabricated path',async()=>{
   for(const role of ['public','volunteer','mo']) {
     const t=fixture({role}),data=t.getData();
-    data.zones=[{id:'zone-a',name:'Test zone',description:'Fictional reference',latitude:0,longitude:.003}];
+    data.zones=['A','B','C'].map((letter,index)=>({id:`zone-${letter.toLowerCase()}`,name:`Zone ${letter} · Test`,description:'Fictional reference',latitude:0,longitude:.003+index*.001}));
     data.incidents[0].locationKind='zone'; t.setData(data);await t.refresh();
-    const zone=t.createdMarkers.find(m=>m.title==='Test zone · event zone');assert.equal(zone.gmpClickable,true);
+    for(const letter of ['A','B','C']) assert.equal(t.createdMarkers.find(m=>m.title===`Zone ${letter} · Test · event zone`).content.glyphText,letter);
+    const zone=t.createdMarkers.find(m=>m.title==='Zone A · Test · event zone');assert.equal(zone.gmpClickable,true);
+    data.zones[0].name='Zone D · Renamed';await t.refresh();assert.equal(zone.content.glyphText,'D');assert.equal(zone.title,'Zone D · Renamed · event zone');
     zone.listeners.click();const popup=t.popups.at(-1);
     assert.match(popup.children[2].textContent,/approximate.*not a boundary/);
     assert.equal(t.createdLines.length,0);assert.match(t.createdMarkers.find(m=>m.title.includes('I-1')).title,/approximate zone location/);
