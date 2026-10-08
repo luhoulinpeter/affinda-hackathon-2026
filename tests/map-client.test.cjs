@@ -3,20 +3,20 @@ const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const fs=require('node:fs');
 const flush=async()=>{for(let i=0;i<30;i++)await Promise.resolve()};
-function fixture({key='simulated-key',role='mo'}={}) {
+function fixture({key='simulated-key',role='mo',failScript=false,holdScript=false}={}) {
   let identity=0,currentRole=role,pendingData,failData=false;
-  const nodes=new Map(),subscribers=[],identityCallbacks=[],connectionCallbacks=[],createdMarkers=[],createdLines=[],fits=[],events=[],scripts=[],mapListeners={},documentListeners={},popups=[];
+  const nodes=new Map(),subscribers=[],identityCallbacks=[],connectionCallbacks=[],createdMarkers=[],createdLines=[],fits=[],events=[],scripts=[],mapListeners={},documentListeners={},popups=[],timers=[];
   const node=()=>({hidden:false,disabled:false,textContent:'',scrollIntoView(){},children:[],listeners:{},append(...items){this.children.push(...items)},replaceChildren(){this.children=[]},addEventListener(type,cb){this.listeners[type]=cb}});
   const get=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id)};
-  const document={querySelector:get,createElement:node,dispatchEvent:e=>events.push(e),addEventListener(type,cb){documentListeners[type]=cb},head:{append(script){scripts.push(script);window.riversideGoogleReady()}}};
+  const document={querySelector:get,createElement:node,dispatchEvent:e=>events.push(e),addEventListener(type,cb){documentListeners[type]=cb},head:{append(script){scripts.push(script);if(failScript){failScript=false;script.onerror()}else if(!holdScript)window[new URL(script.src).searchParams.get('callback')]()}}};
   let data={centre:{lat:0,lng:0},label:'Simulation',stations:[{id:'station-1',name:'Demo station',description:'Fictional',latitude:0,longitude:0}],incidents:[{id:'I-1',status:'open',assignee:'vol-priya',assistanceState:'accepted',initialDistanceMetres:200,position:{latitude:0,longitude:0}}],volunteers:[{id:'vol-priya',name:'Priya',state:'busy',fresh:true,position:{latitude:0,longitude:.001}}]};
   class Marker {constructor(options){Object.assign(this,options);this.listeners={};createdMarkers.push(this)}addEventListener(type,cb){this.listeners[type]=cb}}
   class Polyline {constructor(options){Object.assign(this,options);createdLines.push(this)}setPath(path){this.path=path}setMap(map){this.map=map}}
   const libraries={Map:class {addListener(type,cb){mapListeners[type]=cb}setCenter(){}setZoom(){}fitBounds(bounds,padding){fits.push({bounds,padding})}},AdvancedMarkerElement:Marker,PinElement:class{constructor(options){Object.assign(this,options)}get element(){throw Error('Deprecated pin.element must not be used')}},InfoWindow:class{close(){}setContent(content){popups.push(content)}open(){}}};
   const api={getSession:()=>({user:currentRole==='public'?null:{role:currentRole}}),getIdentityVersion:()=>identity,isIdentityChanging:()=>false,getMapsConfig:async()=>({key,centre:{lat:0,lng:0}}),getMapData:async()=>{if(failData)throw Error('Disconnected');if(pendingData)return pendingData;return data},subscribe:cb=>subscribers.push(cb),onIdentityChange:cb=>identityCallbacks.push(cb),onConnectionChange:cb=>connectionCallbacks.push(cb)};
   const window={RiversideData:require('../data/fixtures.js'),RiversideAPI:api,RiversideMapGeometry:require('../src/js/domain/map.js'),google:{maps:{importLibrary:async()=>libraries,Polyline}}};
-  vm.runInNewContext(fs.readFileSync('src/js/ui/map.js','utf8'),{window,document,CustomEvent:class{constructor(type,options={}){this.type=type;this.detail=options.detail}},setTimeout:()=>1,clearTimeout(){},requestAnimationFrame:cb=>{cb(1000);return 1},cancelAnimationFrame(){},performance:{now:()=>0}});
-  return {get,scripts,createdMarkers,createdLines,fits,events,mapListeners,documentListeners,popups,authFailure:()=>window.gm_authFailure(),refresh:()=>{subscribers.forEach(cb=>cb());return flush()},setData:value=>{data=value},getData:()=>data,changeRole(value){identity++;currentRole=value;identityCallbacks.forEach(cb=>cb())},delay(){let resolve;pendingData=new Promise(r=>{resolve=r});return value=>{pendingData=null;resolve(value)}},setFailure(value){failData=value},setConnection(value){connectionCallbacks.forEach(cb=>cb(value))}};
+  vm.runInNewContext(fs.readFileSync('src/js/ui/map.js','utf8'),{window,document,CustomEvent:class{constructor(type,options={}){this.type=type;this.detail=options.detail}},setTimeout:cb=>{timers.push(cb);return timers.length},clearTimeout(id){timers[id-1]=null},requestAnimationFrame:cb=>{cb(1000);return 1},cancelAnimationFrame(){},performance:{now:()=>0}});
+  return {get,scripts,createdMarkers,createdLines,fits,events,mapListeners,documentListeners,popups,authFailure:()=>window.gm_authFailure(),refresh:()=>{subscribers.forEach(cb=>cb());return flush()},setData:value=>{data=value},getData:()=>data,changeRole(value){identity++;currentRole=value;identityCallbacks.forEach(cb=>cb())},delay(){let resolve;pendingData=new Promise(r=>{resolve=r});return value=>{pendingData=null;resolve(value)}},setFailure(value){failData=value},setConnection(value){connectionCallbacks.forEach(cb=>cb(value))},expire(){timers.filter(Boolean).forEach(cb=>cb())},resumeScripts(){holdScript=false},readyScript(index){return window[new URL(scripts[index].src).searchParams.get('callback')]()}};
 }
 test('simulated Maps renderer draws staff pins and grey/white progress; Mo can select and volunteer pins cannot open details',async()=>{
   for(const role of ['mo','volunteer']) {
@@ -70,9 +70,33 @@ test('Google authentication failure hides the map and retains reporting fallback
   assert.equal(t.get('#live-map').hidden,true);
   assert.equal(t.get('#map-fallback').hidden,false);
   assert.equal(t.get('#map-recentre').disabled,true);
-  assert.match(t.get('#map-status').textContent,/could not load.*key.*quota.*Reporting still works/);
+  assert.match(t.get('#map-status').textContent,/denied this load.*daily limit.*Retrying does not increase.*Reporting still works/);
   assert.ok(t.createdMarkers.some(marker=>marker.title==='Demo station · fictional'));
   assert.equal(t.scripts.length,1);
+});
+
+test('a failed Google script retries on demand without clearing report text or accepting a stale callback',async()=>{
+  const t=fixture({failScript:true});t.get('#report-text').value='Keep this fictional report';
+  await t.refresh();assert.equal(t.get('#live-map').hidden,true);
+  assert.match(t.get('#map-status').textContent,/Retry map.*without clearing your report/);
+  await t.refresh();assert.equal(t.scripts.length,1,'Polling must not repeatedly load Google');
+  await t.get('#map-retry').listeners.click();await flush();
+  assert.equal(t.scripts.length,2);assert.notEqual(t.scripts[0].src,t.scripts[1].src);
+  assert.equal(t.get('#live-map').hidden,false);assert.equal(t.get('#map-fallback').hidden,true);
+  assert.equal(t.get('#report-text').value,'Keep this fictional report');
+  t.scripts[0].onerror();await flush();assert.equal(t.get('#live-map').hidden,false,'Late errors from an old attempt cannot hide the recovered map');
+  assert.equal(t.get('#map-retry').disabled,false);
+});
+
+test('Google load timeout is recoverable and a late old callback cannot replace the new attempt',async()=>{
+  const t=fixture({holdScript:true});await t.refresh();
+  assert.equal(t.get('#map-retry').disabled,true);
+  t.expire();await flush();assert.equal(t.get('#map-retry').disabled,false);
+  assert.match(t.get('#map-status').textContent,/could not load over this connection/);
+  t.resumeScripts();await t.get('#map-retry').listeners.click();await flush();
+  assert.equal(t.get('#live-map').hidden,false);const count=t.createdMarkers.length;
+  await t.readyScript(0);await flush();assert.equal(t.createdMarkers.length,count);
+  assert.equal(t.get('#live-map').hidden,false);
 });
 
 test('starting walking estimates appear for all roles, disclose their fixed basis, and clear on identity change',async()=>{

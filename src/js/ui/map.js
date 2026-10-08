@@ -7,6 +7,7 @@
   const markers = new Map(), lines = new Map();
   let info = null, pickingZone = false;
   let publicJourneySignature = '', publicJourneyBounds = null;
+  let googleAttempt = 0, retrying = false;
 
   function unavailable(message, fatal = false) {
     if (fatal) failure = message;
@@ -37,26 +38,34 @@
   }
   function loadGoogle(key) {
     if (loader) return loader;
+    const attempt = ++googleAttempt;
+    const callback = `riversideGoogleReady${Date.now()}_${attempt}`;
+    $('#map-retry').disabled = true;
     loader = new Promise((resolve, reject) => {
       const script = document.createElement('script');
       let settled = false;
-      const fail = () => {
-        unavailable('Google Maps could not load. Check the demo key, connection or daily quota. Reporting still works below.', true);
+      const fail = (authentication = false) => {
+        if (attempt !== googleAttempt) return;
+        $('#map-retry').disabled = false;
+        unavailable(authentication
+          ? 'Google Maps denied this load. The demo key may have reached its daily limit, or the key’s settings may block this site. Retrying does not increase the allowance. Reporting still works below.'
+          : 'Google Maps could not load over this connection. Choose Retry map to try again without clearing your report.', true);
         if (!settled) { settled = true; clearTimeout(timeout); reject(new Error('Google Maps unavailable')); }
       };
-      const timeout = setTimeout(fail, 15000);
-      window.gm_authFailure = fail;
-      window.riversideGoogleReady = async () => {
+      const timeout = setTimeout(() => fail(), 15000);
+      window.gm_authFailure = () => fail(true);
+      window[callback] = async () => {
+        if (settled || attempt !== googleAttempt) return;
         try {
           const [maps, marker] = await Promise.all([window.google.maps.importLibrary('maps'), window.google.maps.importLibrary('marker')]);
-          if (settled) return;
-          settled = true; clearTimeout(timeout); resolve({ ...maps, ...marker });
+          if (settled || attempt !== googleAttempt) return;
+          settled = true; clearTimeout(timeout); $('#map-retry').disabled = false; resolve({ ...maps, ...marker });
         } catch { fail(); }
       };
       script.nonce = document.querySelector('meta[name="maps-nonce"]')?.content || '';
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&loading=async&v=weekly&callback=riversideGoogleReady`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&loading=async&v=weekly&callback=${callback}`;
       script.async = true;
-      script.onerror = fail;
+      script.onerror = () => fail();
       document.head.append(script);
     });
     return loader;
@@ -196,7 +205,7 @@
     } catch {
       if (!current()) return;
       // Hide old staff state on errors rather than presenting it as current.
-      clear(); unavailable('Map updates are unavailable. Existing reporting and assignment controls remain below.');
+      clear(); unavailable(failure || 'Map updates are unavailable. Existing reporting and assignment controls remain below.');
     }
   }
   document.addEventListener('riverside-zone-pick-start', () => {
@@ -206,6 +215,15 @@
   });
   document.addEventListener('riverside-zone-pick-cancel', () => { pickingZone = false; });
   $('#map-recentre').addEventListener('click', () => { if (map && config) { if (publicJourneyBounds && typeof map.fitBounds === 'function') map.fitBounds(publicJourneyBounds, 48); else { map.setCenter(config.centre); map.setZoom(16); } } });
+  $('#map-retry').addEventListener('click', async () => {
+    if (retrying) return;
+    retrying = true; $('#map-retry').disabled = true;
+    // Retry only on demand. Recheck config; do not reload the page or its form.
+    sequence++; clear(); googleAttempt++;
+    loader = null; libraries = null; failure = ''; configured = false;
+    try { await refresh(); }
+    finally { retrying = false; $('#map-retry').disabled = false; }
+  });
   api.onConnectionChange?.(connected => {
     if (connected) return;
     sequence++; clear();
