@@ -2,6 +2,8 @@
 
 ## Start on a fresh computer
 
+For real Google Maps/Jev/OpenRouter with privately supplied keys, use [LIVE-TESTING.md](LIVE-TESTING.md). The steps below run the separate simulated mode and do not activate real services when keys are present.
+
 Requires Node.js 20 or newer and a modern browser. No npm install, database, API keys, account registration or build step is required for this demo.
 
 1. Extract `hi-vis-submission.zip` and open a terminal inside `hi-vis`.

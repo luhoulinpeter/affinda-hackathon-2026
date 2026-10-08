@@ -30,6 +30,8 @@ To share this fictional demo with phones or other computers, install [Cloudflare
 
 ## Run the normal application
 
+Judges with privately supplied Maps/AI keys: follow **[LIVE-TESTING.md](LIVE-TESTING.md)** for the complete fresh-computer setup and checks. The normal app retains real integrations; demo mode always substitutes simulations.
+
 ```sh
 npm start
 ```

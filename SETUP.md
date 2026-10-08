@@ -2,6 +2,8 @@
 
 The judge demo needs none of this configuration. Use [JUDGES.md](JUDGES.md) for the keyless walkthrough. This guide applies to the normal app started with `npm start`.
 
+For a judge testing with supplied keys on a fresh computer, follow [LIVE-TESTING.md](LIVE-TESTING.md) first. It gives the full local sequence and explains how to distinguish real provider status from the simulated demo.
+
 ## Normal local setup
 
 1. Install Node.js 20 or newer. No npm install or build step is needed.

@@ -4,7 +4,7 @@ const path = require('node:path');
 const zlib = require('node:zlib');
 const { createHash } = require('node:crypto');
 const root = path.resolve(__dirname,'..');
-const rootFiles = ['README.md','JUDGES.md','SETUP.md','SUBMISSION.md','HACKATHON.md','package.json','.env.example','index.html'];
+const rootFiles = ['README.md','JUDGES.md','SETUP.md','LIVE-TESTING.md','SUBMISSION.md','HACKATHON.md','package.json','.env.example','index.html'];
 const sourceDirs = ['src','server','data','demo','scripts','tests'];
 const excluded = new Set(['DEMO-VIDEO-DRAFT.md','recording-demo.cjs','verify-recording-demo.cjs','serve-demo-replay.cjs','build-demo-replay.cjs']); // Existing untracked team draft; not a final submission artifact.
 const crcTable = Array.from({length:256},(_,n) => { for (let i=0;i<8;i++) n = n&1 ? 0xedb88320^(n>>>1) : n>>>1; return n>>>0; });
