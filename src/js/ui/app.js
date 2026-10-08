@@ -54,7 +54,7 @@
     $("#reporting-view").hidden = role === "mo";
     $("#reporting-view").setAttribute("aria-label", role === "public" ? "Event-goer reporting view" : "Volunteer reporting view");
     $("#page-eyebrow").textContent = role === "mo" ? "Ground control" : role === "volunteer" ? "Volunteer workspace" : "Hi-Vis · Event safety";
-    $("#page-title").textContent = role === "mo" ? "Review. Respond. Follow through." : role === "volunteer" ? "Your reports. Your response." : "Get help. Report an issue.";
+    $("#page-title").textContent = role === "mo" ? "Review. Respond. Follow through." : role === "volunteer" ? "Your reports. Your response." : "Report an issue. Get help.";
     $("#page-description").textContent = role === "mo" ? "Review incoming incidents and record your decisions." : "Tell the safety team what you saw and where it happened.";
     $("#reporter-label").textContent = role === "volunteer" ? `Reporting as ${session.user.name}` : "No sign-in needed";
     $("#reports-note").textContent = role === "volunteer" ? "Your staff account" : "From this browser";
