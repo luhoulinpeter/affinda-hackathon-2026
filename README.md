@@ -17,9 +17,9 @@ An event-safety prototype for Riverside: attendees report issues, volunteers acc
 
 | Workspace | Username | Password |
 |---|---|---|
-| Mo — safety lead | `mo` | `HiVis-Mo-Demo!` |
-| Priya — volunteer | `priya` | `HiVis-Priya-Demo!` |
-| Alex — second volunteer | `alex` | `HiVis-Alex-Demo!` |
+| Mo — safety lead | `mo` | `mo` |
+| Priya — volunteer | `priya` | `priya` |
+| Alex — second volunteer | `alex` | `alex` |
 | Event-goer | No sign-in | Open a separate new tab |
 
 These credentials belong only to the isolated judge sandbox. Use **Staff sign in** to enter them. The demo page also contains instructions and links to three separate tabs. [JUDGES.md](JUDGES.md) walks through reporting, assignment, privacy, movement and resetting.

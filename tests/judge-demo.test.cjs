@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { startJudgeDemo, credentials, client } = require('../scripts/judge-demo.cjs');
 const { packageFiles, buildZip } = require('../scripts/package-submission.cjs');
+const { hashPassword } = require('../server/auth.cjs');
 
 test('keyless judge setup has three accounts, real permissions/workflow, simulated providers, and persistent isolated records',async t => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(),'hi-vis-judge-test-')); let time = Date.now(), server;
@@ -49,11 +50,30 @@ test('keyless judge setup has three accounts, real permissions/workflow, simulat
   for (const asset of ['/__judge/map.js','/__judge/judge.js','/__judge/judge.css']) assert.equal((await fetch(demo.base+asset)).status,200);
   for (const asset of ['/.env','/.riverside/store.json','/scripts/judge-demo.cjs']) assert.equal((await fetch(demo.base+asset)).status,404);
   const stored = JSON.parse(fs.readFileSync(path.join(dataDir,'store.json'))); assert.equal(stored.users.length,3); assert.equal(stored.aiUsage,undefined); assert.equal(stored.routesUsage,undefined);
-  assert.ok(stored.users.every(u=>typeof u.password==='object' && !JSON.stringify(u.password).includes('Demo!')));
+  assert.ok(stored.users.every(u=>typeof u.password==='object' && /^[a-f0-9]{128}$/.test(u.password.hash) && /^[a-f0-9]{32}$/.test(u.password.salt)));
   await server.whenAIIdle(); await new Promise(r=>server.close(r));
   demo = await startJudgeDemo({dataDir,port:0,now:()=>time}); server=demo.server;
   const restored=client(demo.base); await restored('/api/session'); await restored('/api/login',credentials.mo); await restored('/api/session');
   assert.equal((await restored('/api/state')).reports.length,3);
+});
+
+test('saved judge accounts migrate to username passwords without losing reports, configuration or signing secret',async t => {
+  const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'hi-vis-demo-passwords-'));let server;
+  t.after(async()=>{if(server?.listening)await new Promise(r=>server.close(r));fs.rmSync(dataDir,{recursive:true,force:true});});
+  let demo=await startJudgeDemo({dataDir,port:0});server=demo.server;
+  const guest=client(demo.base);await guest('/api/session');await guest('/api/reports',{zone:'demo-location',category:'hazard',text:'Fictional migration test report.'});await server.whenAIIdle();await new Promise(r=>server.close(r));
+  const dbFile=path.join(dataDir,'store.json'), before=JSON.parse(fs.readFileSync(dbFile));
+  for(const user of before.users)user.password=await hashPassword('PreviousDemoPassword!');
+  fs.writeFileSync(dbFile,JSON.stringify(before));
+  demo=await startJudgeDemo({dataDir,port:0});server=demo.server;
+  for(const name of ['mo','priya','alex']) {
+    const login=client(demo.base);await login('/api/session');await login('/api/login',{username:name,password:name});
+    assert.equal((await login('/api/session')).user.username,name);
+    await assert.rejects(login('/api/login',{username:name,password:'PreviousDemoPassword!'}),/401/);
+  }
+  const after=JSON.parse(fs.readFileSync(dbFile));
+  for(const key of ['cookieSecret','workflow','helpStations','eventZones'])assert.deepEqual(after[key],before[key]);
+  assert.deepEqual(after.users.map(({password,...u})=>u),before.users.map(({password,...u})=>u));
 });
 
 test('judge launcher refuses existing non-demo data and packaging excludes secrets and private state',async () => {

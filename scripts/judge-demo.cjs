@@ -3,11 +3,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const { createApp } = require('../server/index.cjs');
+const { hashPassword, verifyPassword } = require('../server/auth.cjs');
 const root = path.resolve(__dirname, '..');
 const credentials = Object.freeze({
-  mo: { username:'mo', password:'HiVis-Mo-Demo!' },
-  priya: { username:'priya', password:'HiVis-Priya-Demo!' },
-  alex: { username:'alex', password:'HiVis-Alex-Demo!' }
+  mo: { username:'mo', password:'mo' },
+  priya: { username:'priya', password:'priya' },
+  alex: { username:'alex', password:'alex' }
 });
 function simulatedProviders() {
   return {
@@ -68,6 +69,16 @@ async function startJudgeDemo({ dataDir = path.join(root, '.riverside/judge-demo
   if (fs.existsSync(dataDir) && fs.readdirSync(dataDir).length && !fs.existsSync(marker)) throw new Error('Refusing non-demo data. Choose an empty directory for this sandbox.');
   fs.mkdirSync(dataDir, { recursive:true, mode:0o700 });
   fs.writeFileSync(marker, JSON.stringify({ purpose:'Hi-Vis isolated judge demo', version:1 }), { mode:0o600 });
+  // Only the marked demo store is migrated; preserve reports, settings and signing secret.
+  const dbFile = path.join(dataDir,'store.json');
+  if (fs.existsSync(dbFile)) {
+    const stored = JSON.parse(fs.readFileSync(dbFile,'utf8')); let changed = false;
+    for (const [name,credential] of Object.entries(credentials)) {
+      const user = stored.users.find(u => u.username === name && u.actorId === (name === 'mo' ? 'mo' : `vol-${name}`) && u.role === (name === 'mo' ? 'mo' : 'volunteer'));
+      if (user && !await verifyPassword(credential.password,user.password)) { user.password = await hashPassword(credential.password); changed = true; }
+    }
+    if (changed) { fs.writeFileSync(`${dbFile}.tmp`,JSON.stringify(stored),{mode:0o600}); fs.renameSync(`${dbFile}.tmp`,dbFile); }
+  }
   let server = createJudgeServer({dataDir,now});
   try {
     await new Promise((resolve,reject) => { server.once('error',reject); server.listen(publicOrigin ? 0 : port,'127.0.0.1',() => { server.removeListener('error',reject); resolve(); }); });
@@ -90,7 +101,7 @@ if (require.main === module) {
   const port = Number(process.env.HIVIS_DEMO_PORT || 8766);
   if (!Number.isInteger(port) || port < 1 || port > 65535) { console.error('HIVIS_DEMO_PORT must be between 1 and 65535.'); process.exit(1); }
   startJudgeDemo({port}).then(({server,base}) => {
-    console.log(`\nHi-Vis judge demo: ${base}\nMo: mo / HiVis-Mo-Demo!\nPriya: priya / HiVis-Priya-Demo!\nAlex: alex / HiVis-Alex-Demo!\nRead JUDGES.md. Simulated AI/GPS/map; no API calls. Local computer only.\nData: .riverside/judge-demo (separate from your normal app)\nKeep this terminal open. Stop with Ctrl+C.\n`);
+    console.log(`\nHi-Vis judge demo: ${base}\nMo: mo / mo\nPriya: priya / priya\nAlex: alex / alex\nRead JUDGES.md. Simulated AI/GPS/map; no API calls. Local computer only.\nData: .riverside/judge-demo (separate from your normal app)\nKeep this terminal open. Stop with Ctrl+C.\n`);
     const shutdown = async () => { await server.whenAIIdle(); server.close(() => process.exit(0)); };
     process.on('SIGINT',shutdown); process.on('SIGTERM',shutdown);
   }).catch(error => { console.error(`Cannot start Hi-Vis judge demo: ${error.code === 'EADDRINUSE' ? 'Port is already in use. Stop the other judge demo, or set HIVIS_DEMO_PORT to a free port.' : error.message}`); process.exitCode = 1; });

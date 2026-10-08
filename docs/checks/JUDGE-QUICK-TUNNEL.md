@@ -2,6 +2,12 @@
 
 User requested a shareable HTTPS link for the keyless judge demo. Added `npm run demo:tunnel`; [instructions](../../JUDGES.md#share-the-demo-by-https-quick-tunnel) cover official cloudflared installation, startup, accounts, stopping, alternate ports and temporary-link behavior.
 
+## Updated demo passwords
+
+Latest user request sets **mo / mo**, **priya / priya**, **alex / alex**. Both demo launchers update the matching saved sandbox accounts on startup, retaining reports, settings and the signing secret. Normal-app credentials are separate. Restarted the judge sandbox/Quick Tunnel and verified all three new passwords in the actual HTTPS browser. The full updated suite passed **191/191** tests, including legacy saved-password migration, rejection of old passwords and unchanged saved reports/configuration. The restart created a new temporary hostname, recorded privately.
+
+![Updated sign-ins on the public demo](demo-simple-passwords.png)
+
 ## Measured checks
 
 - Started the launcher with the workspace's previously verified official Cloudflare binary. It printed a real `trycloudflare.com` origin; HTTPS session checks returned 200, Secure/HttpOnly cookies, disabled browser account setup, polling and simulated-provider status. Private configuration/store/Git routes returned 404.

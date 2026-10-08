@@ -12,12 +12,14 @@ Requires Node.js 20 or newer and a modern browser. No npm install, database, API
 
 | Person | Sign-in username | Password | What they see |
 |---|---|---|---|
-| Mo, safety lead | `mo` | `HiVis-Mo-Demo!` | All incidents, map, assignment controls and configuration |
-| Priya, volunteer | `priya` | `HiVis-Priya-Demo!` | All incident pins, details for offers/accepted work |
-| Alex, volunteer | `alex` | `HiVis-Alex-Demo!` | A second volunteer for availability/claim tests |
+| Mo, safety lead | `mo` | `mo` | All incidents, map, assignment controls and configuration |
+| Priya, volunteer | `priya` | `priya` | All incident pins, details for offers/accepted work |
+| Alex, volunteer | `alex` | `alex` | A second volunteer for availability/claim tests |
 | Event-goer | None | None | Public zones/first aid and own report history |
 
 Click **Staff sign in**, enter the two fields, then submit. Each tab keeps its own identity. A server restart signs staff out; the accounts and submitted records persist.
+
+Demo passwords match the usernames: **mo / mo**, **priya / priya**, **alex / alex**. Starting either demo launcher updates older saved demo accounts to these passwords while retaining sandbox reports and settings. Normal-app credentials are separate.
 
 ## Walk through one incident
 

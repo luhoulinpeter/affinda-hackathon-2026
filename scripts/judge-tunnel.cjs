@@ -64,7 +64,7 @@ async function startQuickDemo({ port = 8768, signal } = {}) {
     child.once('exit',() => { if (!stopped) { console.error('Cloudflare tunnel stopped. Run npm run demo:tunnel again for a new link.'); process.exitCode=1; void stop(); } });
     child.on('error',error => { console.error(`Cloudflare tunnel error: ${error.message}`); process.exitCode=1; void stop(); });
     fs.writeFileSync(accessFile,JSON.stringify({origin,port,startedAt:new Date().toISOString(),dataDir:'.riverside/judge-tunnel',logFile:'.riverside/judge-tunnel.log'},null,2),{mode:0o600});
-    console.log(`\nHi-Vis PUBLIC judge demo: ${origin}\nOpen this same link on every device.\nMo: mo / HiVis-Mo-Demo!\nPriya: priya / HiVis-Priya-Demo!\nAlex: alex / HiVis-Alex-Demo!\nAnyone with this link can use these demo accounts. Fictional data only.\nSimulated AI/GPS/schematic map; no API calls. Normal app data is separate.\nKeep this computer awake and this terminal open. Ctrl+C stops both app and tunnel.\nA new run creates a new temporary URL. Instructions: JUDGES.md\n`);
+    console.log(`\nHi-Vis PUBLIC judge demo: ${origin}\nOpen this same link on every device.\nMo: mo / mo\nPriya: priya / priya\nAlex: alex / alex\nAnyone with this link can use these demo accounts. Fictional data only.\nSimulated AI/GPS/schematic map; no API calls. Normal app data is separate.\nKeep this computer awake and this terminal open. Ctrl+C stops both app and tunnel.\nA new run creates a new temporary URL. Instructions: JUDGES.md\n`);
     return {server,child,origin,stop};
   } catch (error) { await stop(); throw error; }
 }
